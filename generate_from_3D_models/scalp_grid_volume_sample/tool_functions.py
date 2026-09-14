@@ -131,24 +131,24 @@ def run_blender_render(
     os.makedirs(out_dir, exist_ok=True)
     out_png = os.path.join(out_dir, out_filename)
 
-    cmd = [
-        "bash", run_blender_sh, blender_path, render_script,
-        "--input_npz", strands_npz, "--out_path", out_png, "--dataset_path", dataset_path,
-        "--coord_convention", "dataset_raw",
-        "--base_color", "0.05", "0.05", "0.05",   # 每根髮絲都是 highlighted 狀態, 實際不會用到
-        "--template_npz", template_npz_path,
-        "--seed", "0", "--transition_softness", "0.04", "--highlight_start", "0.0",
-        "--samples", "128", "--resolution", "512", "--strands_subsample", "0.3",
-        "--env_light_strength", "2.0", "--scalp_grid_size", "128",
-        "--no_save_multiview",
-    ]
-    print("執行 Blender 渲染 (約數十秒)...")
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    print(result.stdout[-2000:])
-    if result.returncode != 0 or not os.path.isfile(out_png):
-        print(result.stderr[-3000:])
-        raise RuntimeError("Blender 渲染失敗")
-    print("wrote", out_png)
+    # cmd = [
+    #     "bash", run_blender_sh, blender_path, render_script,
+    #     "--input_npz", strands_npz, "--out_path", out_png, "--dataset_path", dataset_path,
+    #     "--coord_convention", "dataset_raw",
+    #     "--base_color", "0.05", "0.05", "0.05",   # 每根髮絲都是 highlighted 狀態, 實際不會用到
+    #     "--template_npz", template_npz_path,
+    #     "--seed", "0", "--transition_softness", "0.04", "--highlight_start", "0.0",
+    #     "--samples", "128", "--resolution", "512", "--strands_subsample", "0.3",
+    #     "--env_light_strength", "2.0", "--scalp_grid_size", "128",
+    #     "--no_save_multiview",
+    # ]
+    # print("執行 Blender 渲染 (約數十秒)...")
+    # result = subprocess.run(cmd, capture_output=True, text=True)
+    # print(result.stdout[-2000:])
+    # if result.returncode != 0 or not os.path.isfile(out_png):
+    #     print(result.stderr[-3000:])
+    #     raise RuntimeError("Blender 渲染失敗")
+    # print("wrote", out_png)
 
     # 產生 Blender 正面照及 multi-view 渲染結果
     # out_dir = os.path.join(here, "output", "color_matrix_multiview_by_strand")
