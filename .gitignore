@@ -1,2 +1,8 @@
-generate_from_3D_models/batch_outputs/
-generate_from_3D_models/templates
+generate_from_3D_models/coloring_by_grid/batch_outputs/
+generate_from_3D_models/coloring_by_grid/templates
+generate_from_3D_models/coloring_by_strand/batch_outputs/
+generate_from_3D_models/coloring_by_strand/templates
+generate_from_3D_models/scalp_grid_volume_sample/output
+*__pycache__
+*.pyc
+*.npz

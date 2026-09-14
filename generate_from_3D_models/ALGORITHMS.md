@@ -1,6 +1,17 @@
 # 挑染 (Hair Highlighting) Algorithms
 
-This document explains how [highlight_hair_blender.py](highlight_hair_blender.py)
+**This document describes the archived melanin-parametrization pipeline
+(`archive/`) only.** The current, actively used pipelines are
+`coloring_by_grid/` and `coloring_by_strand/` (arbitrary-RGB, template-based -
+see those scripts' own header comments), which both look strands up by the
+scalp mesh's own `root_uv` via the shared `../scalp_uv_grid.py` module. Most
+of the coordinate-system facts and pattern math below (axis convention,
+money_piece/skunk_stripe geometry, the 100x scale factor) still apply to the
+current pipelines too - see `generate_highlight_templates.py` there - but the
+scalp-grid rasterization example in [section 4](#4-two-ways-to-get-3d-hair-geometry-reconstruct-vs-use-the-dataset-directly)
+describes `archive/highlight_hair_blender.py`'s own version of it specifically.
+
+This document explains how [highlight_hair_blender.py](archive/highlight_hair_blender.py)
 implements four real-world hair highlighting styles as **one script, one
 Blender node graph, and one Python selection function per `--pattern`** -
 not four separate scripts. It also documents the coordinate-system facts we
@@ -416,13 +427,13 @@ strands - fast sparse preview).
 
 ## 5. Files
 
-- [highlight_hair_blender.py](highlight_hair_blender.py) - the actual
+- [highlight_hair_blender.py](archive/highlight_hair_blender.py) - the actual
   implementation (runs inside Blender's Python); all four patterns, one
   script, selected with `--pattern`. Accepts either a reconstructed
   `strands_3d.npz` or one of the dataset's own strand files (see section 4).
-- [color_existing_hair.py](color_existing_hair.py) - colors/highlights one
+- [color_existing_hair.py](archive/color_existing_hair.py) - colors/highlights one
   dataset hairstyle directly, no reconstruction (see section 4).
-- [batch_generate_highlights.py](batch_generate_highlights.py) - mass-generates
+- [batch_generate_highlights.py](archive/batch_generate_highlights.py) - mass-generates
   highlighted renders from randomly picked hairstyles/colors/patterns (see
   section 4). `run_batch_generate.sh` is a ready-to-run wrapper.
 - [example_highlight_single_sample.py](example_highlight_single_sample.py) -
