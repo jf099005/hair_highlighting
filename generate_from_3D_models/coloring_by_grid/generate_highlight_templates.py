@@ -2,9 +2,9 @@
 
 # Stage 1 of the 2-stage highlight pipeline (stage 2 is generate_highlight_rgb.py).
 #
-# Generates N "templates": black/white masks in SCALP UV SPACE (the same
-# [0,1]x[0,1] (u, v) space + rasterization convention DiffLocks' own scalp
-# textures use, and that generate_highlight_rgb.py's scalp-grid outputs
+# Generates N "templates": black/white masks in SCALP UV SPACE (the scalp
+# mesh's OWN (u, v) UV bounding box - see ../scalp_uv_grid.py - the same
+# rasterization convention generate_highlight_rgb.py's scalp-grid outputs
 # already rasterize root_uv into - see build_scalp_grid_rgb() there). Each
 # template is one color-block pattern (money_piece or skunk_stripe) with
 # randomized parameters, White = highlighted, black = base color.
@@ -32,27 +32,33 @@
 # random --skunk_stripe_slope) - see build_template_mask().
 #
 # A real money piece is a face-framing technique: one or two bold chunks
-# rooted specifically near the FRONT hairline/temple (to frame the face),
-# NOT a stripe that continues all the way back to the crown. So unlike
-# skunk_stripe, money_piece's mask is restricted to LOW v (the front
-# portion of the scalp) as well as being off-center in u - a bounded patch
-# near the hairline, not a full-height column. See --money_piece_front_extent.
+# rooted near the front/temple, NOT a stripe that runs all the way back to
+# the crown. An earlier version of this script restricted money_piece's mask
+# to LOW v (the front portion of the scalp) to match that real-world root
+# distribution - but per archive/highlight_hair_blender.py's own money_piece
+# comment (and confirmed again by rendering this script's front-restricted
+# templates - see e.g. batch_outputs/0000_base_74_idx_10654_template_0001),
+# strands ROOTED right at the front hairline in this procedural hairstyle
+# dataset are short and get completely covered by longer strands draping
+# over them from elsewhere - so a front-restricted mask picks geometrically
+# "correct" roots that are barely ever VISIBLE in a render, and what little
+# color does show through ends up looking like it landed near the crown/back
+# instead of framing the face. So, like the archive version, money_piece has
+# NO front/back (v) restriction here either - it's an off-center u-band
+# exactly like skunk_stripe, just narrower and confined to one side (see
+# --money_piece_inner/--money_piece_outer/--money_piece_side below). This
+# trades strict real-world accuracy (a true money piece never reaches the
+# nape) for actually being visible in a render.
 #
-# Caveat inherited from this dataset (see archive/highlight_hair_blender.py's
-# money_piece comment): strands ROOTED right at the front hairline in this
-# procedural hairstyle dataset tend to be short and get visually covered by
-# longer strands draping over them from elsewhere - so a tightly
-# front-restricted mask may select geometrically-correct but barely-VISIBLE
-# strands in a render. That's a rendering/visibility concern, not a mask
-# generation one - this script only guarantees the mask matches the real
-# technique's root distribution; tune --money_piece_front_extent,
-# --blender_strands_subsample, etc. against actual renders as needed.
-#
-# This script needs no Blender and no dataset access at all - it's pure
-# numpy geometry in the abstract UV grid.
+# This script needs no Blender - it's pure numpy geometry in the scalp's UV
+# grid - but it DOES need --dataset_path, just to read body_data/scalp.ply's
+# own UV bounding box (see ../scalp_uv_grid.py); no hairstyle/strand data is
+# read, so the resulting template is still completely hairstyle-independent
+# and reusable across the whole dataset.
 #
 # Usage:
-#   python3 ./generate_highlight_templates.py --num_templates 20 --out_dir ./templates
+#   python3 ./generate_highlight_templates.py --dataset_path=<DATASET_PATH> \
+#       --num_templates 20 --out_dir ./templates
 #
 # Writes to --out_dir:
 #   template_0000.npz   - {mask: (grid_size,grid_size) bool, grid_size}
@@ -63,11 +69,18 @@
 #                          each template's own .json, collected in one place)
 
 import os
+import sys
 import json
 import random
 import argparse
 import numpy as np
 from PIL import Image, ImageDraw
+
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+GEN3D_DIR = os.path.dirname(SCRIPT_DIR)  # .../generate_from_3D_models
+if GEN3D_DIR not in sys.path:
+    sys.path.insert(0, GEN3D_DIR)
+from scalp_uv_grid import build_uv_bin_edges, grid_cell_centers_rowcol, load_scalp_uv, normalize_symmetric
 
 ALL_PATTERNS = ['money_piece', 'skunk_stripe']  # only the color-block patterns - see generate_highlight_rgb.py
 
@@ -83,10 +96,6 @@ def random_pattern_params(pattern, rng):
             'money_piece_inner': inner,
             'money_piece_outer': round(inner + rng.uniform(0.15, 0.3), 3),
             'money_piece_side': rng.choice([-1.0, 1.0]),
-            # real face-framing pieces are rooted near the hairline/temple,
-            # not the crown - 0.15-0.4 keeps the patch in roughly the front
-            # third-to-half of the scalp (v=0 is the front hairline)
-            'money_piece_front_extent': round(rng.uniform(0.15, 0.4), 3),
         }
     if pattern == 'skunk_stripe':
         return {
@@ -100,37 +109,85 @@ def random_pattern_params(pattern, rng):
     raise ValueError(pattern)
 
 
-def build_template_mask(pattern, params, grid_size):
-    """Returns a (grid_size, grid_size) bool mask in scalp UV space - True =
-    highlighted. Same rasterization convention as the render script's scalp
-    grid (col = floor(u*N), row = floor((1-v)*N)): u_norm = (u-0.5)*2 maps
-    UV's u onto the same -1(left)..1(right) axis the old root-X-band pattern
-    logic used, and v (recovered per-row as the cell-center inverse of the
-    row formula) is LOW at the front hairline, HIGH at the back - see module
-    docstring for the empirical justification and for why money_piece is
-    bounded in v while skunk_stripe isn't (a real skunk stripe runs the full
-    length of the head; a real money piece is a bounded face-framing patch
-    near the front)."""
-    col_u = (np.arange(grid_size) + 0.5) / grid_size  # cell-center u per column
-    u_norm = (col_u - 0.5) * 2.0  # -1 (left) .. 1 (right)
-    row_v = 1.0 - (np.arange(grid_size) + 0.5) / grid_size  # cell-center v per row; 0=front, 1=back
+def build_template_mask(pattern, params, us, vs):
+    """Returns a (n_row, n_col) bool mask in scalp UV space - True =
+    highlighted. `us`/`vs` are the scalp mesh's own UV bin edges (see
+    ../scalp_uv_grid.py's build_uv_bin_edges) - same rasterization
+    convention every other script under generate_from_3D_models/ uses
+    (scalp_uv_grid.uv_to_grid_rowcol): u_norm maps UV's u onto the same
+    -1(left)..1(right) axis the old root-X-band pattern logic used, and
+    row_v (the per-row cell-center v, in row order) is LOW at the front
+    hairline, HIGH at the back - see module docstring for the empirical
+    justification, and for why neither money_piece nor skunk_stripe
+    restrict v (a real skunk stripe runs the full length of the head;
+    money_piece drops its front-only restriction here because roots right
+    at the front hairline are barely ever visible in a render on this
+    dataset)."""
+    row_v, col_u = grid_cell_centers_rowcol(us, vs)
+    u_norm = normalize_symmetric(col_u, us[0], us[-1])  # -1 (left) .. 1 (right)
 
     if pattern == 'money_piece':
         side = u_norm if params['money_piece_side'] >= 0 else -u_norm
         col_mask = (side > params['money_piece_inner']) & (side < params['money_piece_outer'])
-        row_mask = row_v < params['money_piece_front_extent']  # only the front portion of the scalp
-        return col_mask[None, :] & row_mask[:, None]
+        return np.broadcast_to(col_mask[None, :], (len(row_v), len(col_u))).copy()
 
     elif pattern == 'skunk_stripe':
-        # band center drifts linearly from front (row_v=0) to back (row_v=1)
-        # around skunk_stripe_center, by up to +/-skunk_stripe_slope - a
-        # straight but off-center/slanted part, not always a dead-center
-        # vertical line (see module docstring)
-        center = params['skunk_stripe_center'] + params['skunk_stripe_slope'] * (row_v - 0.5) * 2.0
+        # band center drifts linearly from front (v_norm=+1) to back
+        # (v_norm=-1) around skunk_stripe_center, by up to
+        # +/-skunk_stripe_slope - a straight but off-center/slanted part,
+        # not always a dead-center vertical line (see module docstring)
+        v_norm = normalize_symmetric(row_v, vs[0], vs[-1])
+        center = params['skunk_stripe_center'] + params['skunk_stripe_slope'] * v_norm
         return np.abs(u_norm[None, :] - center[:, None]) < params['skunk_stripe_width']
 
     else:
         raise ValueError(pattern)
+
+
+def grow_to_min_area(pattern, params, us, vs, min_area_frac, max_iters=200, step=0.02):
+    """Widens/lengthens a pattern's size params (in place, on a copy) until its
+    mask covers at least min_area_frac of the whole grid, so callers can set a
+    lower bound on highlighted area (e.g. 'at least 1/5 of the head'). Grows
+    the most natural size knob first (the chunk/band width) and only reaches
+    for the others if that alone can't get there.
+
+    Note money_piece is a one-side face-framing patch (see module docstring),
+    so its mask can cover at most ~half the scalp (side u_norm in 0..1) no
+    matter how wide/tall it's grown - a min_area_frac above that is
+    unreachable for money_piece and this function will warn and return its
+    best effort instead of looping forever."""
+    params = dict(params)
+    total = (len(us) - 1) * (len(vs) - 1)
+    target = min_area_frac * total
+    mask = build_template_mask(pattern, params, us, vs)
+
+    for _ in range(max_iters):
+        if mask.sum() >= target:
+            break
+        if pattern == 'money_piece':
+            if params['money_piece_outer'] < 1.0:
+                params['money_piece_outer'] = min(1.0, params['money_piece_outer'] + step)
+            elif params['money_piece_inner'] > 0.0:
+                params['money_piece_inner'] = max(0.0, params['money_piece_inner'] - step)
+            else:
+                break  # maxed out - money_piece only ever covers one side of the head
+        elif pattern == 'skunk_stripe':
+            if params['skunk_stripe_width'] < 1.0:
+                params['skunk_stripe_width'] = min(1.0, params['skunk_stripe_width'] + step)
+            else:
+                break
+        else:
+            raise ValueError(pattern)
+        mask = build_template_mask(pattern, params, us, vs)
+
+    achieved = mask.sum() / total
+    if achieved < min_area_frac:
+        print(f"warning: could not reach --min_area_frac={min_area_frac:.1%} for {pattern} "
+              f"(maxed out at {achieved:.1%})")
+
+    params = {k: (round(v, 3) if isinstance(v, float) else v) for k, v in params.items()}
+    mask = build_template_mask(pattern, params, us, vs)
+    return params, mask
 
 
 def save_mask_png(mask, out_path):
@@ -159,6 +216,10 @@ def main():
     parser = argparse.ArgumentParser(
         description='Stage 1: generate N black/white UV-space highlight templates (money_piece/skunk_stripe masks) '
                      'for generate_highlight_rgb.py (stage 2) to randomly draw from and fill with color.')
+    parser.add_argument('--dataset_path', required=True,
+                         help='Path to the DiffLocks dataset (raw, contains body_data/scalp.ply) - only scalp.ply\'s '
+                              'own UV bounding box is read (see ../scalp_uv_grid.py); no hairstyle/strand data, so '
+                              'the resulting template is still hairstyle-independent.')
     parser.add_argument('--num_templates', type=int, default=20)
     parser.add_argument('--out_dir', default=os.path.join(os.path.dirname(os.path.abspath(__file__)), "templates"))
     parser.add_argument('--grid_size', type=int, default=256,
@@ -166,17 +227,26 @@ def main():
                               'outputs, but resolved independently (stage 2\'s --scalp_grid_size only affects its '
                               'own output visualization, not this lookup resolution)')
     parser.add_argument('--patterns', nargs='*', default=ALL_PATTERNS, choices=ALL_PATTERNS)
+    parser.add_argument('--min_area_frac', type=float, default=1 / 5,
+                         help='Lower bound on highlighted area, as a fraction of the whole scalp (0-1). '
+                              'Each template\'s pattern is widened/lengthened (see grow_to_min_area()) until its '
+                              'mask reaches at least this fraction. Default 1/5 (0.2), i.e. at least a fifth of '
+                              'the whole head. Note money_piece can cover at most ~half the head (one side only), '
+                              'so a bound above that is unreachable for it.')
     parser.add_argument('--seed', type=int, default=0)
     args = parser.parse_args()
 
     os.makedirs(args.out_dir, exist_ok=True)
     rng = random.Random(args.seed)
 
+    scalp_uv = load_scalp_uv(args.dataset_path)
+    us, vs = build_uv_bin_edges(scalp_uv, args.grid_size)
+
     manifest = []
     for i in range(args.num_templates):
         pattern = rng.choice(args.patterns)
         params = random_pattern_params(pattern, rng)
-        mask = build_template_mask(pattern, params, args.grid_size)
+        params, mask = grow_to_min_area(pattern, params, us, vs, args.min_area_frac)
 
         name = f"template_{i:04d}"
         npz_path = os.path.join(args.out_dir, name + ".npz")
@@ -185,6 +255,7 @@ def main():
 
         np.savez(npz_path, mask=mask, grid_size=args.grid_size)
         info = {"index": i, "pattern": pattern, "params": params, "grid_size": args.grid_size, "seed": args.seed,
+                "min_area_frac": args.min_area_frac,
                 "npz": os.path.basename(npz_path), "png": os.path.basename(png_path)}
         with open(json_path, 'w', encoding='utf-8') as f:
             json.dump(info, f, ensure_ascii=False, indent=2)

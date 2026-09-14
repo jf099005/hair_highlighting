@@ -21,7 +21,7 @@ CONDA_ENV="difflocks"
 NUM_IMAGES=5
 NUM_TEMPLATES=3
 SEED=42
-STRANDS_SOURCE="interpolated"   # full = highest quality/slowest, interpolated = fast default, guide = fastest/sparsest
+STRANDS_SOURCE="full"   # full = highest quality/slowest, interpolated = fast default, guide = fastest/sparsest
 MIN_CONTRAST=0.5                # 0-1 scale; minimum forced HLS-lightness gap between highlight and base color - higher = stronger color contrast
 BASE_COLOR_MODE="dataset"       # "dataset" = base color from each sample's own ground-truth melanin material (natural hair tones only; can land pale/blonde by chance); "random" = arbitrary random RGB base color per image
 TEMPLATES_DIR="templates"       # relative to this script's directory

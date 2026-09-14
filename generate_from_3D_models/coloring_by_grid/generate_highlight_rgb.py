@@ -15,6 +15,18 @@
 # script + its Blender half) are fully decoupled - the same template can be
 # reused across many different hairstyles.
 #
+# A template doesn't have to come from stage 1 at all: --template_npz /
+# --templates_dir also accept an arbitrary-size RGB image (see
+# resolve_template()). It's resized to --template_grid_size and used as
+# BOTH the highlight mask (any non-black pixel = highlighted, same
+# black=base/white=highlighted convention as stage 1's masks) AND, when
+# --no_randomize_color is passed, the highlight color itself - each
+# highlighted strand is colored from whatever that image painted at the
+# strand's own root_uv, instead of one flat --highlight_color for the whole
+# render. Without --no_randomize_color, an RGB image template behaves
+# exactly like a black/white one always has (mask only; color still comes
+# from --highlight_color / random_highlight_color() as before).
+#
 # This script runs in a REGULAR Python environment (no bpy) and only
 # resolves the template/colors/args for each image; it never touches
 # Blender directly. For each image it shells out to run_highlight_render.sh,
@@ -58,12 +70,25 @@ import colorsys
 import argparse
 import subprocess
 
+import numpy as np
+from PIL import Image
+
 SCRIPT_PATH = os.path.abspath(__file__)
 SCRIPT_DIR = os.path.dirname(SCRIPT_PATH)
 RENDER_SCRIPT_PATH = os.path.join(SCRIPT_DIR, "generate_highlight_render.py")
 RUN_BLENDER_SH = os.path.join(SCRIPT_DIR, "run_highlight_render.sh")
 DEFAULT_BLENDER_PATH = "/home/kyh/blender/blender"
 DEFAULT_TEMPLATES_DIR = os.path.join(SCRIPT_DIR, "templates")
+
+# a template can now ALSO be a plain RGB image of arbitrary size, instead of
+# just a template_*.npz black/white mask from generate_highlight_templates.py
+# (stage 1) - see resolve_template() below for how it's converted.
+TEMPLATE_IMAGE_EXTENSIONS = ('.png', '.jpg', '.jpeg', '.bmp', '.tif', '.tiff', '.webp')
+
+# resize target for RGB-image templates (--template_grid_size) - matches
+# generate_highlight_templates.py's own --grid_size default, so a converted
+# image template resolves at the same lookup resolution stage-1 masks do.
+DEFAULT_TEMPLATE_GRID_SIZE = 256
 
 STRAND_SOURCES = {
     "full": "full_strands.npz",              # 256 pts/strand, full strand count - highest quality, largest/slowest
@@ -115,16 +140,75 @@ def get_ground_truth_material(sample_dir):
 
 
 def list_available_templates(templates_dir):
-    """Returns a sorted list of template_*.npz paths under templates_dir -
-    see generate_highlight_templates.py (stage 1)."""
+    """Returns a sorted list of template paths under templates_dir: the
+    usual template_*.npz masks from generate_highlight_templates.py (stage
+    1), PLUS any arbitrary-size RGB image files dropped in alongside them
+    (see resolve_template()) - except an image that's just the sidecar
+    black/white .png visualization stage 1 already writes for an existing
+    template_*.npz (same basename), which would otherwise be a redundant
+    duplicate of that npz."""
     if not os.path.isdir(templates_dir):
         raise FileNotFoundError(f"--templates_dir {templates_dir} doesn't exist - run "
                                  f"generate_highlight_templates.py first")
-    names = sorted(f for f in os.listdir(templates_dir) if f.startswith("template_") and f.endswith(".npz"))
+    npz_names = sorted(f for f in os.listdir(templates_dir) if f.startswith("template_") and f.endswith(".npz"))
+    npz_stems = {os.path.splitext(f)[0] for f in npz_names}
+    image_names = sorted(f for f in os.listdir(templates_dir)
+                          if os.path.splitext(f)[1].lower() in TEMPLATE_IMAGE_EXTENSIONS
+                          and os.path.splitext(f)[0] not in npz_stems)
+    names = npz_names + image_names
     if not names:
-        raise FileNotFoundError(f"no template_*.npz files found in {templates_dir} - run "
-                                 f"generate_highlight_templates.py first")
+        raise FileNotFoundError(f"no template_*.npz or RGB image files found in {templates_dir} - run "
+                                 f"generate_highlight_templates.py first, or drop in a template image")
     return [os.path.join(templates_dir, n) for n in names]
+
+
+def is_image_template(path):
+    return os.path.splitext(path)[1].lower() in TEMPLATE_IMAGE_EXTENSIONS
+
+
+def rgb_image_to_template(image_rgb, grid_size, highlight_threshold=1.0 / 255.0):
+    """Resizes an arbitrary-size RGB image (float32 HxWx3 in [0,1]) down/up
+    to (grid_size, grid_size), using the SAME scalp UV-space rasterization
+    convention as generate_highlight_templates.py's own black/white masks
+    (row 0 = the scalp mesh's high-v end - see ../scalp_uv_grid.py). A
+    highlighted mask is derived from it: a
+    near-black pixel (every channel below `highlight_threshold`) is base/
+    unhighlighted - same convention as those masks (black=base,
+    white=highlighted) - and every other pixel is highlighted AND supplies
+    its own RGB as that cell's highlight color, instead of one flat
+    highlight_color for the whole image. Returns (mask, rgb)."""
+    img = Image.fromarray((np.clip(image_rgb, 0.0, 1.0) * 255.0).astype(np.uint8), mode='RGB')
+    img = img.resize((grid_size, grid_size), Image.BILINEAR)
+    rgb = np.asarray(img, dtype=np.float32) / 255.0
+    mask = rgb.max(axis=-1) > highlight_threshold
+    return mask, rgb
+
+
+def resolve_template(template_path, template_grid_size):
+    """If `template_path` is already a template_*.npz (stage 1 output),
+    returns it unchanged with has_rgb=False - the flat --highlight_color /
+    --base_color_mode path behaves exactly as before. If it's an
+    arbitrary-size RGB image instead, resizes+converts it (see
+    rgb_image_to_template()) into a compatible {mask, grid_size, rgb} npz -
+    cached next to the source image (keyed by target grid size + mtime, so
+    repeated/batch runs against the same image template don't reconvert
+    every time) - and returns that cached npz's path with has_rgb=True,
+    telling the caller the template carries its own per-pixel color which
+    --no_randomize_color can use directly instead of generating one."""
+    if not is_image_template(template_path):
+        return template_path, False
+
+    mtime = int(os.path.getmtime(template_path))
+    cache_path = os.path.join(
+        os.path.dirname(template_path),
+        f".{os.path.splitext(os.path.basename(template_path))[0]}_g{template_grid_size}_{mtime}.template_cache.npz")
+    if not os.path.isfile(cache_path):
+        image_rgb = np.asarray(Image.open(template_path).convert('RGB'), dtype=np.float32) / 255.0
+        mask, rgb = rgb_image_to_template(image_rgb, template_grid_size)
+        np.savez(cache_path, mask=mask, grid_size=template_grid_size, rgb=rgb)
+        print(f"converted RGB template image {template_path} ({image_rgb.shape[1]}x{image_rgb.shape[0]}) "
+              f"-> {cache_path} ({template_grid_size}x{template_grid_size})")
+    return cache_path, True
 
 
 def generate_highlight_rgb(args):
@@ -149,8 +233,16 @@ def generate_highlight_rgb(args):
             available_templates = list_available_templates(args.templates_dir)
             template_npz = random.Random(args.seed).choice(available_templates)
 
+    # template_source keeps the ORIGINAL path (an RGB image, or already an npz) for naming/logging; template_npz
+    # is resolved to the actual npz handed to Blender (converted+cached if template_source was an image) - see
+    # resolve_template(). use_template_color: only when the resolved template actually carries per-pixel RGB
+    # (i.e. came from an image) AND the caller didn't ask to keep the old flat/random color behavior.
+    template_source = template_npz
+    template_npz, template_has_rgb = resolve_template(template_npz, args.template_grid_size)
+    use_template_color = template_has_rgb and not args.randomize_color
+
     os.makedirs(args.out_dir, exist_ok=True)
-    template_name = os.path.splitext(os.path.basename(template_npz))[0]
+    template_name = os.path.splitext(os.path.basename(template_source))[0]
     out_name = args.out_name or f"highlighted_{args.sample_name}_{template_name}.png"
     out_png = os.path.join(args.out_dir, out_name)
     out_npz = os.path.splitext(out_png)[0] + ".npz" if not args.no_save_npz else None
@@ -158,6 +250,7 @@ def generate_highlight_rgb(args):
 
     cmd = ["bash", RUN_BLENDER_SH, args.blender_path, RENDER_SCRIPT_PATH,
            "--input_npz", npz_path, "--out_path", out_png, "--coord_convention", "dataset_raw",
+           "--dataset_path", args.dataset_path,
            "--base_color", str(base_rgb[0]), str(base_rgb[1]), str(base_rgb[2]),
            "--highlight_color", str(args.highlight_color[0]), str(args.highlight_color[1]), str(args.highlight_color[2]),
            "--template_npz", template_npz, "--seed", str(args.seed),
@@ -175,10 +268,14 @@ def generate_highlight_rgb(args):
         cmd += ["--no_save_multiview"]
     if out_blend:
         cmd += ["--save_blend", out_blend]
+    if use_template_color:
+        cmd += ["--use_template_color"]
 
+    highlight_color_desc = "from template (--no_randomize_color)" if use_template_color else (
+        f"({args.highlight_color[0]:.3f},{args.highlight_color[1]:.3f},{args.highlight_color[2]:.3f})")
     print(f"[{args.sample_name}] template={template_name}  "
           f"base_color=({base_rgb[0]:.3f},{base_rgb[1]:.3f},{base_rgb[2]:.3f})  "
-          f"highlight_color=({args.highlight_color[0]:.3f},{args.highlight_color[1]:.3f},{args.highlight_color[2]:.3f})")
+          f"highlight_color={highlight_color_desc}")
     result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode != 0 or not os.path.isfile(out_png):
         print(result.stdout[-3000:])
@@ -195,8 +292,10 @@ def generate_highlight_rgb(args):
     with open(meta_path, 'w', encoding='utf-8') as f:
         json.dump({
             "sample_name": args.sample_name, "strands_source": args.strands_source,
-            "template": os.path.basename(template_npz), "seed": args.seed,
-            "base_color": list(base_rgb), "highlight_color": list(args.highlight_color),
+            "template": os.path.basename(template_source), "seed": args.seed,
+            "base_color": list(base_rgb),
+            "highlight_color": None if use_template_color else list(args.highlight_color),
+            "highlight_color_source": "template" if use_template_color else "fixed",
             "transition_softness": args.transition_softness, "highlight_start": args.highlight_start,
             "png": out_name, "npz": os.path.basename(out_npz) if out_npz else None,
             "blend": os.path.basename(out_blend) if out_blend else None,
@@ -295,15 +394,20 @@ def run_batch(args):
             base_melanin, base_redness = get_ground_truth_material(sample_dir)
             base_rgb = melanin_redness_to_rgb_scalar(base_melanin, base_redness)
 
-        template_npz = rng.choice(available_templates)
-        template_name = os.path.splitext(os.path.basename(template_npz))[0]
-        template_info_path = os.path.splitext(template_npz)[0] + ".json"
+        template_npz_raw = rng.choice(available_templates)
+        template_name = os.path.splitext(os.path.basename(template_npz_raw))[0]
+        template_info_path = os.path.splitext(template_npz_raw)[0] + ".json"
         template_pattern = None
         if os.path.isfile(template_info_path):
             with open(template_info_path, 'r', encoding='utf-8') as f:
                 template_pattern = json.load(f).get("pattern")
 
-        highlight_rgb = random_highlight_color(rng, base_rgb, args.min_contrast)
+        # resolve_template() caches its conversion to disk (keyed by mtime+grid_size), so calling it again
+        # inside generate_highlight_rgb() below for the same image template is cheap (just an isfile check) -
+        # done here only to know up front whether this draw will use the template's own colors.
+        _, template_has_rgb = resolve_template(template_npz_raw, args.template_grid_size)
+        use_template_color = template_has_rgb and not args.randomize_color
+        highlight_rgb = None if use_template_color else random_highlight_color(rng, base_rgb, args.min_contrast)
         run_seed = rng.randrange(2**31 - 1)
 
         out_foldername = f"{i:04d}_{sample_name}_{template_name}"
@@ -311,21 +415,26 @@ def run_batch(args):
         image_args.sample_name = sample_name
         image_args.out_dir = os.path.join(args.out_dir, out_foldername)
         image_args.out_name = "image.png"
-        image_args.template_npz = template_npz
+        image_args.template_npz = template_npz_raw
         image_args.seed = run_seed
         # dataset mode: let generate_highlight_rgb() re-derive base_color from this sample's own ground
         # truth (identical to base_rgb above, just avoids passing it twice); random mode: base_rgb was
         # already generated here and isn't tied to any ground truth, so it must be passed through explicitly
         image_args.base_color = base_rgb if args.base_color_mode == 'random' else None
-        image_args.highlight_color = highlight_rgb
+        # use_template_color mode: the actual per-strand colors come from the template itself, not this value -
+        # generate_highlight_rgb() still needs SOME RGB triple for the (required) --highlight_color CLI arg, so
+        # fall back to the batch default; it's ignored by the render either way.
+        image_args.highlight_color = highlight_rgb if highlight_rgb is not None else args.highlight_color
 
         print(f"[{i + 1}/{args.num_images}] {sample_name} | template={template_name} ({template_pattern}) | "
-              f"base_color={base_rgb} | highlight_color={highlight_rgb}")
+              f"base_color={base_rgb} | highlight_color="
+              f"{'from template (--no_randomize_color)' if use_template_color else highlight_rgb}")
         entry = {
             "index": i, "sample_name": sample_name, "seed": run_seed,
-            "template": os.path.basename(template_npz), "template_pattern": template_pattern,
+            "template": os.path.basename(template_npz_raw), "template_pattern": template_pattern,
             "base_color": list(base_rgb), "base_color_mode": args.base_color_mode, "min_contrast": args.min_contrast,
-            "highlight_color": list(highlight_rgb),
+            "highlight_color": None if use_template_color else list(highlight_rgb),
+            "highlight_color_source": "template" if use_template_color else "random",
             "out_folder": out_foldername, "out_filename": "image.png",
             "npz_name": None if args.no_save_npz else "image.npz",
             "blend_name": "image.blend" if args.save_blend else None,
@@ -379,13 +488,35 @@ def build_arg_parser():
                               '"random" instead picks a fully ARBITRARY RGB base color per image (any hue, not '
                               'just natural hair tones) - --highlight_color is then still picked contrast-aware '
                               'against whichever base color resulted, via --min_contrast either way.')
+    parser.add_argument('--randomize_color', dest='randomize_color', action='store_true', default=True,
+                         help='(default) pick the highlight color independently of the template, exactly like '
+                              'before: single-image mode uses --highlight_color as-is, batch mode randomizes it '
+                              '(see random_highlight_color()). This is the only behavior possible for a plain '
+                              'black/white template (npz or image); it only has a choice to make when the '
+                              'resolved template is an RGB image carrying its own per-pixel colors - see '
+                              '--no_randomize_color.')
+    parser.add_argument('--no_randomize_color', dest='randomize_color', action='store_false',
+                         help='when the resolved template is an RGB image (see --template_npz/--templates_dir), '
+                              'color each highlighted strand directly from that image\'s own per-pixel RGB '
+                              '(sampled at the strand\'s own root_uv) instead of generating/using a single flat '
+                              'highlight color - --highlight_color is then ignored. No effect on a plain '
+                              'black/white template - there is no color to take from it.')
 
     parser.add_argument('--templates_dir', default=DEFAULT_TEMPLATES_DIR,
-                         help='directory of template_*.npz files from generate_highlight_templates.py (stage 1)')
+                         help='directory of template_*.npz files from generate_highlight_templates.py (stage 1), '
+                              'and/or arbitrary-size RGB image files (see --template_grid_size, --no_randomize_color)')
     parser.add_argument('--template_npz', default=None,
-                         help='(single-image mode) explicit path to one template .npz - overrides --templates_dir/--template_index')
+                         help='(single-image mode) explicit path to one template - either a template_*.npz, or an '
+                              'arbitrary-size RGB image (any of ' + ', '.join(TEMPLATE_IMAGE_EXTENSIONS) + ') to be '
+                              'resized to --template_grid_size and used as both the highlight mask (non-black = '
+                              'highlighted) and, with --no_randomize_color, the highlight color itself. Overrides '
+                              '--templates_dir/--template_index.')
     parser.add_argument('--template_index', type=int, default=None,
                          help='(single-image mode) pick template_<index>.npz from --templates_dir explicitly; omit to pick randomly (seeded by --seed)')
+    parser.add_argument('--template_grid_size', type=int, default=DEFAULT_TEMPLATE_GRID_SIZE,
+                         help='resize target (NxN) when the resolved template is an RGB image rather than an '
+                              'existing template_*.npz - matches generate_highlight_templates.py\'s own default '
+                              '--grid_size, i.e. the same lookup resolution stage-1 masks already use')
     parser.add_argument('--seed', type=int, default=0, help='(single-image mode) render seed + template pick (if --template_index omitted); (batch mode) master seed for sample/template/color selection')
 
     parser.add_argument('--num_images', type=int, default=None,
