@@ -117,3 +117,89 @@ def single_grid_score2(strands_inside, strand_positions, pos, normal, half_size,
     return convex_hull_overlap
 
 
+def fisher_lda_direction(x1, x2):
+    """兩類 2D 點 x1 (N1, 2) / x2 (N2, 2) 的 Fisher LDA 最佳投影方向。
+    回傳 w (2,)：單位向量，投影後兩類「均值差距 / 類內變異」最大化 (Fisher criterion)。
+    以及 proj1/proj2：兩類點投影到 w 上的 1D 座標，fisher_ratio：between-class / within-class variance
+    (越大代表兩類在這個方向上分得越開)。"""
+    mean1 = x1.mean(axis=0)
+    mean2 = x2.mean(axis=0)
+    s1 = (x1 - mean1).T @ (x1 - mean1)  # within-class scatter (未除以 N，等同 N * covariance)
+    s2 = (x2 - mean2).T @ (x2 - mean2)
+    s_w = s1 + s2 + np.eye(2) * 1e-9  # 加一點 regularization 避免奇異矩陣 (例如某一類點幾乎共線)
+
+    w = np.linalg.solve(s_w, mean1 - mean2)
+    w /= (np.linalg.norm(w) + 1e-12)
+
+    proj1 = x1 @ w
+    proj2 = x2 @ w
+    between_var = (proj1.mean() - proj2.mean()) ** 2
+    within_var = proj1.var() + proj2.var() + 1e-9
+    fisher_ratio = between_var / within_var
+    return w, proj1, proj2, fisher_ratio
+
+
+def single_grid_score_lda(strands_inside, strand_positions, pos, normal, half_size, is_c1_mask):
+    """single_grid_score2 的變體：把 convex hull overlap 換成 Fisher LDA 的重疊分數。
+    做法：用 LDA 找出兩類 (c1/c2) 投影點的最佳分割方向 w，分割點取兩類投影均值的中點，
+    再算「用這條線分類會分錯邊」的點數比例當作 overlap score —— 跟 convex hull overlap
+    語意一致：兩類分得越開 -> 分錯比例越低 (score 越低)；兩類混在一起 -> 分錯比例越高 (score 越高)。
+
+    回傳 (overlap_score, w, split_value)。當樣本數不足以做 LDA 時 w/split_value 為 None，
+    呼叫端應該視為「這一格沒有明確的分割線」。"""
+    strands_inside = np.asarray(strands_inside)
+    if strands_inside.size == 0:
+        return 0.0, None, None
+
+    t1, t2 = tangent_frame(normal)
+    batch = strand_positions[strands_inside]  # (K, P, 3)
+    mask, local_x, local_y = project_strands_batch(batch, pos, t1, t2, normal, half_size)
+
+    is_c1 = is_c1_mask[strands_inside]
+    n_c1_strands = int(is_c1.sum())
+    n_c2_strands = int(strands_inside.shape[0] - n_c1_strands)
+    if n_c1_strands < 2 or n_c2_strands < 2:
+        return 0.0, None, None
+
+    c1_valid, c2_valid = mask[is_c1], mask[~is_c1]
+    c1_pos = np.stack([local_x[is_c1][c1_valid], local_y[is_c1][c1_valid]], axis=1)
+    c2_pos = np.stack([local_x[~is_c1][c2_valid], local_y[~is_c1][c2_valid]], axis=1)
+    if c1_pos.shape[0] < 2 or c2_pos.shape[0] < 2:
+        return 0.0, None, None
+
+    w, proj1, proj2, _fisher_ratio = fisher_lda_direction(c1_pos, c2_pos)
+
+    mean1, mean2 = proj1.mean(), proj2.mean()
+    split_value = (mean1 + mean2) / 2.0
+    if mean1 >= mean2:
+        c1_wrong = (proj1 < split_value).sum()
+        c2_wrong = (proj2 >= split_value).sum()
+    else:
+        c1_wrong = (proj1 >= split_value).sum()
+        c2_wrong = (proj2 < split_value).sum()
+
+    overlap_score = (c1_wrong + c2_wrong) / (proj1.shape[0] + proj2.shape[0])
+    return float(overlap_score), w, float(split_value)
+
+
+def strand_local_xy(strands_inside, strand_positions, pos, normal, half_size, h_min=-0.01, h_max=0.4):
+    """回傳 strands_inside 裡「每一根髮絲」(不是每個取樣點) 在這個 grid cell 局部座標系下的
+    代表點 (x, y)：取該髮絲落在柱體內的取樣點之平均位置；理論上 strands_inside 本身就是由
+    同一個柱體篩出來的，每根都至少有一個有效點，但仍保留「完全沒有有效點」時退回全部取樣點
+    平均值的備援，避免極端 h_min/h_max 設定造成除以 0。"""
+    t1, t2 = tangent_frame(normal)
+    batch = strand_positions[strands_inside]  # (K, P, 3)
+    mask, local_x, local_y = project_strands_batch(batch, pos, t1, t2, normal, half_size, h_min, h_max)
+
+    has_valid = mask.any(axis=1)
+    cnt = np.maximum(mask.sum(axis=1), 1)
+    mean_x = np.where(mask, local_x, 0.0).sum(axis=1) / cnt
+    mean_y = np.where(mask, local_y, 0.0).sum(axis=1) / cnt
+
+    if not has_valid.all():  # 備援：完全沒有有效點的髮絲，改用全部取樣點的平均
+        mean_x = np.where(has_valid, mean_x, local_x.mean(axis=1))
+        mean_y = np.where(has_valid, mean_y, local_y.mean(axis=1))
+
+    return np.stack([mean_x, mean_y], axis=1)  # (K, 2)
+
+
