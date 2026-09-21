@@ -40,6 +40,15 @@ the scalp instead of from a camera).
   same module's `build_uv_bin_edges`), and for each cell
   barycentrically interpolates a 3D surface point + normal from the
   containing mesh triangle.
+  `build_scalp_grid_tangents(...)` adds the per-cell tangent frame
+  `(grid_t1, grid_t2)`: `t1` follows the UV `+u` direction, `t2 = normal x t1`
+  follows `+v`, so `(t1, t2, normal)` is a right-handed orthonormal frame that
+  varies smoothly between neighboring cells (vertex tangents come from the
+  UV Jacobian, averaged over each vertex's 1-ring, then interpolated with
+  the same barycentric weights as position/normal). Pass this one frame to
+  every consumer (`strands_above_cells[_gpu](grid_t1=, grid_t2=)`,
+  `evaluation.single_grid_score*(..., t1, t2)`, ...). These arguments are
+  required: the old arbitrary `tangent_frame(normal)` has been removed.
 - `hair_query.py` — loads a hairstyle's strand `.npz`, and:
   - `strands_above_cell(...)`: builds a local box (tangent-plane
     footprint x normal-direction depth range) above one grid cell and

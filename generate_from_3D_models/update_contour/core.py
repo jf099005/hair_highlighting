@@ -23,7 +23,7 @@ from highlighting.generate_from_3D_models.scalp_grid_volume_sample.hair_query im
     estimate_half_size, strands_above_cells, strands_above_cells_gpu,
 )
 from highlighting.generate_from_3D_models.scalp_grid_volume_sample.scalp_grid import (
-    build_scalp_grid, load_scalp_mesh,
+    build_scalp_grid, build_scalp_grid_tangents, load_scalp_mesh,
 )
 from highlighting.generate_from_3D_models.scalp_uv_grid import (
     build_uv_bin_edges, load_scalp_uv, uv_to_grid_rowcol,
@@ -39,7 +39,7 @@ def default_dataset_path() -> str:
 
 
 def _compute_strand_mask_grid(strand_positions, grid_pos, grid_normal, grid_valid, half_size,
-                              device="auto", show_progress=True):
+                              device="auto", show_progress=True, *, grid_t1, grid_t2):
     """(n_rows, n_cols, S) bool: which strands pass through the column above each cell.
     Uses the torch/CUDA version when available, otherwise the numpy version."""
     use_gpu = device == "cuda"
@@ -53,6 +53,7 @@ def _compute_strand_mask_grid(strand_positions, grid_pos, grid_normal, grid_vali
     return fn(
         strand_positions, grid_pos, grid_normal, half_size,
         h_min=H_MIN, h_max=H_MAX, grid_valid=grid_valid, show_progress=show_progress,
+        grid_t1=grid_t1, grid_t2=grid_t2,
     )
 
 
@@ -62,6 +63,7 @@ def update_contour(
     strand_mask_grid=None,
     threshold=0.8,
     majority_ratio_threshold=0.9,
+    *, grid_t1, grid_t2,
 ):
     """One iteration of contour update. Returns the new (S, 3) per-strand colors.
 
@@ -70,13 +72,17 @@ def update_contour(
     (single_grid_score2 > threshold), repaint all strands in the cell with the mode.
     `row_idx`, `col_idx`, `majority_ratio_threshold` are kept for signature
     compatibility with the notebook's `update_color`.
+    `grid_t1`, `grid_t2` (required, keyword-only; (n_rows, n_cols, 3), from scalp_grid.build_scalp_grid_tangents):
+    per-cell tangent frame used for the local 2D projection; it should be the same one
+    that produced `strand_mask_grid`.
     """
     n_rows, n_cols = grid_valid.shape
 
     strand_colors_iter = strand_colors.copy()  # (S, 3), modified in the loop
     if strand_mask_grid is None:
         strand_mask_grid = _compute_strand_mask_grid(
-            strand_positions, grid_pos, grid_normal, grid_valid, half_size)
+            strand_positions, grid_pos, grid_normal, grid_valid, half_size,
+            grid_t1=grid_t1, grid_t2=grid_t2)
 
     # depends only on this iteration's input colors, not on the cell -> compute once
     is_c1_mask = np.abs(strand_colors - base_color).sum(axis=1) < 1e-6
@@ -96,6 +102,7 @@ def update_contour(
         grid_score = single_grid_score2(
             strands_inside, strand_positions, grid_pos[u_idx, v_idx], grid_normal[u_idx, v_idx],
             half_size, is_c1_mask,
+            grid_t1[u_idx, v_idx], grid_t2[u_idx, v_idx],
         )
 
         if grid_score <= threshold:  # the two classes are well separated here
@@ -178,6 +185,7 @@ def update_mask(
     dataset_path = dataset_path or default_dataset_path()
     positions, normals, uv, faces = load_scalp_mesh(os.path.join(dataset_path, "body_data", "scalp.ply"))
     _, grid_pos, grid_normal, grid_valid, _ = build_scalp_grid(positions, normals, uv, faces, N)
+    grid_t1, grid_t2 = build_scalp_grid_tangents(positions, normals, uv, faces, grid_normal, grid_valid)
     half_size = estimate_half_size(grid_pos, grid_valid)
 
     us, vs = build_uv_bin_edges(load_scalp_uv(dataset_path), N)
@@ -186,7 +194,7 @@ def update_mask(
     if strand_mask_grid is None:
         strand_mask_grid = _compute_strand_mask_grid(
             strand_positions, grid_pos, grid_normal, grid_valid, half_size, device=device,
-            show_progress=verbose)
+            show_progress=verbose, grid_t1=grid_t1, grid_t2=grid_t2)
 
     strand_colors = color_matrix[row_idx, col_idx].astype(np.float32)  # (S, 3)
     for _ in range(n_iter):
@@ -194,6 +202,7 @@ def update_mask(
             strand_positions, grid_pos, grid_normal, grid_valid,
             row_idx, col_idx, strand_colors, half_size, base_color,
             strand_mask_grid=strand_mask_grid, threshold=threshold,
+            grid_t1=grid_t1, grid_t2=grid_t2,
         )
 
     # strand colors -> grid: each cell takes the mode color of the strands rooted in it;

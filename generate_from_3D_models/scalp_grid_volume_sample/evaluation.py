@@ -1,12 +1,11 @@
 from scipy.spatial import ConvexHull
-from highlighting.generate_from_3D_models.scalp_grid_volume_sample.scalp_grid import tangent_frame
 import numpy as np
 
 
-def project_strand(strand, grid_pos, grid_normal, half_size):
+def project_strand(strand, grid_pos, grid_normal, half_size, t1, t2):
     """單根髮絲版本，保留給其他地方 (若有) 參考用。grid_score 計算改用下面的批次版本
-    project_strands_batch，避免對同一個 grid cell 裡每一根髮絲都重算一次 tangent_frame。"""
-    t1, t2 = tangent_frame(grid_normal)
+    project_strands_batch。
+    t1/t2 (必填): 這格的切線基底 (scalp_grid.build_scalp_grid_tangents)。"""
     local_coords = strand - grid_pos[None, :]  # (P, 3
     local_x = np.dot(local_coords, t1)  # (P,)
     local_y = np.dot(local_coords, t2)  # (P,)
@@ -17,7 +16,7 @@ def project_strand(strand, grid_pos, grid_normal, half_size):
 
 def project_strands_batch(strands, pos, t1, t2, normal, half_size, h_min=-0.01, h_max=0.4):
     """一次投影 K 根髮絲 (strands: (K, P, 3))。t1/t2/normal 對同一個 grid cell 只算一次、傳進來，
-    取代逐根呼叫 project_strand (裡面每次都重算 tangent_frame) 的作法。
+    取代逐根呼叫 project_strand 的作法。
     回傳 mask, local_x, local_y 皆為 (K, P)。"""
     local_coords = strands - pos[None, None, :]  # (K, P, 3)
     local_x = local_coords @ t1  # (K, P)
@@ -53,14 +52,13 @@ def count_segment_intersections(c1_start, c1_end, c2_start, c2_end):
     return intersect, int(intersect.sum())
 
 
-def single_grid_score1(strands_inside, strand_positions, pos, normal, half_size, is_c1_mask):
+def single_grid_score1(strands_inside, strand_positions, pos, normal, half_size, is_c1_mask, t1, t2):
     """is_c1_mask: (S,) bool，每根髮絲是否屬於 c1 (顏色仍是 base_color)。由呼叫端 (cal_grid_score)
     對整批 strand_colors 一次算好傳進來，取代原本逐 grid cell、逐髮絲重算顏色比較。"""
     strands_inside = np.asarray(strands_inside)
     if strands_inside.size == 0:
         return 0.0
 
-    t1, t2 = tangent_frame(normal)
     batch = strand_positions[strands_inside]  # (K, P, 3)
     mask, local_x, local_y = project_strands_batch(batch, pos, t1, t2, normal, half_size)
 
@@ -82,14 +80,13 @@ def single_grid_score1(strands_inside, strand_positions, pos, normal, half_size,
     return n_intersections / (c1_start.shape[0] * c2_start.shape[0] + 1e-9)  # 交點數量 / (Na * Nb) = 交點密度
 
 
-def single_grid_score2(strands_inside, strand_positions, pos, normal, half_size, is_c1_mask):
+def single_grid_score2(strands_inside, strand_positions, pos, normal, half_size, is_c1_mask, t1, t2):
     """is_c1_mask: (S,) bool，每根髮絲是否屬於 c1 (顏色仍是 base_color)。由呼叫端 (cal_grid_score)
     對整批 strand_colors 一次算好傳進來，取代原本逐 grid cell、逐髮絲重算顏色比較。"""
     strands_inside = np.asarray(strands_inside)
     if strands_inside.size == 0:
         return 0.0
 
-    t1, t2 = tangent_frame(normal)  # 整個 grid cell 只算一次，不再逐髮絲重算
     batch = strand_positions[strands_inside]  # (K, P, 3)
     mask, local_x, local_y = project_strands_batch(batch, pos, t1, t2, normal, half_size)
 
@@ -139,7 +136,7 @@ def fisher_lda_direction(x1, x2):
     return w, proj1, proj2, fisher_ratio
 
 
-def single_grid_score_lda(strands_inside, strand_positions, pos, normal, half_size, is_c1_mask):
+def single_grid_score_lda(strands_inside, strand_positions, pos, normal, half_size, is_c1_mask, t1, t2):
     """single_grid_score2 的變體：把 convex hull overlap 換成 Fisher LDA 的重疊分數。
     做法：用 LDA 找出兩類 (c1/c2) 投影點的最佳分割方向 w，分割點取兩類投影均值的中點，
     再算「用這條線分類會分錯邊」的點數比例當作 overlap score —— 跟 convex hull overlap
@@ -151,7 +148,6 @@ def single_grid_score_lda(strands_inside, strand_positions, pos, normal, half_si
     if strands_inside.size == 0:
         return 0.0, None, None
 
-    t1, t2 = tangent_frame(normal)
     batch = strand_positions[strands_inside]  # (K, P, 3)
     mask, local_x, local_y = project_strands_batch(batch, pos, t1, t2, normal, half_size)
 
@@ -182,12 +178,11 @@ def single_grid_score_lda(strands_inside, strand_positions, pos, normal, half_si
     return float(overlap_score), w, float(split_value)
 
 
-def strand_local_xy(strands_inside, strand_positions, pos, normal, half_size, h_min=-0.01, h_max=0.4):
+def strand_local_xy(strands_inside, strand_positions, pos, normal, half_size, t1, t2, h_min=-0.01, h_max=0.4):
     """回傳 strands_inside 裡「每一根髮絲」(不是每個取樣點) 在這個 grid cell 局部座標系下的
     代表點 (x, y)：取該髮絲落在柱體內的取樣點之平均位置；理論上 strands_inside 本身就是由
     同一個柱體篩出來的，每根都至少有一個有效點，但仍保留「完全沒有有效點」時退回全部取樣點
     平均值的備援，避免極端 h_min/h_max 設定造成除以 0。"""
-    t1, t2 = tangent_frame(normal)
     batch = strand_positions[strands_inside]  # (K, P, 3)
     mask, local_x, local_y = project_strands_batch(batch, pos, t1, t2, normal, half_size, h_min, h_max)
 
