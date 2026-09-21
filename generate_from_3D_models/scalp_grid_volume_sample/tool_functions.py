@@ -15,7 +15,6 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 
 from highlighting.generate_from_3D_models.scalp_grid_volume_sample.hair_query import strands_above_cell
-from highlighting.generate_from_3D_models.scalp_grid_volume_sample.scalp_grid import tangent_frame
 
 
 def show_color_matrix(color_matrix, ax=None, *, show=True, title=None):
@@ -68,7 +67,9 @@ def draw_strand_uv_color_distribution(root_uv, strand_colors, ax=None, *, show=T
 def apply_median_color_to_strands(
     strand_positions, grid_pos, grid_normal, grid_valid,
     row_idx, col_idx, strand_colors, half_size, base_color,
+    *, grid_t1, grid_t2,
 ):
+    """grid_t1/grid_t2 (必填): (n_rows, n_cols, 3) 每格切線基底 (scalp_grid.build_scalp_grid_tangents)。"""
     n_rows, n_cols = grid_valid.shape
     median_color = np.zeros((n_rows, n_cols, 3), dtype=np.float32)
 
@@ -80,7 +81,8 @@ def apply_median_color_to_strands(
         cell_normal = grid_normal[r, c]
         strand_mask, inside, local_h = strands_above_cell(
             strand_positions, grid_pos[r, c], cell_normal,
-            *tangent_frame(cell_normal), half_size=half_size, h_min=-0.01, h_max=0.4
+            grid_t1[r, c], grid_t2[r, c],
+            half_size=half_size, h_min=-0.01, h_max=0.4
         )
 
         strands_inside = np.where(strand_mask)[0]  # (K,) 這一格上方的髮絲索引

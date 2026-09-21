@@ -20,7 +20,9 @@ import os
 
 import numpy as np
 
-from highlighting.generate_from_3D_models.scalp_grid_volume_sample.scalp_grid import build_scalp_grid, load_scalp_mesh, nearest_valid_cell, tangent_frame
+from highlighting.generate_from_3D_models.scalp_grid_volume_sample.scalp_grid import (
+    build_scalp_grid, build_scalp_grid_tangents, load_scalp_mesh, nearest_valid_cell,
+)
 from highlighting.generate_from_3D_models.scalp_grid_volume_sample.hair_query import estimate_half_size, load_strands, root_density_map, strands_above_cell
 from highlighting.generate_from_3D_models.scalp_grid_volume_sample.visualize import plot_cell_query_3d, plot_density_map, plot_density_profile, plot_grid_normals
 
@@ -69,6 +71,7 @@ def main():
         positions, normals, uv, faces, args.grid_n
     )
     print(f"      {grid_valid.sum()} / {grid_valid.size} cells landed on the scalp")
+    grid_t1, grid_t2 = build_scalp_grid_tangents(positions, normals, uv, faces, grid_normal, grid_valid)
 
     half_size = args.half_size if args.half_size is not None else estimate_half_size(grid_pos, grid_valid)
     print(f"      column footprint half-size = {half_size:.5f} m (grid cell 'radius')")
@@ -78,7 +81,7 @@ def main():
     ci, cj = nearest_valid_cell(grid_valid, ci, cj)
     origin = grid_pos[ci, cj]
     normal = grid_normal[ci, cj]
-    t1, t2 = tangent_frame(normal)
+    t1, t2 = grid_t1[ci, cj], grid_t2[ci, cj]  # 跟相鄰格對齊的切線基底 (UV +u / +v 方向)
     print(f"[3/5] querying cell ({ci}, {cj}): pos={origin}, normal={normal}")
 
     print(f"[4/5] loading strands: {strands_path}")

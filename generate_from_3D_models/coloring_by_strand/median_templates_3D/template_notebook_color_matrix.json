@@ -1,0 +1,9 @@
+{
+  "sample_name": "base_13_idx_94847",
+  "strands_source": "full",
+  "nr_strands": 96821,
+  "grid_size": 96,
+  "pattern": "notebook_color_matrix",
+  "color_source": "mask_updating_test_3D.ipynb 第 5 節自訂的 mask_matrix",
+  "source": "mask_updating_test_3D.ipynb"
+}

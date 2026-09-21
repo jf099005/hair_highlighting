@@ -73,6 +73,9 @@ def strands_above_cells(
     grid_valid: np.ndarray | None = None,
     cells_per_chunk: int = 32,
     show_progress: bool = False,
+    *,
+    grid_t1: np.ndarray,
+    grid_t2: np.ndarray,
 ):
     """Batched version of strands_above_cell for every cell of an (n_rows,
     n_cols) grid at once.
@@ -92,10 +95,11 @@ def strands_above_cells(
         strands_above_cell(...)[0] (the strand_mask output) for every cell.
         Cells where grid_valid is False (if grid_valid is given) are left
         all-False.
+
+    grid_t1 / grid_t2 (required, keyword-only): (n_rows, n_cols, 3) per-cell
+    tangent frame from scalp_grid.build_scalp_grid_tangents, so the column
+    footprint uses the same frame as every other consumer.
     """
-    from highlighting.generate_from_3D_models.scalp_grid_volume_sample.scalp_grid import (
-        tangent_frame,
-    )
 
     n_rows, n_cols, _ = grid_pos.shape
     S, P, _ = strand_positions.shape
@@ -103,7 +107,7 @@ def strands_above_cells(
 
     origins = grid_pos.reshape(-1, 3).astype(dtype)
     normals = grid_normal.reshape(-1, 3).astype(dtype)
-    t1, t2 = tangent_frame(normals)
+    t1, t2 = grid_t1.reshape(-1, 3), grid_t2.reshape(-1, 3)
     R = origins.shape[0]
 
     cell_idx = np.where(grid_valid.reshape(-1))[0] if grid_valid is not None else np.arange(R)
@@ -149,6 +153,9 @@ def strands_above_cells_gpu(
     cells_per_chunk: int = 16,
     show_progress: bool = False,
     device: str = "cuda",
+    *,
+    grid_t1: np.ndarray,
+    grid_t2: np.ndarray,
 ):
     """Same as strands_above_cells, but runs the per-chunk matmuls on the
     GPU via torch instead of numpy/BLAS on the CPU.
@@ -167,13 +174,10 @@ def strands_above_cells_gpu(
 
     Returns:
         strand_mask: (n_rows, n_cols, S) bool numpy array -- identical
-        semantics to strands_above_cells.
+        semantics to strands_above_cells (including the required keyword-only
+        grid_t1 / grid_t2 per-cell tangent frame arguments).
     """
     import torch
-
-    from highlighting.generate_from_3D_models.scalp_grid_volume_sample.scalp_grid import (
-        tangent_frame,
-    )
 
     dev = torch.device(device)
     n_rows, n_cols, _ = grid_pos.shape
@@ -182,7 +186,7 @@ def strands_above_cells_gpu(
 
     origins = grid_pos.reshape(-1, 3).astype(dtype)
     normals = grid_normal.reshape(-1, 3).astype(dtype)
-    t1, t2 = tangent_frame(normals)
+    t1, t2 = grid_t1.reshape(-1, 3), grid_t2.reshape(-1, 3)
     R = origins.shape[0]
 
     cell_idx = np.where(grid_valid.reshape(-1))[0] if grid_valid is not None else np.arange(R)
