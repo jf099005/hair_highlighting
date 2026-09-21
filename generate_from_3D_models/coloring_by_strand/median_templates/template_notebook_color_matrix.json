@@ -4,6 +4,6 @@
   "nr_strands": 96821,
   "grid_size": 96,
   "pattern": "notebook_color_matrix",
-  "color_source": "scalp_grid_and_strands_demo_by_strand.ipynb 第 5 節自訂的 color_matrix",
-  "source": "scalp_grid_and_strands_demo_by_strand.ipynb"
+  "color_source": "mask_updating_test.ipynb 第 5 節自訂的 mask_matrix",
+  "source": "mask_updating_test.ipynb"
 }
