@@ -198,3 +198,68 @@ def run_blender_render(
         print(path)
         if filename.lower().endswith((".png", ".jpg", ".jpeg")) and 'multiview' in filename.lower():
             display(Image(filename=path))
+
+
+def run_blender_render_trimmed(
+    template_npz_path, out_dir, ignore_mask, *,
+    strands_npz, dataset_path, here,
+    run_blender_sh, blender_path, render_script,
+    out_filename="front.png",
+):
+    """跟 run_blender_render 一樣，多一個 ignore_mask 參數：(nr_strands,) boolean，
+    跟 template_npz / strands_npz 的髮絲順序 1:1 對齊，ignore_mask[i] == True 的
+    第 i 根髮絲整根都不會出現在渲染結果裡 (不是改成 base_color，是渲染時根本沒有這條 curve)。
+
+    render_script 必須是有支援 --ignore_npz 的版本 (generate_highlight_render_by_strand_trimmed.py)，
+    不是原本的 generate_highlight_render_by_strand.py。"""
+    os.makedirs(out_dir, exist_ok=True)
+    out_png = os.path.join(out_dir, out_filename)
+
+    ignore_mask = np.asarray(ignore_mask, dtype=bool)
+    ignore_npz_path = os.path.join(out_dir, "ignore_mask.npz")
+    np.savez(ignore_npz_path, ignore=ignore_mask)
+    print(f"wrote ignore mask ({int(ignore_mask.sum())}/{ignore_mask.shape[0]} strands ignored) to {ignore_npz_path}")
+
+    multiview_png = os.path.join(out_dir, out_filename)
+
+    cmd_multiview = [
+        "bash", run_blender_sh, blender_path, render_script,
+        "--input_npz", strands_npz,
+        "--out_path", multiview_png,
+        "--dataset_path", dataset_path,
+        "--coord_convention", "dataset_raw",
+        "--base_color", "0.05", "0.05", "0.05",
+        "--template_npz", template_npz_path,
+        "--ignore_npz", ignore_npz_path,
+        "--seed", "0",
+        "--transition_softness", "0.04",
+        "--highlight_start", "0.0",
+        "--samples", "128",
+        "--resolution", "512",
+        "--strands_subsample", "0.3",
+        "--env_light_strength", "2.0",
+        "--scalp_grid_size", "128",
+        # 不加入 --no_save_multiview，讓 Blender 儲存 multi-view 結果
+    ]
+
+    print("執行 Blender multi-view 渲染 (trimmed)...")
+    result = subprocess.run(cmd_multiview, capture_output=True, text=True)
+
+    print(result.stdout[-3000:])
+    if result.returncode != 0:
+        print(result.stderr[-3000:])
+        raise RuntimeError("Blender multi-view 渲染失敗")
+
+    print("輸出檔案：")
+    for path in sorted(os.listdir(out_dir)):
+        print(os.path.join(out_dir, path))
+
+    from IPython.display import display, Image
+
+    print("Blender output:")
+    print("\nMulti-view outputs:")
+    for filename in sorted(os.listdir(out_dir)):
+        path = os.path.join(out_dir, filename)
+        print(path)
+        if filename.lower().endswith((".png", ".jpg", ".jpeg")) and 'multiview' in filename.lower():
+            display(Image(filename=path))
