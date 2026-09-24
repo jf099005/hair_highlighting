@@ -13,7 +13,7 @@ if _PROJECT_ROOT not in sys.path:
 import numpy as np  # noqa: E402
 
 from highlighting.generate_from_3D_models.update_contour import (  # noqa: E402
-    default_dataset_path, load_mask, update_mask,
+    METHODS, default_dataset_path, load_mask, update_mask,
 )
 
 
@@ -26,10 +26,25 @@ def main(argv=None):
     p.add_argument("--base_color", type=float, nargs=3, default=[0.99, 0.99, 0.99])
     p.add_argument("--highlight_color", type=float, nargs=3, default=[0.0, 0.0, 0.0],
                    help="color for nonzero cells when the mask is 2D")
-    p.add_argument("--n_iter", type=int, default=3)
-    p.add_argument("--threshold", type=float, default=0.1)
+    p.add_argument("--method", choices=METHODS, default="majority")
+    p.add_argument("--n_iter", type=int, default=3, help="majority iterations / active_contour rounds")
+    p.add_argument("--threshold", type=float, default=0.1, help="majority: convex-hull overlap threshold")
     p.add_argument("--device", choices=["auto", "cuda", "cpu"], default="auto")
+    g = p.add_argument_group("fm")
+    g.add_argument("--fm_mode", choices=["clique", "cutnet"], default="clique")
+    g.add_argument("--max_passes", type=int, default=20)
+    g.add_argument("--lam", type=int, default=0, help="deviation penalty (non-negative int)")
+    g.add_argument("--balance_tol", type=float, default=0.02)
+    g = p.add_argument_group("active_contour")
+    g.add_argument("--snap_radius", type=float, default=8, help="in cells")
+    g.add_argument("--edge_smooth", type=float, default=1.5)
+    g.add_argument("--snake_iter", type=int, default=100)
     args = p.parse_args(argv)
+
+    method_kwargs = {
+        "fm": dict(mode=args.fm_mode, max_passes=args.max_passes, lam=args.lam, balance_tol=args.balance_tol),
+        "active_contour": dict(snap_radius=args.snap_radius, edge_smooth=args.edge_smooth, n_iter=args.snake_iter),
+    }.get(args.method)
 
     d = np.load(args.npz)
     result = update_mask(
@@ -37,12 +52,13 @@ def main(argv=None):
         dataset_path=args.dataset_path, base_color=args.base_color,
         highlight_color=args.highlight_color, n_iter=args.n_iter,
         threshold=args.threshold, device=args.device,
+        method=args.method, method_kwargs=method_kwargs,
     )
 
     out = args.out or os.path.splitext(args.mask)[0] + "_updated.npz"
     np.savez(out, **result)
     print(f"wrote {out}  (mask {result['mask'].shape}, binary_mask {result['binary_mask'].shape}, "
-          f"strand_colors {result['strand_colors'].shape})")
+          f"strand_colors {result['strand_colors'].shape}, strand_mask {result['strand_mask'].shape})")
 
 
 if __name__ == "__main__":

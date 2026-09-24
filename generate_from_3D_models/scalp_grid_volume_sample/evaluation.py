@@ -100,17 +100,23 @@ def single_grid_score2(strands_inside, strand_positions, pos, normal, half_size,
         c1_pos = np.stack([local_x[is_c1][c1_valid], local_y[is_c1][c1_valid]], axis=1)
         c2_pos = np.stack([local_x[~is_c1][c2_valid], local_y[~is_c1][c2_valid]], axis=1)
 
-        hull1 = ConvexHull(c1_pos)
-        hull2 = ConvexHull(c2_pos)
-        # union hull 只取決於兩個子集各自的邊界點 (凸包頂點)，用 hull1/hull2.vertices 取代全部原始點
-        # 餵給 hull_union，點數從「兩組全部投影點」縮到「兩組凸包頂點」，明顯變小、變快。
-        boundary_pts = np.concatenate([c1_pos[hull1.vertices], c2_pos[hull2.vertices]], axis=0)
-        hull_union = ConvexHull(boundary_pts)
-        # 計算兩個凸包的面積差距 (gap)
-        area1 = hull1.volume  # 2D convex hull 的 volume 就是面積
-        area2 = hull2.volume
-        area_union = hull_union.volume
-        convex_hull_overlap = (area1 + area2 - area_union) / area_union
+        try:
+            hull1 = ConvexHull(c1_pos)
+            hull2 = ConvexHull(c2_pos)
+            # union hull 只取決於兩個子集各自的邊界點 (凸包頂點)，用 hull1/hull2.vertices 取代全部原始點
+            # 餵給 hull_union，點數從「兩組全部投影點」縮到「兩組凸包頂點」，明顯變小、變快。
+            boundary_pts = np.concatenate([c1_pos[hull1.vertices], c2_pos[hull2.vertices]], axis=0)
+            hull_union = ConvexHull(boundary_pts)
+            # 計算兩個凸包的面積差距 (gap)
+            area1 = hull1.volume  # 2D convex hull 的 volume 就是面積
+            area2 = hull2.volume
+            area_union = hull_union.volume
+            convex_hull_overlap = (area1 + area2 - area_union) / area_union
+        except Exception:
+            # 這一格的投影點幾乎共線/重合 (qhull 無法建出非退化的 2D 凸包，常見於樣本點數雖
+            # >2 但實際上落在同一條線附近)。樣本沒有代表性，視為「沒有明確重疊」，讓呼叫端
+            # (update_contour) 用 grid_score <= threshold 的邏輯跳過這一格，而不是整個流程崩潰。
+            convex_hull_overlap = 0.0
     return convex_hull_overlap
 
 
