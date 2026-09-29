@@ -1,4 +1,4 @@
-"""Helper functions extracted from scalp_grid_and_strands_demo_by_strand.ipynb.
+"""Helper functions used by mask_updating_test_3D.ipynb (originally extracted from the by-strand demo notebook).
 
 Requires the project root to already be on sys.path (the notebook does this
 before importing this module) so that the `highlighting.*` package imports
