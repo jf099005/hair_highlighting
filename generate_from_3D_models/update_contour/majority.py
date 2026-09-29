@@ -5,7 +5,7 @@ overlap in the cell's local 2D projection (convex-hull overlap, evaluation.singl
 > threshold), repaint every strand in the cell with the majority color.
 
 * `update_contour_mask`: bool per-strand mask version (mask_updating_test_3D.ipynb).
-* `update_contour`:      RGB per-strand color version (scalp_grid_and_strands_demo_by_strand.ipynb);
+* `update_contour`:      RGB per-strand color version (from the earlier by-strand demo notebook);
                          supports more than two colors. Used by `update_mask(method="majority")`.
 """
 from __future__ import annotations
