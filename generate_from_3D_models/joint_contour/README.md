@@ -18,6 +18,19 @@
 | clique 目標 | Σ_c n_true·n_false | Σ_c NA·NB（NA / NB = 柱體 c 內 visible 的 A / B 髮絲數） |
 | cut-net 目標 | 混色格數 | NA > 0 且 NB > 0 的柱體數 |
 
+## 投影相交判定（`overlap="projection"`）
+
+預設（`overlap="cell"`）同一柱體內的 visible A 髮絲與 visible B 髮絲一律算交叉。`overlap="projection"` 改成：
+兩根髮絲在該格切平面（t1/t2）上的 **2D 投影有相交**才算交叉（同 update_contour 的 `overlap.py`，只保留 A-B 配對）。
+
+- `joint_projection_edges` → `StrandGraph`（joint index）：邊 = 投影相交的 A-B 髮絲對，權重 = 相交的格數。
+- `build_joint_projection_graph(incidence, edges, n_a)` → `JointGraph`：把邊聚合到 FM 節點（髮絲或 `node_unit="cell"` 的格子），
+  每條邊存 `w_out = W(v→u)`（v 的 A 髮絲 × u 的 B 髮絲）與 `w_in = W(u→v)`；同一節點內的配對永遠不會同時 visible，直接丟掉。
+- 目標：最小化 Σ W(p→q)·(1−x_p)·x_q（加權交叉對數，clique 的對應版本；`mode` 被忽略，沒有 cut-net 版）。
+  `node_unit`、`balance_tol`、`movable_only`、`lam` 照常可用。
+- `objectives` 的 `before` / `after` 仍是柱體規則的數字（相容），另外多 `projection_before` / `projection_after` =（交叉對數, 加權交叉對數）。
+- `joint_trim(..., edges=edges)` / `joint_conflict_counts(..., edges=edges)` 改用投影相交計算衝突。
+
 ## 可選限制（預設全部關閉）
 
 | 參數 | 開啟時 | 關閉時（預設） |
@@ -50,6 +63,8 @@ update_contour.fm 的 O(1) gain bucket；cell 節點的 gain 以髮絲數加權�
 |---|---|
 | `grid.py` | `strand_cell_membership`（稀疏 (N², S) CSR 版的髮絲歸屬，GPU / CPU）、`JointMembership`（兩顆頭合併、`is_b`、`split`）；`ScalpGrid` 直接沿用 update_contour |
 | `masks.py` | `binarize_mask`、`grid_mask_to_joint_state`、`visible_strands`、`joint_state_to_column_mask`（柱體多數決） |
+| `overlap.py` | `joint_projection_edges`、`JointGraph`、`build_joint_projection_graph`、`joint_projection_objectives`（投影相交判定） |
+| `boundary_fm.py` | Boundary FM 的 pass（`joint_fm_refine(..., boundary=True)` / `method_kwargs` / CLI `--boundary_fm`；預設關閉 = 原本的 FM）：每個 pass 只從衝突柱體（`NA > 0` 且 `NB > 0`；JointGraph：有交叉的邊）上的節點開始（`lam > 0` 時再加上已偏離初始標籤的），共用柱體 / 相鄰的節點移動時才加進候選。buckets / segment tree、平衡、`patience`、`lam`、`movable_only` 都跟 `fm.py` 相同 |
 | `fm.py` | `build_joint_incidence(..., node_unit)` → `JointIncidence`（節點↔柱體加權 incidence；`node_state_from_mask`、`mask_from_node_state`、`strand_state`）、`joint_fm_refine(..., balance_tol, movable_only)`、`joint_fm_objectives`、`joint_cell_counts` |
 | `trim.py` | `joint_conflict_counts`、`joint_trim`（只挑 visible 且跟另一顆頭交叉最多的髮絲） |
 | `scores.py` | `visible_counts_map`、`conflict_pairs_map`、`conflict_cells_map`、`change_ratios` |
@@ -89,6 +104,7 @@ PYTHON=~/anaconda3/envs/hair_exp/bin/python ./run_joint_contour.sh \
     --npz_a .../base_13_idx_94847/full_strands.npz --npz_b .../base_0_idx_77679/full_strands.npz \
     --mask my_mask.npy --max_passes 3 --out my_mask_joint.npz
 # 可選限制: --node_unit cell --balance_tol 0.02 --movable_only
+# 投影相交判定: --overlap projection
 ```
 
 需要 numba、scipy、torch（GPU 歸屬查詢）以及 `DiffLocks_Dataset/difflocks_dataset/body_data/scalp.ply`。

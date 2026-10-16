@@ -33,6 +33,11 @@ def main(argv=None):
                    help="FM node = one strand (default) or one root cell shared by both heads' strands")
     p.add_argument("--movable_only", action="store_true",
                    help="only move nodes whose root cell has roots of both heads (default off)")
+    p.add_argument("--overlap", choices=["cell", "projection"], default="cell",
+                   help="cell: visible A/B strands in the same column cross (default); "
+                        "projection: only when their 2D projections intersect")
+    p.add_argument("--boundary_fm", action="store_true",
+                   help="Boundary FM: each pass starts from the nodes in conflict columns only (default off = plain FM)")
     args = p.parse_args(argv)
 
     da, db = np.load(args.npz_a), np.load(args.npz_b)
@@ -40,7 +45,8 @@ def main(argv=None):
         da["positions"], da["root_uv"], db["positions"], db["root_uv"], load_mask(args.mask),
         dataset_path=args.dataset_path, device=args.device,
         method_kwargs=dict(mode=args.fm_mode, max_passes=args.max_passes, lam=args.lam, balance_tol=args.balance_tol,
-                           node_unit=args.node_unit, movable_only=args.movable_only),
+                           node_unit=args.node_unit, movable_only=args.movable_only, overlap=args.overlap,
+                           boundary=args.boundary_fm),
     )
     objectives = result.pop("objectives")
     out = args.out or os.path.splitext(args.mask)[0] + "_joint.npz"
@@ -48,6 +54,9 @@ def main(argv=None):
     print(f"wrote {out}  (binary_mask {result['binary_mask'].shape}, state_a {result['state_a'].shape}, "
           f"state_b {result['state_b'].shape}); (conflict cells, crossing pairs): "
           f"{objectives['before']} -> {objectives['after']}")
+    if "projection_before" in objectives:
+        print(f"projection (crossing pairs, weighted): {objectives['projection_before']} -> "
+              f"{objectives['projection_after']}")
 
 
 if __name__ == "__main__":

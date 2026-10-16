@@ -1,7 +1,7 @@
 {
-  "sample_name": "base_13_idx_94847",
+  "sample_name": "base_30_idx_94033",
   "strands_source": "full",
-  "nr_strands": 96821,
+  "nr_strands": 99450,
   "grid_size": 32,
   "pattern": "notebook_color_matrix",
   "color_source": "mask_updating_test_3D.ipynb",

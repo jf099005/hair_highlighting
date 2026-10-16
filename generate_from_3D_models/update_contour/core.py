@@ -23,6 +23,7 @@ from highlighting.generate_from_3D_models.update_contour.flux import cal_grid_fl
 from highlighting.generate_from_3D_models.update_contour.fm import build_cell_incidence, fm_refine
 from highlighting.generate_from_3D_models.update_contour.grid import ScalpGrid, default_dataset_path  # noqa: F401
 from highlighting.generate_from_3D_models.update_contour.majority import update_contour, update_contour_mask
+from highlighting.generate_from_3D_models.update_contour.overlap import build_projection_graph
 from highlighting.generate_from_3D_models.update_contour.masks import (
     grid_mask_to_strand_mask, load_mask, normalize_mask, strand_colors_to_root_grid,
 )
@@ -63,7 +64,11 @@ def update_mask(
         strand_mask_grid: optional precomputed (N, N, S) bool membership (skips the query).
         method:           one of METHODS (see module docstring).
         method_kwargs:    extra keyword arguments of the chosen method:
-                          "fm":             fm_refine's mode ("clique"), max_passes (20), lam, balance_tol, patience
+                          "fm":             fm_refine's mode ("clique"), max_passes (20), lam, balance_tol, patience,
+                                            overlap ("cell" = all strands above a cell overlap (default) |
+                                            "projection" = only strands whose 2D projections intersect in the
+                                            cell overlap, overlap.build_projection_graph), overlap_kwargs (dict
+                                            for build_projection_graph, e.g. n_bins, n_threads)
                           "active_contour": edge_smooth (1.5), erode (3), snap_radius (8), ridge (dict for
                                             extract_natural_boundary), flux (dict for cal_grid_flux_3d),
                                             plus snake parameters alpha, beta, gamma, kappa, anchor, n_iter
@@ -120,8 +125,17 @@ def update_mask(
                 )
         elif method == "fm":
             method_kwargs.setdefault("mode", "clique")
-            strand_mask = fm_refine(build_cell_incidence(strand_mask_grid), strand_mask,
-                                    verbose=verbose, **method_kwargs)
+            overlap = method_kwargs.pop("overlap", "cell")
+            overlap_kwargs = method_kwargs.pop("overlap_kwargs", {})
+            if overlap == "cell":
+                incidence = build_cell_incidence(strand_mask_grid)
+            elif overlap == "projection":
+                incidence = build_projection_graph(
+                    strand_positions, strand_mask_grid, g["grid_pos"], g["grid_normal"], g["half_size"],
+                    grid_t1=g["grid_t1"], grid_t2=g["grid_t2"], show_progress=verbose, **overlap_kwargs)
+            else:
+                raise ValueError(f"overlap must be 'cell' or 'projection', got {overlap!r}")
+            strand_mask = fm_refine(incidence, strand_mask, verbose=verbose, **method_kwargs)
         else:  # active_contour
             flux_rc, flux_ok = cal_grid_flux_3d(
                 strand_positions, g["grid_pos"], g["grid_normal"], g["grid_valid"], g["half_size"],

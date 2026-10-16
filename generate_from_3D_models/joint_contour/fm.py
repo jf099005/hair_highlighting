@@ -24,6 +24,8 @@ pass through the column of cell c, and
 Flipping x[p] hides p's strands of one head and shows those of the other. The gain of every node is
 kept in O(1) gain buckets (as in update_contour.fm) when the gain range is small enough, otherwise in
 one max segment tree per label side (cell nodes have weighted, possibly huge gains).
+With a JointGraph (joint_contour.overlap, overlap="projection") an A-B pair only crosses where their
+2D projections intersect; FM then minimizes the weighted crossing pairs over node pairs instead.
 balance_tol (default None = off) bounds the number of True nodes so the mask cannot collapse into
 "all A" or "all B"; lam penalizes leaving the initial label, per strand of the node.
 """
@@ -35,6 +37,7 @@ import numpy as np
 from numba import njit
 from scipy import sparse
 
+from highlighting.generate_from_3D_models.joint_contour.overlap import JointGraph, joint_graph_objective
 from highlighting.generate_from_3D_models.update_contour.fm import _b_insert, _b_remove, _bump
 
 _NEG = -(1 << 62)
@@ -395,6 +398,142 @@ def _joint_fm_pass_buckets(x, x0, cand, node_w, cell_ptr, cell_nodes, cell_wa, c
     return best
 
 
+@njit
+def _graph_contrib(xu, xv, wo, wi):
+    """Gain of flipping node u (label xu) from its edge to node v (label xv); wo = W(u -> v), wi = W(v -> u).
+    Edge cost: wo * (1 - xu) * xv + wi * (1 - xv) * xu."""
+    if xv:
+        return -wo if xu else wo
+    return wi if xu else -wi
+
+
+@njit
+def _joint_graph_pass(x, x0, cand, node_w, ptr, nbr, w_out, w_in, patience, lo, hi, lam, use_buckets, max_gain):
+    """One FM pass on a joint_contour.overlap.JointGraph (x modified in place); returns the cumulative gain
+    applied. Gains are kept in O(1) buckets (use_buckets, needs every |gain| <= max_gain) or in one max
+    segment tree per label side. Only nodes with cand[v] are moved."""
+    V = x.shape[0]
+    gain = np.zeros(V, np.int64)
+    for v in range(V):
+        g = 0
+        for k in range(ptr[v], ptr[v + 1]):
+            g += _graph_contrib(x[v], x[nbr[k]], w_out[k], w_in[k])
+        pen = lam * node_w[v]
+        gain[v] = g + (pen if x[v] != x0[v] else -pen)
+
+    # bucket structure (use_buckets) / segment trees (otherwise); the unused one is allocated tiny
+    off = max_gain
+    W = 2 * max_gain + 1 if use_buckets else 1
+    head = np.full(2 * W, -1, np.int64)
+    nxt = np.empty(V, np.int64)
+    prv = np.empty(V, np.int64)
+    tops = np.full(2, 2 * max_gain, np.int64)
+    size = 1
+    if not use_buckets:
+        while size < V:
+            size *= 2
+    trees = np.full((2, 2 * size), _NEG, np.int64)
+    args = np.zeros((2, 2 * size), np.int64)
+
+    locked = np.zeros(V, np.bool_)
+    n_true = 0
+    for v in range(V):
+        sd = 1 if x[v] else 0
+        n_true += sd
+        if not cand[v]:
+            locked[v] = True
+        elif use_buckets:
+            _b_insert(v, sd * W + gain[v] + off, head, nxt, prv)
+        else:
+            trees[sd, size + v] = gain[v]
+    if not use_buckets:
+        for s in range(2):
+            for i in range(size):
+                args[s, size + i] = i
+            for p in range(size - 1, 0, -1):
+                l = 2 * p
+                if trees[s, l] >= trees[s, l + 1]:
+                    trees[s, p] = trees[s, l]
+                    args[s, p] = args[s, l]
+                else:
+                    trees[s, p] = trees[s, l + 1]
+                    args[s, p] = args[s, l + 1]
+
+    moves = np.empty(V, np.int64)
+    n_moves = 0
+    cum = 0
+    best = 0
+    best_step = 0
+    while n_moves < V:
+        best_side = -1
+        best_val = _NEG
+        for sd in range(2):
+            if sd == 1 and n_true - 1 < lo:
+                continue
+            if sd == 0 and n_true + 1 > hi:
+                continue
+            if use_buckets:
+                while tops[sd] >= 0 and head[sd * W + tops[sd]] < 0:
+                    tops[sd] -= 1
+                val = tops[sd] if tops[sd] >= 0 else _NEG
+            else:
+                val = trees[sd, 1]
+            if val > best_val:
+                best_val = val
+                best_side = sd
+        if best_side < 0 or best_val == _NEG:
+            break
+        if use_buckets:
+            v = head[best_side * W + best_val]
+            _b_remove(v, best_side * W + best_val, head, nxt, prv)
+        else:
+            v = args[best_side, 1]
+            _st_set(trees[best_side], args[best_side], size, v, _NEG)
+        locked[v] = True
+        cum += gain[v]
+        moves[n_moves] = v
+        n_moves += 1
+        n_true += -1 if best_side == 1 else 1
+        if cum > best:
+            best = cum
+            best_step = n_moves
+
+        xv = x[v]
+        for k in range(ptr[v], ptr[v + 1]):
+            u = nbr[k]
+            if locked[u]:
+                continue
+            # from u's side the edge weights are swapped: W(u -> v) = w_in[k], W(v -> u) = w_out[k]
+            delta = (_graph_contrib(x[u], not xv, w_in[k], w_out[k])
+                     - _graph_contrib(x[u], xv, w_in[k], w_out[k]))
+            if delta != 0:
+                if use_buckets:
+                    _bump(u, delta, gain, off, W, x, head, nxt, prv, tops)
+                else:
+                    gain[u] += delta
+                    su = 1 if x[u] else 0
+                    _st_set(trees[su], args[su], size, u, gain[u])
+        x[v] = not xv
+
+        if n_moves - best_step >= patience:
+            break
+
+    for i in range(best_step, n_moves):
+        x[moves[i]] = not x[moves[i]]
+    return best
+
+
+@njit
+def _graph_gain_bound(ptr, w_out, w_in, node_w, lam):
+    best = 0
+    for v in range(ptr.shape[0] - 1):
+        d = lam * node_w[v]
+        for k in range(ptr[v], ptr[v + 1]):
+            d += w_out[k] + w_in[k]
+        best = max(best, d)
+    return best + 1
+
+
 def _gain_bound(incidence, mode_id, lam):
     """Upper bound of |gain| of any node in any labeling."""
     inc = incidence
@@ -426,13 +565,16 @@ def joint_cell_counts(incidence, node_state):
 
 def joint_fm_objectives(incidence, node_state):
     """(conflict cells = columns where visible strands of both heads cross,
-        crossing pairs  = sum_c NA[c] * NB[c])."""
+        crossing pairs  = sum_c NA[c] * NB[c]).
+    incidence may also be a JointGraph: returns (None, weighted crossing pairs whose projections intersect)."""
+    if isinstance(incidence, JointGraph):
+        return None, joint_graph_objective(incidence, node_state)
     NA, NB = joint_cell_counts(incidence, node_state)
     return int(((NA > 0) & (NB > 0)).sum()), int((NA * NB).sum())
 
 
 def joint_fm_refine(incidence, node_state, mode="clique", max_passes=20, patience=None, balance_tol=None,
-                    lam=0, movable_only=False, verbose=True, return_history=False):
+                    lam=0, movable_only=False, verbose=True, return_history=False, boundary=False):
     """Joint FM on the (n_nodes,) node labels `node_state` (True = B region, e.g.
     incidence.node_state_from_mask(mask)). Returns the new labels (the input is not modified), or
     [initial, after pass 0, after pass 1, ...] with return_history.
@@ -444,7 +586,15 @@ def joint_fm_refine(incidence, node_state, mode="clique", max_passes=20, patienc
                     (in crossing-pair units for "clique", conflict-cell units for "cutnet").
       movable_only: only move nodes whose root cell has roots of both heads (default False).
     Nodes that never share a column with the other head are never moved (flipping them cannot change
-    the objective)."""
+    the objective).
+    incidence may also be a joint_contour.overlap.JointGraph (projection-intersection crossings): then
+    `mode` is ignored and FM minimizes the weighted crossing pairs sum W(p -> q) (1 - x[p]) x[q].
+      boundary:     True = Boundary FM (boundary_fm.py): a pass starts from the nodes in a conflict column
+                    (graph: with a crossing edge; lam > 0: also nodes away from their initial label) and adds
+                    a node only when one sharing a column / edge with it moves. False (default) = plain FM."""
+    if isinstance(incidence, JointGraph):
+        return _joint_graph_refine(incidence, node_state, max_passes, patience, balance_tol, lam, movable_only,
+                                   verbose, return_history, boundary)
     V = incidence.n_nodes
     x = np.asarray(node_state, dtype=np.bool_).copy()
     assert x.shape == (V,)
@@ -465,24 +615,77 @@ def joint_fm_refine(incidence, node_state, mode="clique", max_passes=20, patienc
         cand &= inc.node_movable
     max_gain = _gain_bound(inc, mode_id, lam)
     use_buckets = max_gain <= _MAX_BUCKET_GAIN
+    pass_fn, bucket_pass_fn = _joint_fm_pass, _joint_fm_pass_buckets
+    if boundary:
+        from highlighting.generate_from_3D_models.joint_contour.boundary_fm import (
+            _joint_bfm_pass, _joint_bfm_pass_buckets,
+        )
+        pass_fn, bucket_pass_fn = _joint_bfm_pass, _joint_bfm_pass_buckets
+    tag = "jointBFM" if boundary else "jointFM"
     arrays = (inc.node_strands, inc.cell_ptr, inc.cell_nodes, inc.cell_wa, inc.cell_wb,
               inc.node_ptr, inc.node_cells, inc.node_wa, inc.node_wb)
 
     history = [x.copy()] if return_history else None
     if verbose:
         cells, pairs = joint_fm_objectives(inc, x)
-        print(f"[jointFM/{mode}] start: conflict cells = {cells}, crossing pairs = {pairs}, lam = {lam}, "
+        print(f"[{tag}/{mode}] start: conflict cells = {cells}, crossing pairs = {pairs}, lam = {lam}, "
               f"nodes = {V} ({inc.node_unit}), balance_tol = {balance_tol}, movable_only = {movable_only}, "
               f"gain structure = {'buckets' if use_buckets else 'segment tree'}")
     for pass_idx in range(max_passes):
         if use_buckets:
-            gained = _joint_fm_pass_buckets(x, x0, cand, *arrays, mode_id, patience, lo, hi, lam, max_gain)
+            gained = bucket_pass_fn(x, x0, cand, *arrays, mode_id, patience, lo, hi, lam, max_gain)
         else:
-            gained = _joint_fm_pass(x, x0, cand, *arrays, mode_id, patience, lo, hi, lam)
+            gained = pass_fn(x, x0, cand, *arrays, mode_id, patience, lo, hi, lam)
         if verbose:
             cells, pairs = joint_fm_objectives(inc, x)
-            print(f"[jointFM/{mode}] pass {pass_idx}: gain = {gained}, conflict cells = {cells}, "
+            print(f"[{tag}/{mode}] pass {pass_idx}: gain = {gained}, conflict cells = {cells}, "
                   f"crossing pairs = {pairs}, nodes flipped from start = {int((x != x0).sum())}")
+        if return_history:
+            history.append(x.copy())
+        if gained <= 0:
+            break
+    return history if return_history else x
+
+
+def _joint_graph_refine(graph, node_state, max_passes, patience, balance_tol, lam, movable_only, verbose,
+                        return_history, boundary=False):
+    """joint_fm_refine on a JointGraph (same parameters, see there)."""
+    V = graph.n_nodes
+    x = np.asarray(node_state, dtype=np.bool_).copy()
+    assert x.shape == (V,)
+    x0 = x.copy()
+    lam = int(lam)
+    assert lam >= 0, "lam must be a non-negative integer"
+    if patience is None:
+        patience = V + 1
+    n_true0 = int(x.sum())
+    tol = V if balance_tol is None else int(balance_tol * V)
+    lo, hi = max(0, n_true0 - tol), min(V, n_true0 + tol)
+    inc = graph.incidence
+    cand = np.diff(graph.ptr) > 0
+    if movable_only:
+        cand &= inc.node_movable
+    node_w = inc.node_strands.astype(np.int64)
+    max_gain = int(_graph_gain_bound(graph.ptr, graph.w_out, graph.w_in, node_w, lam))
+    use_buckets = max_gain <= _MAX_BUCKET_GAIN
+    pass_fn = _joint_graph_pass
+    if boundary:
+        from highlighting.generate_from_3D_models.joint_contour.boundary_fm import _joint_graph_bfm_pass
+        pass_fn = _joint_graph_bfm_pass
+    tag = "jointBFM" if boundary else "jointFM"
+
+    history = [x.copy()] if return_history else None
+    if verbose:
+        print(f"[{tag}/projection] start: weighted crossing pairs = {joint_graph_objective(graph, x)}, "
+              f"lam = {lam}, nodes = {V} ({inc.node_unit}), edges = {graph.nbr.size // 2}, "
+              f"balance_tol = {balance_tol}, movable_only = {movable_only}, "
+              f"gain structure = {'buckets' if use_buckets else 'segment tree'}")
+    for pass_idx in range(max_passes):
+        gained = pass_fn(x, x0, cand, node_w, graph.ptr, graph.nbr, graph.w_out, graph.w_in,
+                                   patience, lo, hi, lam, use_buckets, max_gain if use_buckets else 0)
+        if verbose:
+            print(f"[{tag}/projection] pass {pass_idx}: gain = {gained}, weighted crossing pairs = "
+                  f"{joint_graph_objective(graph, x)}, nodes flipped from start = {int((x != x0).sum())}")
         if return_history:
             history.append(x.copy())
         if gained <= 0:

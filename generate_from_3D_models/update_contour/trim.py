@@ -4,15 +4,20 @@ from __future__ import annotations
 
 import numpy as np
 
-from highlighting.generate_from_3D_models.update_contour.fm import build_cell_incidence
+from highlighting.generate_from_3D_models.update_contour.fm import _is_graph, build_cell_incidence
+from highlighting.generate_from_3D_models.update_contour.overlap import graph_cut_per_strand
 
 
 def strand_conflict_counts(strand_mask, incidence):
     """(S,) int: for each strand, the number of strands with a different mask that share a cell with it
-    (counted once per shared cell, i.e. the clique edge weight of fm.build_cell_incidence)."""
+    (counted once per shared cell, i.e. the clique edge weight of fm.build_cell_incidence).
+    With an overlap.StrandGraph: the summed weight of the edges to strands with a different mask
+    (only strands whose projections intersect count)."""
+    strand_mask = np.asarray(strand_mask, dtype=bool)
+    if _is_graph(incidence):
+        return graph_cut_per_strand(*incidence, strand_mask)[1]
     cell_ptr, cell_members, strand_ptr, _ = incidence
     n_strands = strand_ptr.shape[0] - 1
-    strand_mask = np.asarray(strand_mask, dtype=bool)
 
     mask_in_cells = strand_mask[cell_members]                                  # (nnz,) mask of each (cell, member)
     size = np.diff(cell_ptr)                                                   # (R,) strands per cell (>= 2)
@@ -28,7 +33,8 @@ def strand_conflict_counts(strand_mask, incidence):
 
 def trim(strand_mask, incidence=None, max_cut=100, *, strand_mask_grid=None):
     """(S,) bool, True = one of the `max_cut` strands with the highest strand_conflict_counts.
-    Pass `incidence` (fm.build_cell_incidence) or `strand_mask_grid` (it is built from that)."""
+    Pass `incidence` (fm.build_cell_incidence or overlap.StrandGraph) or `strand_mask_grid`
+    (the cell incidence is built from that)."""
     if incidence is None:
         if strand_mask_grid is None:
             raise ValueError("trim needs either incidence or strand_mask_grid")

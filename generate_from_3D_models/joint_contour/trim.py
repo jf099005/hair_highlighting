@@ -5,12 +5,17 @@ from __future__ import annotations
 import numpy as np
 
 from highlighting.generate_from_3D_models.joint_contour.masks import visible_strands
+from highlighting.generate_from_3D_models.joint_contour.overlap import joint_projection_conflict_counts
 
 
-def joint_conflict_counts(state, membership):
+def joint_conflict_counts(state, membership, edges=None):
     """(S,) int: for each visible strand, the number of visible strands of the other head sharing a column
     with it (counted once per shared column). Hidden strands are not rendered, so they get 0.
-    state: joint (S_a + S_b,) per-strand labels (JointIncidence.strand_state)."""
+    state: joint (S_a + S_b,) per-strand labels (JointIncidence.strand_state).
+    edges: optional overlap.joint_projection_edges; then only strands whose projections intersect count
+    (summed edge weight = number of columns in which they cross)."""
+    if edges is not None:
+        return joint_projection_conflict_counts(edges, state, membership.n_a)
     vis = visible_strands(state, membership.is_b)
     vis_a, vis_b = membership.split(vis)
     M_a, M_b = membership.M[:, :membership.n_a], membership.M[:, membership.n_a:]
@@ -21,10 +26,10 @@ def joint_conflict_counts(state, membership):
     return cut
 
 
-def joint_trim(state, membership, max_cut=100):
+def joint_trim(state, membership, max_cut=100, edges=None):
     """(S,) bool, True = one of the `max_cut` visible strands with the highest joint_conflict_counts
-    (strands without any crossing are never picked)."""
-    cut = joint_conflict_counts(state, membership)
+    (strands without any crossing are never picked). edges: see joint_conflict_counts."""
+    cut = joint_conflict_counts(state, membership, edges)
     trim_mask = np.zeros(cut.shape[0], dtype=bool)
     candidates = np.nonzero(cut > 0)[0]
     max_cut = min(max_cut, candidates.size)
