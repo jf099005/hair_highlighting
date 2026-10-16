@@ -7,6 +7,7 @@ Modules:
     flux            3D net outward flux of the hair flow field per cell (edge energy)
     majority        majority-vote update (notebook `update_color`)
     fm              Fiduccia-Mattheyses refinement of the per-strand mask
+    overlap         strand <-> strand overlap by 2D projection intersection (StrandGraph for fm / trim)
     active_contour  3D snake that snaps the mask contour onto |flux| ridges
     trim            strands that conflict most with their neighbors (render ignore mask)
     core            update_mask(): np arrays + n x n mask in, updated mask out
@@ -39,6 +40,9 @@ from highlighting.generate_from_3D_models.update_contour.majority import (  # no
 from highlighting.generate_from_3D_models.update_contour.fm import (  # noqa: E402
     build_cell_incidence, fm_objectives, fm_refine,
 )
+from highlighting.generate_from_3D_models.update_contour.overlap import (  # noqa: E402
+    StrandGraph, build_projection_graph,
+)
 from highlighting.generate_from_3D_models.update_contour.active_contour import (  # noqa: E402
     NaturalBoundary, ScalpSurface, active_contour_mask_3d, prepare_natural_boundary, update_contour_active,
 )
@@ -52,6 +56,7 @@ __all__ = [
     "cal_grid_flux_3d", "cell_points_tangents_3d", "edge_detect_flux_3d",
     "update_contour", "update_contour_mask",
     "build_cell_incidence", "fm_objectives", "fm_refine",
+    "StrandGraph", "build_projection_graph",
     "NaturalBoundary", "ScalpSurface", "active_contour_mask_3d", "prepare_natural_boundary", "update_contour_active",
     "strand_conflict_counts", "trim",
     "METHODS", "update_mask",

@@ -35,6 +35,10 @@ def main(argv=None):
     g.add_argument("--max_passes", type=int, default=20)
     g.add_argument("--lam", type=int, default=0, help="deviation penalty (non-negative int)")
     g.add_argument("--balance_tol", type=float, default=0.02)
+    g.add_argument("--overlap", choices=["cell", "projection"], default="cell",
+                   help="cell: all strands above a cell overlap; projection: only strands whose 2D projections intersect")
+    g.add_argument("--boundary_fm", action="store_true",
+                   help="Boundary FM: each pass starts from the boundary strands only (default off = plain FM)")
     g = p.add_argument_group("active_contour")
     g.add_argument("--snap_radius", type=float, default=8, help="in cells")
     g.add_argument("--edge_smooth", type=float, default=1.5)
@@ -42,7 +46,8 @@ def main(argv=None):
     args = p.parse_args(argv)
 
     method_kwargs = {
-        "fm": dict(mode=args.fm_mode, max_passes=args.max_passes, lam=args.lam, balance_tol=args.balance_tol),
+        "fm": dict(mode=args.fm_mode, max_passes=args.max_passes, lam=args.lam, balance_tol=args.balance_tol,
+                   overlap=args.overlap, boundary=args.boundary_fm),
         "active_contour": dict(snap_radius=args.snap_radius, edge_smooth=args.edge_smooth, n_iter=args.snake_iter),
     }.get(args.method)
 

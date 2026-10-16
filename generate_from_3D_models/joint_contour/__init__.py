@@ -6,6 +6,7 @@ Modules:
     grid    joint (two-head) sparse strand <-> cell membership on the shared ScalpGrid
     masks   (n, n) grid mask <-> joint per-strand labels, visibility
     fm      joint Fiduccia-Mattheyses refinement over mask cells (only A-B crossings of visible strands count)
+    overlap A-B crossings judged by 2D projection intersection (JointGraph for fm / trim)
     trim    visible strands that cross the other head the most (render ignore mask)
     scores  per-cell conflict maps
     core    update_joint_mask(): two heads + n x n mask in, refined mask out
@@ -28,6 +29,10 @@ from highlighting.generate_from_3D_models.joint_contour.masks import (  # noqa: 
 from highlighting.generate_from_3D_models.joint_contour.fm import (  # noqa: E402
     JointIncidence, build_joint_incidence, joint_cell_counts, joint_fm_objectives, joint_fm_refine,
 )
+from highlighting.generate_from_3D_models.joint_contour.overlap import (  # noqa: E402
+    JointGraph, build_joint_projection_graph, joint_graph_objective, joint_projection_conflict_counts,
+    joint_projection_edges, joint_projection_objectives,
+)
 from highlighting.generate_from_3D_models.joint_contour.trim import joint_conflict_counts, joint_trim  # noqa: E402
 from highlighting.generate_from_3D_models.joint_contour.scores import (  # noqa: E402
     change_ratios, conflict_cells_map, conflict_pairs_map, visible_counts_map,
@@ -39,6 +44,8 @@ __all__ = [
     "DEFAULT_BASE_COLOR", "DEFAULT_HIGHLIGHT_COLOR", "binarize_mask", "grid_mask_to_joint_state", "joint_colors",
     "joint_state_to_column_mask", "load_mask", "mask_to_rgb", "visible_strands",
     "JointIncidence", "build_joint_incidence", "joint_cell_counts", "joint_fm_objectives", "joint_fm_refine",
+    "JointGraph", "build_joint_projection_graph", "joint_graph_objective", "joint_projection_conflict_counts",
+    "joint_projection_edges", "joint_projection_objectives",
     "joint_conflict_counts", "joint_trim",
     "change_ratios", "conflict_cells_map", "conflict_pairs_map", "visible_counts_map",
     "METHODS", "update_joint_mask",

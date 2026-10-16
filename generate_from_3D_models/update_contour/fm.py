@@ -6,6 +6,9 @@ Neither mode builds an (S, S) adjacency; only the cell <-> strand incidence is u
                  minimizes sum_c n_true[c] * n_false[c]
   mode="cutnet": each cell is a net (hypergraph); minimizes the number of cells containing both
                  colors (the cut-net objective of the original FM paper)
+  StrandGraph (overlap.build_projection_graph): two strands overlap only where their 2D projections
+                 in a cell intersect; edge weight = number of such cells; minimizes the cut edge weight
+                 (pass the graph to fm_refine instead of the incidence; `mode` is then ignored)
   lam: extra deviation penalty, gain += -lam * (state != state0) with state0 = the state passed to
        fm_refine; larger lam keeps strands closer to the original mask (default 0 = no limit)
 """
@@ -197,15 +200,109 @@ def _fm_pass(state, cell_ptr, cell_members, strand_ptr, strand_cells, mode, max_
     return best
 
 
+@njit
+def _fm_pass_graph(state, ptr, nbr, weight, max_gain, patience, lo, hi, state0, lam):
+    """_fm_pass 的加權圖版本 (overlap.StrandGraph，投影相交才算重疊)：最小化被切開的邊權重總和
+    sum_{(a,b), state[a] != state[b]} w(a, b)。gain bucket / 平衡限制 / patience / lam 跟 _fm_pass 相同。"""
+    S = state.shape[0]
+    gain = np.zeros(S, np.int64)
+    for v in range(S):
+        g = 0
+        for k in range(ptr[v], ptr[v + 1]):
+            g += weight[k] if state[nbr[k]] != state[v] else -weight[k]
+        gain[v] = g + (lam if state[v] != state0[v] else -lam)
+
+    off = max_gain
+    W = 2 * max_gain + 1
+    head = np.full(2 * W, -1, np.int64)
+    nxt = np.empty(S, np.int64)
+    prv = np.empty(S, np.int64)
+    n_true = 0
+    for v in range(S):
+        sd = 1 if state[v] else 0
+        n_true += sd
+        _b_insert(v, sd * W + gain[v] + off, head, nxt, prv)
+
+    locked = np.zeros(S, np.bool_)
+    moves = np.empty(S, np.int64)
+    n_moves = 0
+    cum = 0
+    best = 0
+    best_step = 0
+    tops = np.full(2, 2 * max_gain, np.int64)
+
+    while n_moves < S:
+        best_key = -1
+        best_side = -1
+        for sd in range(2):
+            if sd == 1 and n_true - 1 < lo:
+                continue
+            if sd == 0 and n_true + 1 > hi:
+                continue
+            while tops[sd] >= 0 and head[sd * W + tops[sd]] < 0:
+                tops[sd] -= 1
+            if tops[sd] > best_key:
+                best_key = tops[sd]
+                best_side = sd
+        if best_side < 0:
+            break
+        v = head[best_side * W + best_key]
+        _b_remove(v, best_side * W + best_key, head, nxt, prv)
+        locked[v] = True
+        cum += gain[v]
+        moves[n_moves] = v
+        n_moves += 1
+        n_true += -1 if best_side == 1 else 1
+        if cum > best:
+            best = cum
+            best_step = n_moves
+
+        sv = state[v]
+        for k in range(ptr[v], ptr[v + 1]):
+            u = nbr[k]
+            if not locked[u]:  # v 移走後，同側鄰居的邊變成被切開 (+2w)，對側鄰居的邊不再被切開 (-2w)
+                _bump(u, 2 * weight[k] if state[u] == sv else -2 * weight[k], gain, off, W, state, head, nxt, prv, tops)
+        state[v] = not sv
+
+        if n_moves - best_step >= patience:
+            break
+
+    for i in range(best_step, n_moves):
+        state[moves[i]] = not state[moves[i]]
+    return best
+
+
+@njit
+def _max_weighted_degree(ptr, weight):
+    best = 0
+    for v in range(ptr.shape[0] - 1):
+        d = 0
+        for k in range(ptr[v], ptr[v + 1]):
+            d += weight[k]
+        best = max(best, d)
+    return best
+
+
+def _is_graph(incidence):
+    from highlighting.generate_from_3D_models.update_contour.overlap import StrandGraph
+    return isinstance(incidence, StrandGraph)
+
+
 def fm_objectives(incidence, state):
-    """回傳 (混色格數 cut-net, clique cut = sum_c n_true * n_false)。"""
+    """回傳 (混色格數 cut-net, clique cut = sum_c n_true * n_false)。
+    incidence 是 overlap.StrandGraph 時回傳 (被切開的邊數, 被切開的邊權重總和)。"""
+    if _is_graph(incidence):
+        from highlighting.generate_from_3D_models.update_contour.overlap import graph_cut_per_strand
+        n_cut, w_cut = graph_cut_per_strand(*incidence, np.asarray(state, dtype=np.bool_))
+        return int(n_cut.sum()) // 2, int(w_cut.sum()) // 2  # 每條邊在兩端各算一次
     cell_ptr, cell_members, _, _ = incidence
     n1 = np.add.reduceat(state[cell_members].astype(np.int64), cell_ptr[:-1])
     size = np.diff(cell_ptr)
     return int(((n1 > 0) & (n1 < size)).sum()), int((n1 * (size - n1)).sum())
 
 
-def fm_refine(incidence, state, mode="cutnet", max_passes=20, patience=None, balance_tol=0.02, lam=0, verbose=True, return_history=False):
+def fm_refine(incidence, state, mode="cutnet", max_passes=20, patience=None, balance_tol=0.02, lam=0, verbose=True, return_history=False,
+              boundary=False):
     """FM 迭代更新 2-way 分類 state (bool, (S,))，回傳新的 state (不改動輸入)。
     每個 pass 依 gain 由大到小把髮絲各移動一次並鎖住，只採用累積 gain 最大的前綴，重複到沒有改善。
     patience: 連續多少步累積 gain 沒創新高就提前結束該 pass；None = 不提前結束 (完整 FM)。
@@ -214,21 +311,36 @@ def fm_refine(incidence, state, mode="cutnet", max_passes=20, patience=None, bal
     lam: 偏移懲罰係數 (非負整數，預設 0 = 不限制)。gain 額外加上 -lam * (state != state0)，
       state0 = 傳入 fm_refine 當下的初始 state (整個 fm_refine 過程固定，不會每個 pass 重設)，
       也就是每根髮絲想離開自己的原始顏色都要先「還」lam 的 gain，藉此壓低跟原始 mask 的偏移量。
-    return_history: True 時回傳 [初始 state, pass 0 後, pass 1 後, ...] 的 list。"""
-    cell_ptr, cell_members, strand_ptr, strand_cells = incidence
-    n_strands = strand_ptr.shape[0] - 1
+    return_history: True 時回傳 [初始 state, pass 0 後, pass 1 後, ...] 的 list。
+    incidence: build_cell_incidence 的結果 (同一格的髮絲都算重疊)，或 overlap.StrandGraph
+      (投影相交才算重疊)；後者每個重疊都是一對髮絲，clique 與 cutnet 目標相同，mode 被忽略，
+      最小化被切開的邊權重總和。
+    boundary: True = Boundary FM (boundary_fm.py)：每個 pass 只從邊界髮絲 (經過混色格子 / 有異色鄰居，
+      lam > 0 時再加上已偏離 state0 的) 開始，移動時才把同格 / 相鄰的髮絲加進候選；False (預設) = 原本的 FM。"""
+    graph = _is_graph(incidence)
+    pass_fn, graph_pass_fn = _fm_pass, _fm_pass_graph
+    if boundary:
+        from highlighting.generate_from_3D_models.update_contour.boundary_fm import _bfm_pass, _bfm_pass_graph
+        pass_fn, graph_pass_fn = _bfm_pass, _bfm_pass_graph
+    tag = "BFM" if boundary else "FM"
+    n_strands = incidence.n_strands if graph else incidence[2].shape[0] - 1
     assert state.shape == (n_strands,)
     state = state.astype(np.bool_).copy()
     state0 = state.copy()  # lam 懲罰的參照點，整個 fm_refine 期間固定
     lam = int(lam)
     assert lam >= 0, "lam 必須是非負整數"
 
-    if mode == "clique":
+    if graph:
+        mode = "graph"
+        max_gain = _max_weighted_degree(incidence.ptr, incidence.weight)
+    elif mode == "clique":
+        cell_ptr, cell_members, strand_ptr, strand_cells = incidence
         mode_id = 0
         entry_strand = np.repeat(np.arange(n_strands), np.diff(strand_ptr))
         max_gain = int(np.bincount(entry_strand, weights=np.diff(cell_ptr)[strand_cells] - 1,
                                    minlength=n_strands).max())
     elif mode == "cutnet":
+        cell_ptr, cell_members, strand_ptr, strand_cells = incidence
         mode_id = 1
         max_gain = int(np.diff(strand_ptr).max())
     else:
@@ -242,16 +354,21 @@ def fm_refine(incidence, state, mode="cutnet", max_passes=20, patience=None, bal
 
     history = [state.copy()] if return_history else None
 
+    names = ("cut pairs", "cut weight") if graph else ("mixed cells", "clique cut")
     if verbose:
-        mixed, cut = fm_objectives(incidence, state)
-        print(f"[FM/{mode}] start: mixed cells = {mixed}, clique cut = {cut}, lam = {lam}")
+        o1, o2 = fm_objectives(incidence, state)
+        print(f"[{tag}/{mode}] start: {names[0]} = {o1}, {names[1]} = {o2}, lam = {lam}")
     for pass_idx in range(max_passes):
-        gained = _fm_pass(state, cell_ptr, cell_members, strand_ptr, strand_cells,
-                          mode_id, max_gain, patience, lo, hi, state0, lam)
+        if graph:
+            gained = graph_pass_fn(state, incidence.ptr, incidence.nbr, incidence.weight,
+                                    max_gain, patience, lo, hi, state0, lam)
+        else:
+            gained = pass_fn(state, cell_ptr, cell_members, strand_ptr, strand_cells,
+                              mode_id, max_gain, patience, lo, hi, state0, lam)
         if verbose:
-            mixed, cut = fm_objectives(incidence, state)
-            print(f"[FM/{mode}] pass {pass_idx}: gain = {gained}, mixed cells = {mixed}, "
-                  f"clique cut = {cut}, diff from state0 = {(state != state0).mean():.4f}")
+            o1, o2 = fm_objectives(incidence, state)
+            print(f"[{tag}/{mode}] pass {pass_idx}: gain = {gained}, {names[0]} = {o1}, "
+                  f"{names[1]} = {o2}, diff from state0 = {(state != state0).mean():.4f}")
         if return_history:
             history.append(state.copy())
         if gained <= 0:

@@ -15,6 +15,9 @@ from highlighting.generate_from_3D_models.joint_contour.grid import (
     JointMembership, ScalpGrid, strand_cell_membership,
 )
 from highlighting.generate_from_3D_models.joint_contour.masks import binarize_mask, visible_strands
+from highlighting.generate_from_3D_models.joint_contour.overlap import (
+    build_joint_projection_graph, joint_projection_edges, joint_projection_objectives,
+)
 
 METHODS = ("fm",)
 
@@ -29,6 +32,8 @@ def update_joint_mask(
     grid=None,
     membership_a=None,
     membership_b=None,
+    rowcol_a=None,
+    rowcol_b=None,
 ):
     """Refine `mask` so that the two heads' visible strands cross as little as possible.
 
@@ -46,9 +51,19 @@ def update_joint_mask(
                        default "strand") of build_joint_incidence and fill_radius (2) of
                        JointIncidence.mask_from_node_state. The three constraints node_unit="cell",
                        balance_tol and movable_only are off by default.
+                       overlap: "cell" (default) = a visible A and a visible B strand cross when they
+                       share a column; "projection" = only when their 2D projections intersect in the
+                       column (overlap.joint_projection_edges; `mode` is then ignored and FM minimizes
+                       the weighted crossing pairs). overlap_kwargs: dict for joint_projection_edges
+                       (n_bins, n_threads).
         grid:          optional prebuilt ScalpGrid of resolution N.
         membership_a / membership_b: optional precomputed grid.strand_cell_membership of each head
                        (e.g. reuse head A's when refining several donors against the same base).
+        rowcol_a / rowcol_b: optional (row_idx, col_idx) of every strand's root cell *in the mask's own
+                       layout*; default grid.root_rowcol(root_uv) (the scalp-grid layout). Pass them when
+                       the mask lives in another layout, e.g. the 256x256 DiffLocks scalp texture, where
+                       a strand's texel is (floor(root_uv[:, 0] * N), floor(root_uv[:, 1] * N)). Only the
+                       mask side uses them; the strand/column membership stays in the scalp-grid layout.
 
     Returns dict:
         binary_mask       (N, N) bool refined mask (JointIncidence.mask_from_node_state: root cells take
@@ -56,7 +71,9 @@ def update_joint_mask(
         state_a, state_b  (S_a,) / (S_b,) bool per-strand labels: each strand's own FM label
                           (node_unit="strand"), or binary_mask at its root cell (node_unit="cell")
         visible_a, visible_b  (S_a,) / (S_b,) bool strands kept in the overlaid result
-        objectives        {"before": (conflict cells, crossing pairs), "after": (...)}
+        objectives        {"before": (conflict cells, crossing pairs), "after": (...)} (column rule), plus
+                          with overlap="projection" "projection_before" / "projection_after":
+                          (crossing pairs, weighted crossing pairs) whose projections intersect
     """
     if method not in METHODS:
         raise ValueError(f"method must be one of {METHODS}, got {method!r}")
@@ -75,17 +92,30 @@ def update_joint_mask(
     membership = JointMembership.from_heads(membership_a, membership_b, N)
     is_b = membership.is_b
 
-    rowcol_a = grid.root_rowcol(np.asarray(root_uv_a))
-    rowcol_b = grid.root_rowcol(np.asarray(root_uv_b))
+    if rowcol_a is None:
+        rowcol_a = grid.root_rowcol(np.asarray(root_uv_a))
+    if rowcol_b is None:
+        rowcol_b = grid.root_rowcol(np.asarray(root_uv_b))
     node_unit = method_kwargs.pop("node_unit", "strand")
+    overlap = method_kwargs.pop("overlap", "cell")
+    overlap_kwargs = method_kwargs.pop("overlap_kwargs", {})
+    if overlap not in ("cell", "projection"):
+        raise ValueError(f"overlap must be 'cell' or 'projection', got {overlap!r}")
     incidence = build_joint_incidence(membership, rowcol_a, rowcol_b, node_unit=node_unit)
     x0 = incidence.node_state_from_mask(mask)
+    edges = None
+    if overlap == "projection":
+        edges = joint_projection_edges(grid, membership, positions_a, positions_b, show_progress=verbose,
+                                       **overlap_kwargs)
+        fm_target = build_joint_projection_graph(incidence, edges, membership.n_a)
+    else:
+        fm_target = incidence
 
     before = joint_fm_objectives(incidence, x0)
     method_kwargs.setdefault("mode", "clique")
     fill_radius = method_kwargs.pop("fill_radius", 2)
     movable_only = method_kwargs.get("movable_only", False)
-    x = joint_fm_refine(incidence, x0, verbose=verbose, **method_kwargs)
+    x = joint_fm_refine(fm_target, x0, verbose=verbose, **method_kwargs)
 
     new_mask = incidence.mask_from_node_state(x, fallback=mask, fill_radius=fill_radius, movable_only=movable_only)
     if node_unit == "cell":
@@ -95,13 +125,17 @@ def update_joint_mask(
     after = joint_fm_objectives(incidence, x)
     state = incidence.strand_state(x)
     state_a, state_b = membership.split(state)
+    objectives = {"before": before, "after": after}
+    if edges is not None:
+        objectives["projection_before"] = joint_projection_objectives(edges, incidence.strand_state(x0), membership.n_a)
+        objectives["projection_after"] = joint_projection_objectives(edges, state, membership.n_a)
     return {
         "binary_mask": new_mask,
         "state_a": state_a,
         "state_b": state_b,
         "visible_a": ~state_a,
         "visible_b": state_b.copy(),
-        "objectives": {"before": before, "after": after},
+        "objectives": objectives,
     }
 
 
