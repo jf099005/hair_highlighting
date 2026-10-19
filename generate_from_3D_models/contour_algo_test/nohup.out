@@ -1281,3 +1281,1265 @@ Multi-view outputs:
   case_0039/mask_only: rendering (0 strands left out)
 wrote /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0039/mask_only/render/template_notebook_color_matrix.npz
 執行 Blender multi-view 渲染...
+00:00.250  blend            | Read blend: "/home/kyh/Desktop/P76154862/NCKU_3D_hair_reconstruction/inference/assets/blender_vis_base_v26_with_shrinkwrap_full_base.blend"
+00:04.161  cycles           | WARNING HIPEW initialization failed: Error opening HIP dynamic library
+00:41.447  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0039/mask_only/render/front.png'
+01:25.801  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0039/mask_only/render/_multiview_tmp.png'
+01:56.468  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0039/mask_only/render/_multiview_tmp.png'
+02:25.687  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0039/mask_only/render/_multiview_tmp.png'
+02:52.948  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0039/mask_only/render/_multiview_tmp.png'
+04:10.942  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0039/mask_only/render/_multiview_tmp.png'
+env_light_strength: Background node Strength set to 2.0
+template=template_notebook_color_matrix.npz: 29828/29828 strands highlighted (100.0%) [per-strand, no grid lookup]
+scalp grid (128x128): 9693/16384 cells mapped from 29828 strand roots -> /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0039/mask_only/render
+Cycles device: GPU (OPTIX)
+wrote render to /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0039/mask_only/render/front.png
+wrote 6-view composite (front/back/top/left/right/bottom) to /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0039/mask_only/render/front_multiview.png
+Blender 5.0.0 (hash a37564c4df7a built 2025-11-18 10:44:21)
+
+Blender quit
+
+輸出檔案：
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0039/mask_only/render/front.png
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0039/mask_only/render/front_multiview.png
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0039/mask_only/render/scalp_grid.npz
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0039/mask_only/render/scalp_grid_rgb.jpg
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0039/mask_only/render/template_notebook_color_matrix.json
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0039/mask_only/render/template_notebook_color_matrix.npz
+Blender output:
+
+Multi-view outputs:
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0039/mask_only/render/front.png
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0039/mask_only/render/front_multiview.png
+<IPython.core.display.Image object>
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0039/mask_only/render/scalp_grid.npz
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0039/mask_only/render/scalp_grid_rgb.jpg
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0039/mask_only/render/template_notebook_color_matrix.json
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0039/mask_only/render/template_notebook_color_matrix.npz
+[render 17/17] case_0047
+  case_0047/fm_proj_lam100: rendering (0 strands left out)
+wrote /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0047/fm_proj_lam100/render/template_notebook_color_matrix.npz
+執行 Blender multi-view 渲染...
+00:00.264  blend            | Read blend: "/home/kyh/Desktop/P76154862/NCKU_3D_hair_reconstruction/inference/assets/blender_vis_base_v26_with_shrinkwrap_full_base.blend"
+00:04.471  cycles           | WARNING HIPEW initialization failed: Error opening HIP dynamic library
+00:40.576  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0047/fm_proj_lam100/render/front.png'
+01:15.866  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0047/fm_proj_lam100/render/_multiview_tmp.png'
+01:41.736  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0047/fm_proj_lam100/render/_multiview_tmp.png'
+02:16.387  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0047/fm_proj_lam100/render/_multiview_tmp.png'
+02:43.307  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0047/fm_proj_lam100/render/_multiview_tmp.png'
+04:02.062  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0047/fm_proj_lam100/render/_multiview_tmp.png'
+env_light_strength: Background node Strength set to 2.0
+template=template_notebook_color_matrix.npz: 30211/30211 strands highlighted (100.0%) [per-strand, no grid lookup]
+scalp grid (128x128): 9885/16384 cells mapped from 30211 strand roots -> /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0047/fm_proj_lam100/render
+Cycles device: GPU (OPTIX)
+wrote render to /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0047/fm_proj_lam100/render/front.png
+wrote 6-view composite (front/back/top/left/right/bottom) to /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0047/fm_proj_lam100/render/front_multiview.png
+Blender 5.0.0 (hash a37564c4df7a built 2025-11-18 10:44:21)
+
+Blender quit
+
+輸出檔案：
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0047/fm_proj_lam100/render/front.png
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0047/fm_proj_lam100/render/front_multiview.png
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0047/fm_proj_lam100/render/scalp_grid.npz
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0047/fm_proj_lam100/render/scalp_grid_rgb.jpg
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0047/fm_proj_lam100/render/template_notebook_color_matrix.json
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0047/fm_proj_lam100/render/template_notebook_color_matrix.npz
+Blender output:
+
+Multi-view outputs:
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0047/fm_proj_lam100/render/front.png
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0047/fm_proj_lam100/render/front_multiview.png
+<IPython.core.display.Image object>
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0047/fm_proj_lam100/render/scalp_grid.npz
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0047/fm_proj_lam100/render/scalp_grid_rgb.jpg
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0047/fm_proj_lam100/render/template_notebook_color_matrix.json
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0047/fm_proj_lam100/render/template_notebook_color_matrix.npz
+  case_0047/mask_only: rendering (0 strands left out)
+wrote /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0047/mask_only/render/template_notebook_color_matrix.npz
+執行 Blender multi-view 渲染...
+00:00.252  blend            | Read blend: "/home/kyh/Desktop/P76154862/NCKU_3D_hair_reconstruction/inference/assets/blender_vis_base_v26_with_shrinkwrap_full_base.blend"
+00:04.427  cycles           | WARNING HIPEW initialization failed: Error opening HIP dynamic library
+00:41.926  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0047/mask_only/render/front.png'
+01:16.817  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0047/mask_only/render/_multiview_tmp.png'
+01:46.502  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0047/mask_only/render/_multiview_tmp.png'
+02:18.024  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0047/mask_only/render/_multiview_tmp.png'
+02:45.238  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0047/mask_only/render/_multiview_tmp.png'
+04:03.969  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0047/mask_only/render/_multiview_tmp.png'
+env_light_strength: Background node Strength set to 2.0
+template=template_notebook_color_matrix.npz: 30211/30211 strands highlighted (100.0%) [per-strand, no grid lookup]
+scalp grid (128x128): 9885/16384 cells mapped from 30211 strand roots -> /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0047/mask_only/render
+Cycles device: GPU (OPTIX)
+wrote render to /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0047/mask_only/render/front.png
+wrote 6-view composite (front/back/top/left/right/bottom) to /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0047/mask_only/render/front_multiview.png
+Blender 5.0.0 (hash a37564c4df7a built 2025-11-18 10:44:21)
+
+Blender quit
+
+輸出檔案：
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0047/mask_only/render/front.png
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0047/mask_only/render/front_multiview.png
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0047/mask_only/render/scalp_grid.npz
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0047/mask_only/render/scalp_grid_rgb.jpg
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0047/mask_only/render/template_notebook_color_matrix.json
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0047/mask_only/render/template_notebook_color_matrix.npz
+Blender output:
+
+Multi-view outputs:
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0047/mask_only/render/front.png
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0047/mask_only/render/front_multiview.png
+<IPython.core.display.Image object>
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0047/mask_only/render/scalp_grid.npz
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0047/mask_only/render/scalp_grid_rgb.jpg
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0047/mask_only/render/template_notebook_color_matrix.json
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0047/mask_only/render/template_notebook_color_matrix.npz
+summary: /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/summary.md
+report: /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/report.html
+| variant | ok | failed | degenerate | grid_score.mean_all | grid_score.per_black_area | grid_score.per_white_area | grid_score.mixed_mean | grid_score.frac_above | projection.cut_weight | projection.cut_pairs | cell.mixed_cells | cell.clique_cut | strands.flip_frac | strands.highlight_frac | strands.hidden | min_label_retention | shape.iou_init | shape.components | shape.boundary_edges | overlap_matrix.nnz | overlap_matrix.density | method_seconds |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| mask_only | 48 | 2 | 0 | 0.147 ± 0.098 | 12.17 ± 31 | 0.2416 ± 0.17 | 0.7415 ± 0.17 | 0.2382 ± 0.14 | 3.296e+07 ± 3e+07 | 1.641e+07 ± 1.5e+07 | 191 ± 1.1e+02 | 1.89e+08 ± 1.7e+08 | 0 ± 0 | 0.1263 ± 0.066 | 0 ± 0 | 1 ± 0 | 1 ± 0 | 1.417 ± 0.76 | 43.88 ± 15 | 1.393e+08 ± 1.1e+08 | 0.02944 ± 0.023 | 0 ± 0 |
+| fm_proj_lam100 | 48 | 2 | 0 | 0.05176 ± 0.028 | 1.296 ± 3 | 0.08568 ± 0.047 | 0.4037 ± 0.11 | 0.1234 ± 0.057 | 2.058e+06 ± 2.4e+06 | 1.406e+06 ± 1.7e+06 | 127.9 ± 60 | 2.592e+07 ± 2.3e+07 | 0.1142 ± 0.076 | 0.1143 ± 0.069 | 0 ± 0 | 0.8586 ± 0.11 | 0.3597 ± 0.33 | 2.812 ± 2.2 | 50.96 ± 18 | 1.393e+08 ± 1.1e+08 | 0.02944 ± 0.023 | 7.359 ± 5.9 |
+| fm_proj_lam1000 | 48 | 2 | 0 | 0.07234 ± 0.032 | 3.015 ± 9.8 | 0.1196 ± 0.059 | 0.5087 ± 0.13 | 0.1509 ± 0.061 | 3.836e+06 ± 3.3e+06 | 2.475e+06 ± 2.1e+06 | 144.9 ± 58 | 3.957e+07 ± 3.2e+07 | 0.07707 ± 0.065 | 0.1162 ± 0.073 | 0 ± 0 | 0.8716 ± 0.11 | 0.5551 ± 0.33 | 2.333 ± 1.4 | 52.9 ± 19 | 1.393e+08 ± 1.1e+08 | 0.02944 ± 0.023 | 6.743 ± 6 |
+| fm_proj_lam10000 | 48 | 2 | 0 | 0.1403 ± 0.092 | 12.8 ± 30 | 0.2293 ± 0.16 | 0.7252 ± 0.16 | 0.231 ± 0.14 | 2.754e+07 ± 2.4e+07 | 1.406e+07 ± 1.2e+07 | 187.4 ± 1.1e+02 | 1.653e+08 ± 1.5e+08 | 0.003222 ± 0.0066 | 0.1232 ± 0.069 | 0 ± 0 | 0.9599 ± 0.087 | 0.9615 ± 0.086 | 1.458 ± 0.79 | 44.42 ± 15 | 1.393e+08 ± 1.1e+08 | 0.02944 ± 0.023 | 5.264 ± 4.8 |
+| fm_proj_lam1000_trim100 | 48 | 2 | 0 | 0.06932 ± 0.032 | 2.955 ± 9.8 | 0.1146 ± 0.058 | 0.4944 ± 0.13 | 0.1464 ± 0.061 | 3.539e+06 ± 3.1e+06 | 2.324e+06 ± 2.1e+06 | 141.5 ± 57 | 3.797e+07 ± 3.1e+07 | 0.07707 ± 0.065 | 0.1162 ± 0.073 | 100 ± 0 | 0.8652 ± 0.11 | 0.5531 ± 0.33 | 2.333 ± 1.4 | 52.9 ± 19 | 1.393e+08 ± 1.1e+08 | 0.02944 ± 0.023 | 6.943 ± 6.1 |
+| fm_cell_lam1000 | 48 | 2 | 0 | 0.04136 ± 0.018 | 0.9232 ± 1.2 | 0.06835 ± 0.031 | 0.4345 ± 0.1 | 0.0962 ± 0.033 | 2.113e+06 ± 2.6e+06 | 1.368e+06 ± 1.6e+06 | 95.35 ± 32 | 1.997e+07 ± 1.7e+07 | 0.1168 ± 0.088 | 0.1165 ± 0.07 | 0 ± 0 | 0.8634 ± 0.12 | 0.3812 ± 0.34 | 1.75 ± 1.4 | 43.81 ± 13 | 1.393e+08 ± 1.1e+08 | 0.02944 ± 0.023 | 69.56 ± 74 |
+
+Paired vs `mask_only` (same cases; win = better than the reference):
+
+| variant | metric | n | mean delta | mean rel. delta | win rate |
+|---|---|---|---|---|---|
+| fm_proj_lam100 | grid_score.mean_all | 48 | -0.09529 | -51.9% | 94% |
+| fm_proj_lam100 | grid_score.per_black_area | 48 | -10.87 | -53.6% | 90% |
+| fm_proj_lam100 | grid_score.per_white_area | 48 | -0.1559 | -51.2% | 94% |
+| fm_proj_lam100 | grid_score.mixed_mean | 48 | -0.3377 | -42.3% | 96% |
+| fm_proj_lam100 | grid_score.frac_above | 48 | -0.1148 | -35.6% | 85% |
+| fm_proj_lam100 | projection.cut_weight | 48 | -3.09e+07 | -81.8% | 96% |
+| fm_proj_lam100 | projection.cut_pairs | 48 | -1.5e+07 | -79.1% | 96% |
+| fm_proj_lam100 | cell.mixed_cells | 48 | -63.06 | -19.5% | 75% |
+| fm_proj_lam100 | cell.clique_cut | 48 | -1.631e+08 | -69.5% | 96% |
+| fm_proj_lam100 | strands.flip_frac | 48 | 0.1142 | - | - |
+| fm_proj_lam100 | strands.highlight_frac | 48 | -0.01204 | -12.8% | - |
+| fm_proj_lam100 | strands.hidden | 48 | 0 | - | - |
+| fm_proj_lam100 | min_label_retention | 48 | -0.1414 | -14.1% | - |
+| fm_proj_lam100 | shape.iou_init | 48 | -0.6403 | -64.0% | 0% |
+| fm_proj_lam100 | shape.components | 48 | 1.396 | +120.0% | - |
+| fm_proj_lam100 | shape.boundary_edges | 48 | 7.083 | +24.9% | - |
+| fm_proj_lam100 | method_seconds | 48 | 7.359 | - | 0% |
+| fm_proj_lam1000 | grid_score.mean_all | 48 | -0.07471 | -36.0% | 88% |
+| fm_proj_lam1000 | grid_score.per_black_area | 48 | -9.152 | -41.7% | 81% |
+| fm_proj_lam1000 | grid_score.per_white_area | 48 | -0.122 | -35.4% | 88% |
+| fm_proj_lam1000 | grid_score.mixed_mean | 48 | -0.2328 | -28.2% | 85% |
+| fm_proj_lam1000 | grid_score.frac_above | 48 | -0.08736 | -24.5% | 77% |
+| fm_proj_lam1000 | projection.cut_weight | 48 | -2.913e+07 | -64.8% | 88% |
+| fm_proj_lam1000 | projection.cut_pairs | 48 | -1.393e+07 | -61.5% | 88% |
+| fm_proj_lam1000 | cell.mixed_cells | 48 | -46.12 | -12.5% | 67% |
+| fm_proj_lam1000 | cell.clique_cut | 48 | -1.494e+08 | -56.1% | 88% |
+| fm_proj_lam1000 | strands.flip_frac | 48 | 0.07707 | - | - |
+| fm_proj_lam1000 | strands.highlight_frac | 48 | -0.01011 | -11.8% | - |
+| fm_proj_lam1000 | strands.hidden | 48 | 0 | - | - |
+| fm_proj_lam1000 | min_label_retention | 48 | -0.1284 | -12.8% | - |
+| fm_proj_lam1000 | shape.iou_init | 48 | -0.4449 | -44.5% | 0% |
+| fm_proj_lam1000 | shape.components | 48 | 0.9167 | +91.1% | - |
+| fm_proj_lam1000 | shape.boundary_edges | 48 | 9.021 | +29.2% | - |
+| fm_proj_lam1000 | method_seconds | 48 | 6.743 | - | 0% |
+| fm_proj_lam10000 | grid_score.mean_all | 48 | -0.006786 | -3.7% | 44% |
+| fm_proj_lam10000 | grid_score.per_black_area | 48 | 0.632 | +7.2% | 35% |
+| fm_proj_lam10000 | grid_score.per_white_area | 48 | -0.01235 | -3.9% | 46% |
+| fm_proj_lam10000 | grid_score.mixed_mean | 48 | -0.01624 | -2.0% | 42% |
+| fm_proj_lam10000 | grid_score.frac_above | 48 | -0.007249 | -2.7% | 35% |
+| fm_proj_lam10000 | projection.cut_weight | 48 | -5.419e+06 | -8.9% | 54% |
+| fm_proj_lam10000 | projection.cut_pairs | 48 | -2.348e+06 | -8.1% | 54% |
+| fm_proj_lam10000 | cell.mixed_cells | 48 | -3.562 | -1.9% | 31% |
+| fm_proj_lam10000 | cell.clique_cut | 48 | -2.368e+07 | -7.6% | 54% |
+| fm_proj_lam10000 | strands.flip_frac | 48 | 0.003222 | - | - |
+| fm_proj_lam10000 | strands.highlight_frac | 48 | -0.00315 | -4.0% | - |
+| fm_proj_lam10000 | strands.hidden | 48 | 0 | - | - |
+| fm_proj_lam10000 | min_label_retention | 48 | -0.04008 | -4.0% | - |
+| fm_proj_lam10000 | shape.iou_init | 48 | -0.03853 | -3.9% | 0% |
+| fm_proj_lam10000 | shape.components | 48 | 0.04167 | +4.2% | - |
+| fm_proj_lam10000 | shape.boundary_edges | 48 | 0.5417 | +2.0% | - |
+| fm_proj_lam10000 | method_seconds | 48 | 5.264 | - | 0% |
+| fm_proj_lam1000_trim100 | grid_score.mean_all | 48 | -0.07772 | -38.6% | 100% |
+| fm_proj_lam1000_trim100 | grid_score.per_black_area | 48 | -9.213 | -43.9% | 92% |
+| fm_proj_lam1000_trim100 | grid_score.per_white_area | 48 | -0.127 | -37.9% | 100% |
+| fm_proj_lam1000_trim100 | grid_score.mixed_mean | 48 | -0.2471 | -30.5% | 96% |
+| fm_proj_lam1000_trim100 | grid_score.frac_above | 48 | -0.09184 | -26.5% | 92% |
+| fm_proj_lam1000_trim100 | projection.cut_weight | 48 | -2.942e+07 | -69.8% | 100% |
+| fm_proj_lam1000_trim100 | projection.cut_pairs | 48 | -1.408e+07 | -65.9% | 100% |
+| fm_proj_lam1000_trim100 | cell.mixed_cells | 48 | -49.46 | -14.0% | 75% |
+| fm_proj_lam1000_trim100 | cell.clique_cut | 48 | -1.51e+08 | -58.3% | 100% |
+| fm_proj_lam1000_trim100 | strands.flip_frac | 48 | 0.07707 | - | - |
+| fm_proj_lam1000_trim100 | strands.highlight_frac | 48 | -0.01011 | -11.8% | - |
+| fm_proj_lam1000_trim100 | strands.hidden | 48 | 100 | - | - |
+| fm_proj_lam1000_trim100 | min_label_retention | 48 | -0.1348 | -13.5% | - |
+| fm_proj_lam1000_trim100 | shape.iou_init | 48 | -0.4469 | -44.7% | 0% |
+| fm_proj_lam1000_trim100 | shape.components | 48 | 0.9167 | +91.1% | - |
+| fm_proj_lam1000_trim100 | shape.boundary_edges | 48 | 9.021 | +29.3% | - |
+| fm_proj_lam1000_trim100 | method_seconds | 48 | 6.943 | - | 0% |
+| fm_cell_lam1000 | grid_score.mean_all | 48 | -0.1057 | -58.8% | 98% |
+| fm_cell_lam1000 | grid_score.per_black_area | 48 | -11.24 | -60.4% | 90% |
+| fm_cell_lam1000 | grid_score.per_white_area | 48 | -0.1733 | -58.3% | 98% |
+| fm_cell_lam1000 | grid_score.mixed_mean | 48 | -0.3069 | -38.0% | 98% |
+| fm_cell_lam1000 | grid_score.frac_above | 48 | -0.142 | -47.7% | 94% |
+| fm_cell_lam1000 | projection.cut_weight | 48 | -3.085e+07 | -78.6% | 98% |
+| fm_cell_lam1000 | projection.cut_pairs | 48 | -1.504e+07 | -76.1% | 98% |
+| fm_cell_lam1000 | cell.mixed_cells | 48 | -95.62 | -38.4% | 92% |
+| fm_cell_lam1000 | cell.clique_cut | 48 | -1.69e+08 | -72.5% | 98% |
+| fm_cell_lam1000 | strands.flip_frac | 48 | 0.1168 | - | - |
+| fm_cell_lam1000 | strands.highlight_frac | 48 | -0.009798 | -11.5% | - |
+| fm_cell_lam1000 | strands.hidden | 48 | 0 | - | - |
+| fm_cell_lam1000 | min_label_retention | 48 | -0.1366 | -13.7% | - |
+| fm_cell_lam1000 | shape.iou_init | 48 | -0.6188 | -61.9% | 0% |
+| fm_cell_lam1000 | shape.components | 48 | 0.3333 | +45.3% | - |
+| fm_cell_lam1000 | shape.boundary_edges | 48 | -0.0625 | +6.8% | - |
+| fm_cell_lam1000 | method_seconds | 48 | 69.56 | - | 0% |
+
+lowest (grid_score.mean_all): case_0020 (base_68_idx_36392, short, half_plane) mean_all: mask_only 0.0077, fm_proj_lam100 0.0077, fm_proj_lam1000 0.0077, fm_proj_lam10000 0.0077, fm_proj_lam1000_trim100 0.0064, fm_cell_lam1000 0.0074; per_black_area: mask_only 0.0582, fm_proj_lam100 0.0582, fm_proj_lam1000 0.0582, fm_proj_lam10000 0.0582, fm_proj_lam1000_trim100 0.0481, fm_cell_lam1000 0.0558; per_white_area: mask_only 0.0137, fm_proj_lam100 0.0137, fm_proj_lam1000 0.0137, fm_proj_lam10000 0.0137, fm_proj_lam1000_trim100 0.0113, fm_cell_lam1000 0.0131
+
+highest (grid_score.mean_all): case_0021 (base_30_idx_77769, long, blobs) mean_all: mask_only 0.1956, fm_proj_lam100 0.1516, fm_proj_lam1000 0.0941, fm_proj_lam10000 0.1950, fm_proj_lam1000_trim100 0.0932, fm_cell_lam1000 0.0322; per_black_area: mask_only 2.4426, fm_proj_lam100 1.3496, fm_proj_lam1000 1.0954, fm_proj_lam10000 2.4355, fm_proj_lam1000_trim100 1.0842, fm_cell_lam1000 0.2975; per_white_area: mask_only 0.3144, fm_proj_lam100 0.2570, fm_proj_lam1000 0.1528, fm_proj_lam10000 0.3135, fm_proj_lam1000_trim100 0.1512, fm_cell_lam1000 0.0543
+
+best_gain (grid_score.mean_all): case_0019 (base_17_idx_43989, long, polygon) mean_all: mask_only 0.4952, fm_proj_lam100 0.0217, fm_proj_lam1000 0.0283, fm_proj_lam10000 0.4595, fm_proj_lam1000_trim100 0.0175, fm_cell_lam1000 0.0213; per_black_area: mask_only 3.9311, fm_proj_lam100 0.2314, fm_proj_lam1000 0.2984, fm_proj_lam10000 4.5684, fm_proj_lam1000_trim100 0.1848, fm_cell_lam1000 0.2271; per_white_area: mask_only 0.8624, fm_proj_lam100 0.0358, fm_proj_lam1000 0.0467, fm_proj_lam10000 0.7664, fm_proj_lam1000_trim100 0.0289, fm_cell_lam1000 0.0351
+
+worst_gain (grid_score.mean_all): case_0009 (base_15_idx_50537, long, stripe) mean_all: mask_only 0.0698, fm_proj_lam100 0.1263, fm_proj_lam1000 0.0553, fm_proj_lam10000 0.0520, fm_proj_lam1000_trim100 0.0530, fm_cell_lam1000 0.0492; per_black_area: mask_only 5.9557, fm_proj_lam100 21.5537, fm_proj_lam1000 9.4369, fm_proj_lam10000 4.4336, fm_proj_lam1000_trim100 9.0382, fm_cell_lam1000 7.1962; per_white_area: mask_only 0.1020, fm_proj_lam100 0.1829, fm_proj_lam1000 0.0801, fm_proj_lam10000 0.0759, fm_proj_lam1000_trim100 0.0767, fm_cell_lam1000 0.0714
+flux / vector field analysis of the extreme cases (17): ['case_0002', 'case_0005', 'case_0006', 'case_0009', 'case_0015', 'case_0016', 'case_0019', 'case_0020', 'case_0021', 'case_0023', 'case_0026', 'case_0028', 'case_0030', 'case_0035', 'case_0036', 'case_0039', 'case_0047'] + random samples (12 more): ['case_0003', 'case_0014', 'case_0017', 'case_0022', 'case_0025', 'case_0027', 'case_0029', 'case_0038', 'case_0040', 'case_0043', 'case_0044', 'case_0046']
+  case_0025: flux / vector field analysis (mask_only -> fm_proj_lam100)
+  case_0027: flux / vector field analysis (mask_only -> fm_proj_lam100)
+  case_0029: flux / vector field analysis (mask_only -> fm_proj_lam100)
+  case_0038: flux / vector field analysis (mask_only -> fm_proj_lam100)
+  case_0040: flux / vector field analysis (mask_only -> fm_proj_lam100)
+  case_0043: flux / vector field analysis (mask_only -> fm_proj_lam100)
+  case_0044: flux / vector field analysis (mask_only -> fm_proj_lam100)
+  case_0046: flux / vector field analysis (mask_only -> fm_proj_lam100)
+rendering on the GPU
+rendering ['mask_only', 'fm_proj_lam100'] of the extreme cases of every group (17 cases): ['case_0002', 'case_0005', 'case_0006', 'case_0009', 'case_0015', 'case_0016', 'case_0019', 'case_0020', 'case_0021', 'case_0023', 'case_0026', 'case_0028', 'case_0030', 'case_0035', 'case_0036', 'case_0039', 'case_0047'] + random samples (12 more cases): ['case_0003', 'case_0014', 'case_0017', 'case_0022', 'case_0025', 'case_0027', 'case_0029', 'case_0038', 'case_0040', 'case_0043', 'case_0044', 'case_0046']
+[render 1/29] case_0002
+  case_0002/fm_proj_lam100: render exists
+  case_0002/mask_only: render exists
+  case_0002: 0.0 s
+[render 2/29] case_0005
+  case_0005/fm_proj_lam100: render exists
+  case_0005/mask_only: render exists
+  case_0005: 0.0 s
+[render 3/29] case_0006
+  case_0006/fm_proj_lam100: render exists
+  case_0006/mask_only: render exists
+  case_0006: 0.0 s
+[render 4/29] case_0009
+  case_0009/fm_proj_lam100: render exists
+  case_0009/mask_only: render exists
+  case_0009: 0.0 s
+[render 5/29] case_0015
+  case_0015/fm_proj_lam100: render exists
+  case_0015/mask_only: render exists
+  case_0015: 0.0 s
+[render 6/29] case_0016
+  case_0016/fm_proj_lam100: render exists
+  case_0016/mask_only: render exists
+  case_0016: 0.0 s
+[render 7/29] case_0019
+  case_0019/fm_proj_lam100: render exists
+  case_0019/mask_only: render exists
+  case_0019: 0.0 s
+[render 8/29] case_0020
+  case_0020/fm_proj_lam100: render exists
+  case_0020/mask_only: render exists
+  case_0020: 0.0 s
+[render 9/29] case_0021
+  case_0021/fm_proj_lam100: render exists
+  case_0021/mask_only: render exists
+  case_0021: 0.0 s
+[render 10/29] case_0023
+  case_0023/fm_proj_lam100: render exists
+  case_0023/mask_only: render exists
+  case_0023: 0.0 s
+[render 11/29] case_0026
+  case_0026/fm_proj_lam100: render exists
+  case_0026/mask_only: render exists
+  case_0026: 0.0 s
+[render 12/29] case_0028
+  case_0028/fm_proj_lam100: render exists
+  case_0028/mask_only: render exists
+  case_0028: 0.0 s
+[render 13/29] case_0030
+  case_0030/fm_proj_lam100: render exists
+  case_0030/mask_only: render exists
+  case_0030: 0.0 s
+[render 14/29] case_0035
+  case_0035/fm_proj_lam100: render exists
+  case_0035/mask_only: render exists
+  case_0035: 0.0 s
+[render 15/29] case_0036
+  case_0036/fm_proj_lam100: render exists
+  case_0036/mask_only: render exists
+  case_0036: 0.0 s
+[render 16/29] case_0039
+  case_0039/fm_proj_lam100: render exists
+  case_0039/mask_only: render exists
+  case_0039: 0.0 s
+[render 17/29] case_0047
+  case_0047/fm_proj_lam100: render exists
+  case_0047/mask_only: render exists
+  case_0047: 0.0 s
+[render 18/29] case_0003
+  case_0003/fm_proj_lam100: rendering (0 strands left out)
+wrote /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0003/fm_proj_lam100/render/template_notebook_color_matrix.npz
+執行 Blender multi-view 渲染...
+00:00.244  blend            | Read blend: "/home/kyh/Desktop/P76154862/NCKU_3D_hair_reconstruction/inference/assets/blender_vis_base_v26_with_shrinkwrap_full_base.blend"
+00:02.818  cycles           | WARNING HIPEW initialization failed: Error opening HIP dynamic library
+00:35.134  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0003/fm_proj_lam100/render/front.png'
+01:05.852  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0003/fm_proj_lam100/render/_multiview_tmp.png'
+01:36.986  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0003/fm_proj_lam100/render/_multiview_tmp.png'
+02:10.564  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0003/fm_proj_lam100/render/_multiview_tmp.png'
+02:38.820  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0003/fm_proj_lam100/render/_multiview_tmp.png'
+03:57.200  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0003/fm_proj_lam100/render/_multiview_tmp.png'
+env_light_strength: Background node Strength set to 2.0
+template=template_notebook_color_matrix.npz: 28380/28380 strands highlighted (100.0%) [per-strand, no grid lookup]
+scalp grid (128x128): 9156/16384 cells mapped from 28380 strand roots -> /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0003/fm_proj_lam100/render
+Cycles device: GPU (OPTIX)
+wrote render to /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0003/fm_proj_lam100/render/front.png
+wrote 6-view composite (front/back/top/left/right/bottom) to /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0003/fm_proj_lam100/render/front_multiview.png
+Blender 5.0.0 (hash a37564c4df7a built 2025-11-18 10:44:21)
+
+Blender quit
+
+輸出檔案：
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0003/fm_proj_lam100/render/front.png
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0003/fm_proj_lam100/render/front_multiview.png
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0003/fm_proj_lam100/render/scalp_grid.npz
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0003/fm_proj_lam100/render/scalp_grid_rgb.jpg
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0003/fm_proj_lam100/render/template_notebook_color_matrix.json
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0003/fm_proj_lam100/render/template_notebook_color_matrix.npz
+Blender output:
+
+Multi-view outputs:
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0003/fm_proj_lam100/render/front.png
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0003/fm_proj_lam100/render/front_multiview.png
+<IPython.core.display.Image object>
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0003/fm_proj_lam100/render/scalp_grid.npz
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0003/fm_proj_lam100/render/scalp_grid_rgb.jpg
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0003/fm_proj_lam100/render/template_notebook_color_matrix.json
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0003/fm_proj_lam100/render/template_notebook_color_matrix.npz
+  case_0003/fm_proj_lam100: rendered in 237.6 s (gpu)
+  case_0003/mask_only: rendering (0 strands left out)
+wrote /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0003/mask_only/render/template_notebook_color_matrix.npz
+執行 Blender multi-view 渲染...
+00:00.245  blend            | Read blend: "/home/kyh/Desktop/P76154862/NCKU_3D_hair_reconstruction/inference/assets/blender_vis_base_v26_with_shrinkwrap_full_base.blend"
+00:02.816  cycles           | WARNING HIPEW initialization failed: Error opening HIP dynamic library
+00:35.441  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0003/mask_only/render/front.png'
+01:06.273  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0003/mask_only/render/_multiview_tmp.png'
+01:37.468  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0003/mask_only/render/_multiview_tmp.png'
+02:11.342  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0003/mask_only/render/_multiview_tmp.png'
+02:39.561  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0003/mask_only/render/_multiview_tmp.png'
+03:58.049  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0003/mask_only/render/_multiview_tmp.png'
+env_light_strength: Background node Strength set to 2.0
+template=template_notebook_color_matrix.npz: 28380/28380 strands highlighted (100.0%) [per-strand, no grid lookup]
+scalp grid (128x128): 9156/16384 cells mapped from 28380 strand roots -> /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0003/mask_only/render
+Cycles device: GPU (OPTIX)
+wrote render to /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0003/mask_only/render/front.png
+wrote 6-view composite (front/back/top/left/right/bottom) to /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0003/mask_only/render/front_multiview.png
+Blender 5.0.0 (hash a37564c4df7a built 2025-11-18 10:44:21)
+
+Blender quit
+
+輸出檔案：
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0003/mask_only/render/front.png
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0003/mask_only/render/front_multiview.png
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0003/mask_only/render/scalp_grid.npz
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0003/mask_only/render/scalp_grid_rgb.jpg
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0003/mask_only/render/template_notebook_color_matrix.json
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0003/mask_only/render/template_notebook_color_matrix.npz
+Blender output:
+
+Multi-view outputs:
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0003/mask_only/render/front.png
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0003/mask_only/render/front_multiview.png
+<IPython.core.display.Image object>
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0003/mask_only/render/scalp_grid.npz
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0003/mask_only/render/scalp_grid_rgb.jpg
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0003/mask_only/render/template_notebook_color_matrix.json
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0003/mask_only/render/template_notebook_color_matrix.npz
+  case_0003/mask_only: rendered in 238.3 s (gpu)
+  case_0003: 475.9 s
+[render 19/29] case_0014
+  case_0014/fm_proj_lam100: rendering (0 strands left out)
+wrote /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0014/fm_proj_lam100/render/template_notebook_color_matrix.npz
+執行 Blender multi-view 渲染...
+00:00.255  blend            | Read blend: "/home/kyh/Desktop/P76154862/NCKU_3D_hair_reconstruction/inference/assets/blender_vis_base_v26_with_shrinkwrap_full_base.blend"
+00:05.843  cycles           | WARNING HIPEW initialization failed: Error opening HIP dynamic library
+00:44.681  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0014/fm_proj_lam100/render/front.png'
+01:16.270  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0014/fm_proj_lam100/render/_multiview_tmp.png'
+01:52.572  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0014/fm_proj_lam100/render/_multiview_tmp.png'
+02:24.649  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0014/fm_proj_lam100/render/_multiview_tmp.png'
+02:52.885  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0014/fm_proj_lam100/render/_multiview_tmp.png'
+04:11.037  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0014/fm_proj_lam100/render/_multiview_tmp.png'
+env_light_strength: Background node Strength set to 2.0
+template=template_notebook_color_matrix.npz: 30155/30155 strands highlighted (100.0%) [per-strand, no grid lookup]
+scalp grid (128x128): 9840/16384 cells mapped from 30155 strand roots -> /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0014/fm_proj_lam100/render
+Cycles device: GPU (OPTIX)
+wrote render to /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0014/fm_proj_lam100/render/front.png
+wrote 6-view composite (front/back/top/left/right/bottom) to /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0014/fm_proj_lam100/render/front_multiview.png
+Blender 5.0.0 (hash a37564c4df7a built 2025-11-18 10:44:21)
+
+Blender quit
+
+輸出檔案：
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0014/fm_proj_lam100/render/front.png
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0014/fm_proj_lam100/render/front_multiview.png
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0014/fm_proj_lam100/render/scalp_grid.npz
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0014/fm_proj_lam100/render/scalp_grid_rgb.jpg
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0014/fm_proj_lam100/render/template_notebook_color_matrix.json
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0014/fm_proj_lam100/render/template_notebook_color_matrix.npz
+Blender output:
+
+Multi-view outputs:
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0014/fm_proj_lam100/render/front.png
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0014/fm_proj_lam100/render/front_multiview.png
+<IPython.core.display.Image object>
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0014/fm_proj_lam100/render/scalp_grid.npz
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0014/fm_proj_lam100/render/scalp_grid_rgb.jpg
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0014/fm_proj_lam100/render/template_notebook_color_matrix.json
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0014/fm_proj_lam100/render/template_notebook_color_matrix.npz
+  case_0014/fm_proj_lam100: rendered in 251.3 s (gpu)
+  case_0014/mask_only: rendering (0 strands left out)
+wrote /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0014/mask_only/render/template_notebook_color_matrix.npz
+執行 Blender multi-view 渲染...
+00:00.252  blend            | Read blend: "/home/kyh/Desktop/P76154862/NCKU_3D_hair_reconstruction/inference/assets/blender_vis_base_v26_with_shrinkwrap_full_base.blend"
+00:05.849  cycles           | WARNING HIPEW initialization failed: Error opening HIP dynamic library
+00:49.556  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0014/mask_only/render/front.png'
+01:23.491  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0014/mask_only/render/_multiview_tmp.png'
+02:02.058  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0014/mask_only/render/_multiview_tmp.png'
+02:34.345  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0014/mask_only/render/_multiview_tmp.png'
+03:04.455  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0014/mask_only/render/_multiview_tmp.png'
+04:23.669  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0014/mask_only/render/_multiview_tmp.png'
+env_light_strength: Background node Strength set to 2.0
+template=template_notebook_color_matrix.npz: 30155/30155 strands highlighted (100.0%) [per-strand, no grid lookup]
+scalp grid (128x128): 9840/16384 cells mapped from 30155 strand roots -> /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0014/mask_only/render
+Cycles device: GPU (OPTIX)
+wrote render to /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0014/mask_only/render/front.png
+wrote 6-view composite (front/back/top/left/right/bottom) to /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0014/mask_only/render/front_multiview.png
+Blender 5.0.0 (hash a37564c4df7a built 2025-11-18 10:44:21)
+
+Blender quit
+
+輸出檔案：
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0014/mask_only/render/front.png
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0014/mask_only/render/front_multiview.png
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0014/mask_only/render/scalp_grid.npz
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0014/mask_only/render/scalp_grid_rgb.jpg
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0014/mask_only/render/template_notebook_color_matrix.json
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0014/mask_only/render/template_notebook_color_matrix.npz
+Blender output:
+
+Multi-view outputs:
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0014/mask_only/render/front.png
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0014/mask_only/render/front_multiview.png
+<IPython.core.display.Image object>
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0014/mask_only/render/scalp_grid.npz
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0014/mask_only/render/scalp_grid_rgb.jpg
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0014/mask_only/render/template_notebook_color_matrix.json
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0014/mask_only/render/template_notebook_color_matrix.npz
+  case_0014/mask_only: rendered in 263.9 s (gpu)
+  case_0014: 515.3 s
+[render 20/29] case_0017
+  case_0017/fm_proj_lam100: rendering (0 strands left out)
+wrote /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0017/fm_proj_lam100/render/template_notebook_color_matrix.npz
+執行 Blender multi-view 渲染...
+00:00.244  blend            | Read blend: "/home/kyh/Desktop/P76154862/NCKU_3D_hair_reconstruction/inference/assets/blender_vis_base_v26_with_shrinkwrap_full_base.blend"
+00:02.294  cycles           | WARNING HIPEW initialization failed: Error opening HIP dynamic library
+00:31.756  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0017/fm_proj_lam100/render/front.png'
+01:04.386  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0017/fm_proj_lam100/render/_multiview_tmp.png'
+01:33.425  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0017/fm_proj_lam100/render/_multiview_tmp.png'
+02:03.465  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0017/fm_proj_lam100/render/_multiview_tmp.png'
+02:32.910  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0017/fm_proj_lam100/render/_multiview_tmp.png'
+03:50.886  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0017/fm_proj_lam100/render/_multiview_tmp.png'
+env_light_strength: Background node Strength set to 2.0
+template=template_notebook_color_matrix.npz: 27642/27642 strands highlighted (100.0%) [per-strand, no grid lookup]
+scalp grid (128x128): 8954/16384 cells mapped from 27642 strand roots -> /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0017/fm_proj_lam100/render
+Cycles device: GPU (OPTIX)
+wrote render to /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0017/fm_proj_lam100/render/front.png
+wrote 6-view composite (front/back/top/left/right/bottom) to /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0017/fm_proj_lam100/render/front_multiview.png
+Blender 5.0.0 (hash a37564c4df7a built 2025-11-18 10:44:21)
+
+Blender quit
+
+輸出檔案：
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0017/fm_proj_lam100/render/front.png
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0017/fm_proj_lam100/render/front_multiview.png
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0017/fm_proj_lam100/render/scalp_grid.npz
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0017/fm_proj_lam100/render/scalp_grid_rgb.jpg
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0017/fm_proj_lam100/render/template_notebook_color_matrix.json
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0017/fm_proj_lam100/render/template_notebook_color_matrix.npz
+Blender output:
+
+Multi-view outputs:
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0017/fm_proj_lam100/render/front.png
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0017/fm_proj_lam100/render/front_multiview.png
+<IPython.core.display.Image object>
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0017/fm_proj_lam100/render/scalp_grid.npz
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0017/fm_proj_lam100/render/scalp_grid_rgb.jpg
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0017/fm_proj_lam100/render/template_notebook_color_matrix.json
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0017/fm_proj_lam100/render/template_notebook_color_matrix.npz
+  case_0017/fm_proj_lam100: rendered in 231.2 s (gpu)
+  case_0017/mask_only: rendering (0 strands left out)
+wrote /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0017/mask_only/render/template_notebook_color_matrix.npz
+執行 Blender multi-view 渲染...
+00:00.244  blend            | Read blend: "/home/kyh/Desktop/P76154862/NCKU_3D_hair_reconstruction/inference/assets/blender_vis_base_v26_with_shrinkwrap_full_base.blend"
+00:02.312  cycles           | WARNING HIPEW initialization failed: Error opening HIP dynamic library
+00:31.526  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0017/mask_only/render/front.png'
+01:04.074  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0017/mask_only/render/_multiview_tmp.png'
+01:33.064  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0017/mask_only/render/_multiview_tmp.png'
+02:02.428  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0017/mask_only/render/_multiview_tmp.png'
+02:31.427  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0017/mask_only/render/_multiview_tmp.png'
+03:49.234  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0017/mask_only/render/_multiview_tmp.png'
+env_light_strength: Background node Strength set to 2.0
+template=template_notebook_color_matrix.npz: 27642/27642 strands highlighted (100.0%) [per-strand, no grid lookup]
+scalp grid (128x128): 8954/16384 cells mapped from 27642 strand roots -> /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0017/mask_only/render
+Cycles device: GPU (OPTIX)
+wrote render to /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0017/mask_only/render/front.png
+wrote 6-view composite (front/back/top/left/right/bottom) to /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0017/mask_only/render/front_multiview.png
+Blender 5.0.0 (hash a37564c4df7a built 2025-11-18 10:44:21)
+
+Blender quit
+
+輸出檔案：
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0017/mask_only/render/front.png
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0017/mask_only/render/front_multiview.png
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0017/mask_only/render/scalp_grid.npz
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0017/mask_only/render/scalp_grid_rgb.jpg
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0017/mask_only/render/template_notebook_color_matrix.json
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0017/mask_only/render/template_notebook_color_matrix.npz
+Blender output:
+
+Multi-view outputs:
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0017/mask_only/render/front.png
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0017/mask_only/render/front_multiview.png
+<IPython.core.display.Image object>
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0017/mask_only/render/scalp_grid.npz
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0017/mask_only/render/scalp_grid_rgb.jpg
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0017/mask_only/render/template_notebook_color_matrix.json
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0017/mask_only/render/template_notebook_color_matrix.npz
+  case_0017/mask_only: rendered in 229.5 s (gpu)
+  case_0017: 460.7 s
+[render 21/29] case_0022
+  case_0022/fm_proj_lam100: rendering (0 strands left out)
+wrote /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0022/fm_proj_lam100/render/template_notebook_color_matrix.npz
+執行 Blender multi-view 渲染...
+00:00.245  blend            | Read blend: "/home/kyh/Desktop/P76154862/NCKU_3D_hair_reconstruction/inference/assets/blender_vis_base_v26_with_shrinkwrap_full_base.blend"
+00:05.157  cycles           | WARNING HIPEW initialization failed: Error opening HIP dynamic library
+00:48.496  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0022/fm_proj_lam100/render/front.png'
+01:25.622  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0022/fm_proj_lam100/render/_multiview_tmp.png'
+01:54.100  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0022/fm_proj_lam100/render/_multiview_tmp.png'
+02:23.942  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0022/fm_proj_lam100/render/_multiview_tmp.png'
+02:49.328  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0022/fm_proj_lam100/render/_multiview_tmp.png'
+04:07.159  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0022/fm_proj_lam100/render/_multiview_tmp.png'
+env_light_strength: Background node Strength set to 2.0
+template=template_notebook_color_matrix.npz: 27903/27903 strands highlighted (100.0%) [per-strand, no grid lookup]
+scalp grid (128x128): 9010/16384 cells mapped from 27903 strand roots -> /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0022/fm_proj_lam100/render
+Cycles device: GPU (OPTIX)
+wrote render to /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0022/fm_proj_lam100/render/front.png
+wrote 6-view composite (front/back/top/left/right/bottom) to /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0022/fm_proj_lam100/render/front_multiview.png
+Blender 5.0.0 (hash a37564c4df7a built 2025-11-18 10:44:21)
+
+Blender quit
+
+輸出檔案：
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0022/fm_proj_lam100/render/front.png
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0022/fm_proj_lam100/render/front_multiview.png
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0022/fm_proj_lam100/render/scalp_grid.npz
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0022/fm_proj_lam100/render/scalp_grid_rgb.jpg
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0022/fm_proj_lam100/render/template_notebook_color_matrix.json
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0022/fm_proj_lam100/render/template_notebook_color_matrix.npz
+Blender output:
+
+Multi-view outputs:
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0022/fm_proj_lam100/render/front.png
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0022/fm_proj_lam100/render/front_multiview.png
+<IPython.core.display.Image object>
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0022/fm_proj_lam100/render/scalp_grid.npz
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0022/fm_proj_lam100/render/scalp_grid_rgb.jpg
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0022/fm_proj_lam100/render/template_notebook_color_matrix.json
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0022/fm_proj_lam100/render/template_notebook_color_matrix.npz
+  case_0022/fm_proj_lam100: rendered in 247.4 s (gpu)
+  case_0022/mask_only: rendering (0 strands left out)
+wrote /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0022/mask_only/render/template_notebook_color_matrix.npz
+執行 Blender multi-view 渲染...
+00:00.244  blend            | Read blend: "/home/kyh/Desktop/P76154862/NCKU_3D_hair_reconstruction/inference/assets/blender_vis_base_v26_with_shrinkwrap_full_base.blend"
+00:05.128  cycles           | WARNING HIPEW initialization failed: Error opening HIP dynamic library
+00:46.389  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0022/mask_only/render/front.png'
+01:26.760  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0022/mask_only/render/_multiview_tmp.png'
+01:55.647  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0022/mask_only/render/_multiview_tmp.png'
+02:25.126  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0022/mask_only/render/_multiview_tmp.png'
+02:51.055  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0022/mask_only/render/_multiview_tmp.png'
+04:09.962  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0022/mask_only/render/_multiview_tmp.png'
+env_light_strength: Background node Strength set to 2.0
+template=template_notebook_color_matrix.npz: 27903/27903 strands highlighted (100.0%) [per-strand, no grid lookup]
+scalp grid (128x128): 9010/16384 cells mapped from 27903 strand roots -> /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0022/mask_only/render
+Cycles device: GPU (OPTIX)
+wrote render to /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0022/mask_only/render/front.png
+wrote 6-view composite (front/back/top/left/right/bottom) to /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0022/mask_only/render/front_multiview.png
+Blender 5.0.0 (hash a37564c4df7a built 2025-11-18 10:44:21)
+
+Blender quit
+
+輸出檔案：
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0022/mask_only/render/front.png
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0022/mask_only/render/front_multiview.png
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0022/mask_only/render/scalp_grid.npz
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0022/mask_only/render/scalp_grid_rgb.jpg
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0022/mask_only/render/template_notebook_color_matrix.json
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0022/mask_only/render/template_notebook_color_matrix.npz
+Blender output:
+
+Multi-view outputs:
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0022/mask_only/render/front.png
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0022/mask_only/render/front_multiview.png
+<IPython.core.display.Image object>
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0022/mask_only/render/scalp_grid.npz
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0022/mask_only/render/scalp_grid_rgb.jpg
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0022/mask_only/render/template_notebook_color_matrix.json
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0022/mask_only/render/template_notebook_color_matrix.npz
+  case_0022/mask_only: rendered in 250.2 s (gpu)
+  case_0022: 497.7 s
+[render 22/29] case_0025
+  case_0025/fm_proj_lam100: rendering (0 strands left out)
+wrote /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0025/fm_proj_lam100/render/template_notebook_color_matrix.npz
+執行 Blender multi-view 渲染...
+00:00.247  blend            | Read blend: "/home/kyh/Desktop/P76154862/NCKU_3D_hair_reconstruction/inference/assets/blender_vis_base_v26_with_shrinkwrap_full_base.blend"
+00:05.763  cycles           | WARNING HIPEW initialization failed: Error opening HIP dynamic library
+00:51.786  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0025/fm_proj_lam100/render/front.png'
+01:28.976  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0025/fm_proj_lam100/render/_multiview_tmp.png'
+01:59.475  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0025/fm_proj_lam100/render/_multiview_tmp.png'
+02:32.036  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0025/fm_proj_lam100/render/_multiview_tmp.png'
+03:00.143  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0025/fm_proj_lam100/render/_multiview_tmp.png'
+04:21.631  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0025/fm_proj_lam100/render/_multiview_tmp.png'
+env_light_strength: Background node Strength set to 2.0
+template=template_notebook_color_matrix.npz: 28277/28277 strands highlighted (100.0%) [per-strand, no grid lookup]
+scalp grid (128x128): 9129/16384 cells mapped from 28277 strand roots -> /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0025/fm_proj_lam100/render
+Cycles device: GPU (OPTIX)
+wrote render to /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0025/fm_proj_lam100/render/front.png
+wrote 6-view composite (front/back/top/left/right/bottom) to /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0025/fm_proj_lam100/render/front_multiview.png
+Blender 5.0.0 (hash a37564c4df7a built 2025-11-18 10:44:21)
+
+Blender quit
+
+輸出檔案：
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0025/fm_proj_lam100/render/front.png
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0025/fm_proj_lam100/render/front_multiview.png
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0025/fm_proj_lam100/render/scalp_grid.npz
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0025/fm_proj_lam100/render/scalp_grid_rgb.jpg
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0025/fm_proj_lam100/render/template_notebook_color_matrix.json
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0025/fm_proj_lam100/render/template_notebook_color_matrix.npz
+Blender output:
+
+Multi-view outputs:
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0025/fm_proj_lam100/render/front.png
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0025/fm_proj_lam100/render/front_multiview.png
+<IPython.core.display.Image object>
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0025/fm_proj_lam100/render/scalp_grid.npz
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0025/fm_proj_lam100/render/scalp_grid_rgb.jpg
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0025/fm_proj_lam100/render/template_notebook_color_matrix.json
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0025/fm_proj_lam100/render/template_notebook_color_matrix.npz
+  case_0025/fm_proj_lam100: rendered in 261.9 s (gpu)
+  case_0025/mask_only: rendering (0 strands left out)
+wrote /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0025/mask_only/render/template_notebook_color_matrix.npz
+執行 Blender multi-view 渲染...
+00:00.244  blend            | Read blend: "/home/kyh/Desktop/P76154862/NCKU_3D_hair_reconstruction/inference/assets/blender_vis_base_v26_with_shrinkwrap_full_base.blend"
+00:05.752  cycles           | WARNING HIPEW initialization failed: Error opening HIP dynamic library
+00:49.144  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0025/mask_only/render/front.png'
+01:29.116  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0025/mask_only/render/_multiview_tmp.png'
+01:59.659  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0025/mask_only/render/_multiview_tmp.png'
+02:30.301  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0025/mask_only/render/_multiview_tmp.png'
+02:57.968  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0025/mask_only/render/_multiview_tmp.png'
+04:15.980  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0025/mask_only/render/_multiview_tmp.png'
+env_light_strength: Background node Strength set to 2.0
+template=template_notebook_color_matrix.npz: 28277/28277 strands highlighted (100.0%) [per-strand, no grid lookup]
+scalp grid (128x128): 9129/16384 cells mapped from 28277 strand roots -> /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0025/mask_only/render
+Cycles device: GPU (OPTIX)
+wrote render to /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0025/mask_only/render/front.png
+wrote 6-view composite (front/back/top/left/right/bottom) to /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0025/mask_only/render/front_multiview.png
+Blender 5.0.0 (hash a37564c4df7a built 2025-11-18 10:44:21)
+
+Blender quit
+
+輸出檔案：
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0025/mask_only/render/front.png
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0025/mask_only/render/front_multiview.png
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0025/mask_only/render/scalp_grid.npz
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0025/mask_only/render/scalp_grid_rgb.jpg
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0025/mask_only/render/template_notebook_color_matrix.json
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0025/mask_only/render/template_notebook_color_matrix.npz
+Blender output:
+
+Multi-view outputs:
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0025/mask_only/render/front.png
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0025/mask_only/render/front_multiview.png
+<IPython.core.display.Image object>
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0025/mask_only/render/scalp_grid.npz
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0025/mask_only/render/scalp_grid_rgb.jpg
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0025/mask_only/render/template_notebook_color_matrix.json
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0025/mask_only/render/template_notebook_color_matrix.npz
+  case_0025/mask_only: rendered in 256.3 s (gpu)
+  case_0025: 518.2 s
+[render 23/29] case_0027
+  case_0027/fm_proj_lam100: rendering (0 strands left out)
+wrote /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0027/fm_proj_lam100/render/template_notebook_color_matrix.npz
+執行 Blender multi-view 渲染...
+00:00.246  blend            | Read blend: "/home/kyh/Desktop/P76154862/NCKU_3D_hair_reconstruction/inference/assets/blender_vis_base_v26_with_shrinkwrap_full_base.blend"
+00:05.706  cycles           | WARNING HIPEW initialization failed: Error opening HIP dynamic library
+00:51.387  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0027/fm_proj_lam100/render/front.png'
+01:26.187  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0027/fm_proj_lam100/render/_multiview_tmp.png'
+02:07.596  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0027/fm_proj_lam100/render/_multiview_tmp.png'
+02:37.777  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0027/fm_proj_lam100/render/_multiview_tmp.png'
+03:04.549  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0027/fm_proj_lam100/render/_multiview_tmp.png'
+04:24.319  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0027/fm_proj_lam100/render/_multiview_tmp.png'
+env_light_strength: Background node Strength set to 2.0
+template=template_notebook_color_matrix.npz: 28313/28313 strands highlighted (100.0%) [per-strand, no grid lookup]
+scalp grid (128x128): 9085/16384 cells mapped from 28313 strand roots -> /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0027/fm_proj_lam100/render
+Cycles device: GPU (OPTIX)
+wrote render to /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0027/fm_proj_lam100/render/front.png
+wrote 6-view composite (front/back/top/left/right/bottom) to /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0027/fm_proj_lam100/render/front_multiview.png
+Blender 5.0.0 (hash a37564c4df7a built 2025-11-18 10:44:21)
+
+Blender quit
+
+輸出檔案：
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0027/fm_proj_lam100/render/front.png
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0027/fm_proj_lam100/render/front_multiview.png
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0027/fm_proj_lam100/render/scalp_grid.npz
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0027/fm_proj_lam100/render/scalp_grid_rgb.jpg
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0027/fm_proj_lam100/render/template_notebook_color_matrix.json
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0027/fm_proj_lam100/render/template_notebook_color_matrix.npz
+Blender output:
+
+Multi-view outputs:
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0027/fm_proj_lam100/render/front.png
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0027/fm_proj_lam100/render/front_multiview.png
+<IPython.core.display.Image object>
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0027/fm_proj_lam100/render/scalp_grid.npz
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0027/fm_proj_lam100/render/scalp_grid_rgb.jpg
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0027/fm_proj_lam100/render/template_notebook_color_matrix.json
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0027/fm_proj_lam100/render/template_notebook_color_matrix.npz
+  case_0027/fm_proj_lam100: rendered in 264.6 s (gpu)
+  case_0027/mask_only: rendering (0 strands left out)
+wrote /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0027/mask_only/render/template_notebook_color_matrix.npz
+執行 Blender multi-view 渲染...
+00:00.246  blend            | Read blend: "/home/kyh/Desktop/P76154862/NCKU_3D_hair_reconstruction/inference/assets/blender_vis_base_v26_with_shrinkwrap_full_base.blend"
+00:05.728  cycles           | WARNING HIPEW initialization failed: Error opening HIP dynamic library
+00:49.957  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0027/mask_only/render/front.png'
+01:26.185  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0027/mask_only/render/_multiview_tmp.png'
+02:07.823  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0027/mask_only/render/_multiview_tmp.png'
+02:41.079  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0027/mask_only/render/_multiview_tmp.png'
+03:09.662  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0027/mask_only/render/_multiview_tmp.png'
+04:29.476  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0027/mask_only/render/_multiview_tmp.png'
+env_light_strength: Background node Strength set to 2.0
+template=template_notebook_color_matrix.npz: 28313/28313 strands highlighted (100.0%) [per-strand, no grid lookup]
+scalp grid (128x128): 9085/16384 cells mapped from 28313 strand roots -> /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0027/mask_only/render
+Cycles device: GPU (OPTIX)
+wrote render to /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0027/mask_only/render/front.png
+wrote 6-view composite (front/back/top/left/right/bottom) to /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0027/mask_only/render/front_multiview.png
+Blender 5.0.0 (hash a37564c4df7a built 2025-11-18 10:44:21)
+
+Blender quit
+
+輸出檔案：
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0027/mask_only/render/front.png
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0027/mask_only/render/front_multiview.png
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0027/mask_only/render/scalp_grid.npz
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0027/mask_only/render/scalp_grid_rgb.jpg
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0027/mask_only/render/template_notebook_color_matrix.json
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0027/mask_only/render/template_notebook_color_matrix.npz
+Blender output:
+
+Multi-view outputs:
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0027/mask_only/render/front.png
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0027/mask_only/render/front_multiview.png
+<IPython.core.display.Image object>
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0027/mask_only/render/scalp_grid.npz
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0027/mask_only/render/scalp_grid_rgb.jpg
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0027/mask_only/render/template_notebook_color_matrix.json
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0027/mask_only/render/template_notebook_color_matrix.npz
+  case_0027/mask_only: rendered in 269.7 s (gpu)
+  case_0027: 534.3 s
+[render 24/29] case_0029
+  case_0029/fm_proj_lam100: rendering (0 strands left out)
+wrote /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0029/fm_proj_lam100/render/template_notebook_color_matrix.npz
+執行 Blender multi-view 渲染...
+00:00.255  blend            | Read blend: "/home/kyh/Desktop/P76154862/NCKU_3D_hair_reconstruction/inference/assets/blender_vis_base_v26_with_shrinkwrap_full_base.blend"
+00:03.986  cycles           | WARNING HIPEW initialization failed: Error opening HIP dynamic library
+00:40.587  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0029/fm_proj_lam100/render/front.png'
+01:15.508  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0029/fm_proj_lam100/render/_multiview_tmp.png'
+01:49.805  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0029/fm_proj_lam100/render/_multiview_tmp.png'
+02:22.887  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0029/fm_proj_lam100/render/_multiview_tmp.png'
+02:54.283  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0029/fm_proj_lam100/render/_multiview_tmp.png'
+04:12.101  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0029/fm_proj_lam100/render/_multiview_tmp.png'
+env_light_strength: Background node Strength set to 2.0
+template=template_notebook_color_matrix.npz: 30351/30351 strands highlighted (100.0%) [per-strand, no grid lookup]
+scalp grid (128x128): 9948/16384 cells mapped from 30351 strand roots -> /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0029/fm_proj_lam100/render
+Cycles device: GPU (OPTIX)
+wrote render to /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0029/fm_proj_lam100/render/front.png
+wrote 6-view composite (front/back/top/left/right/bottom) to /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0029/fm_proj_lam100/render/front_multiview.png
+Blender 5.0.0 (hash a37564c4df7a built 2025-11-18 10:44:21)
+
+Blender quit
+
+輸出檔案：
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0029/fm_proj_lam100/render/front.png
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0029/fm_proj_lam100/render/front_multiview.png
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0029/fm_proj_lam100/render/scalp_grid.npz
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0029/fm_proj_lam100/render/scalp_grid_rgb.jpg
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0029/fm_proj_lam100/render/template_notebook_color_matrix.json
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0029/fm_proj_lam100/render/template_notebook_color_matrix.npz
+Blender output:
+
+Multi-view outputs:
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0029/fm_proj_lam100/render/front.png
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0029/fm_proj_lam100/render/front_multiview.png
+<IPython.core.display.Image object>
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0029/fm_proj_lam100/render/scalp_grid.npz
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0029/fm_proj_lam100/render/scalp_grid_rgb.jpg
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0029/fm_proj_lam100/render/template_notebook_color_matrix.json
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0029/fm_proj_lam100/render/template_notebook_color_matrix.npz
+  case_0029/fm_proj_lam100: rendered in 252.4 s (gpu)
+  case_0029/mask_only: rendering (0 strands left out)
+wrote /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0029/mask_only/render/template_notebook_color_matrix.npz
+執行 Blender multi-view 渲染...
+00:00.254  blend            | Read blend: "/home/kyh/Desktop/P76154862/NCKU_3D_hair_reconstruction/inference/assets/blender_vis_base_v26_with_shrinkwrap_full_base.blend"
+00:03.947  cycles           | WARNING HIPEW initialization failed: Error opening HIP dynamic library
+00:41.407  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0029/mask_only/render/front.png'
+01:17.117  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0029/mask_only/render/_multiview_tmp.png'
+01:48.538  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0029/mask_only/render/_multiview_tmp.png'
+02:22.490  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0029/mask_only/render/_multiview_tmp.png'
+02:51.567  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0029/mask_only/render/_multiview_tmp.png'
+04:09.312  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0029/mask_only/render/_multiview_tmp.png'
+env_light_strength: Background node Strength set to 2.0
+template=template_notebook_color_matrix.npz: 30351/30351 strands highlighted (100.0%) [per-strand, no grid lookup]
+scalp grid (128x128): 9948/16384 cells mapped from 30351 strand roots -> /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0029/mask_only/render
+Cycles device: GPU (OPTIX)
+wrote render to /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0029/mask_only/render/front.png
+wrote 6-view composite (front/back/top/left/right/bottom) to /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0029/mask_only/render/front_multiview.png
+Blender 5.0.0 (hash a37564c4df7a built 2025-11-18 10:44:21)
+
+Blender quit
+
+輸出檔案：
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0029/mask_only/render/front.png
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0029/mask_only/render/front_multiview.png
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0029/mask_only/render/scalp_grid.npz
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0029/mask_only/render/scalp_grid_rgb.jpg
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0029/mask_only/render/template_notebook_color_matrix.json
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0029/mask_only/render/template_notebook_color_matrix.npz
+Blender output:
+
+Multi-view outputs:
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0029/mask_only/render/front.png
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0029/mask_only/render/front_multiview.png
+<IPython.core.display.Image object>
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0029/mask_only/render/scalp_grid.npz
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0029/mask_only/render/scalp_grid_rgb.jpg
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0029/mask_only/render/template_notebook_color_matrix.json
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0029/mask_only/render/template_notebook_color_matrix.npz
+  case_0029/mask_only: rendered in 249.6 s (gpu)
+  case_0029: 502.0 s
+[render 25/29] case_0038
+  case_0038/fm_proj_lam100: rendering (0 strands left out)
+wrote /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0038/fm_proj_lam100/render/template_notebook_color_matrix.npz
+執行 Blender multi-view 渲染...
+00:00.248  blend            | Read blend: "/home/kyh/Desktop/P76154862/NCKU_3D_hair_reconstruction/inference/assets/blender_vis_base_v26_with_shrinkwrap_full_base.blend"
+00:02.907  cycles           | WARNING HIPEW initialization failed: Error opening HIP dynamic library
+00:31.017  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0038/fm_proj_lam100/render/front.png'
+01:01.562  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0038/fm_proj_lam100/render/_multiview_tmp.png'
+01:22.192  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0038/fm_proj_lam100/render/_multiview_tmp.png'
+01:50.641  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0038/fm_proj_lam100/render/_multiview_tmp.png'
+02:14.745  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0038/fm_proj_lam100/render/_multiview_tmp.png'
+03:33.344  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0038/fm_proj_lam100/render/_multiview_tmp.png'
+env_light_strength: Background node Strength set to 2.0
+template=template_notebook_color_matrix.npz: 28339/28339 strands highlighted (100.0%) [per-strand, no grid lookup]
+scalp grid (128x128): 9119/16384 cells mapped from 28339 strand roots -> /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0038/fm_proj_lam100/render
+Cycles device: GPU (OPTIX)
+wrote render to /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0038/fm_proj_lam100/render/front.png
+wrote 6-view composite (front/back/top/left/right/bottom) to /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0038/fm_proj_lam100/render/front_multiview.png
+Blender 5.0.0 (hash a37564c4df7a built 2025-11-18 10:44:21)
+
+Blender quit
+
+輸出檔案：
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0038/fm_proj_lam100/render/front.png
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0038/fm_proj_lam100/render/front_multiview.png
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0038/fm_proj_lam100/render/scalp_grid.npz
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0038/fm_proj_lam100/render/scalp_grid_rgb.jpg
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0038/fm_proj_lam100/render/template_notebook_color_matrix.json
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0038/fm_proj_lam100/render/template_notebook_color_matrix.npz
+Blender output:
+
+Multi-view outputs:
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0038/fm_proj_lam100/render/front.png
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0038/fm_proj_lam100/render/front_multiview.png
+<IPython.core.display.Image object>
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0038/fm_proj_lam100/render/scalp_grid.npz
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0038/fm_proj_lam100/render/scalp_grid_rgb.jpg
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0038/fm_proj_lam100/render/template_notebook_color_matrix.json
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0038/fm_proj_lam100/render/template_notebook_color_matrix.npz
+  case_0038/fm_proj_lam100: rendered in 213.6 s (gpu)
+  case_0038/mask_only: rendering (0 strands left out)
+wrote /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0038/mask_only/render/template_notebook_color_matrix.npz
+執行 Blender multi-view 渲染...
+00:00.246  blend            | Read blend: "/home/kyh/Desktop/P76154862/NCKU_3D_hair_reconstruction/inference/assets/blender_vis_base_v26_with_shrinkwrap_full_base.blend"
+00:02.913  cycles           | WARNING HIPEW initialization failed: Error opening HIP dynamic library
+00:29.736  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0038/mask_only/render/front.png'
+01:00.792  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0038/mask_only/render/_multiview_tmp.png'
+01:22.344  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0038/mask_only/render/_multiview_tmp.png'
+01:48.677  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0038/mask_only/render/_multiview_tmp.png'
+02:10.699  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0038/mask_only/render/_multiview_tmp.png'
+03:29.122  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0038/mask_only/render/_multiview_tmp.png'
+env_light_strength: Background node Strength set to 2.0
+template=template_notebook_color_matrix.npz: 28339/28339 strands highlighted (100.0%) [per-strand, no grid lookup]
+scalp grid (128x128): 9119/16384 cells mapped from 28339 strand roots -> /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0038/mask_only/render
+Cycles device: GPU (OPTIX)
+wrote render to /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0038/mask_only/render/front.png
+wrote 6-view composite (front/back/top/left/right/bottom) to /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0038/mask_only/render/front_multiview.png
+Blender 5.0.0 (hash a37564c4df7a built 2025-11-18 10:44:21)
+
+Blender quit
+
+輸出檔案：
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0038/mask_only/render/front.png
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0038/mask_only/render/front_multiview.png
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0038/mask_only/render/scalp_grid.npz
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0038/mask_only/render/scalp_grid_rgb.jpg
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0038/mask_only/render/template_notebook_color_matrix.json
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0038/mask_only/render/template_notebook_color_matrix.npz
+Blender output:
+
+Multi-view outputs:
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0038/mask_only/render/front.png
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0038/mask_only/render/front_multiview.png
+<IPython.core.display.Image object>
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0038/mask_only/render/scalp_grid.npz
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0038/mask_only/render/scalp_grid_rgb.jpg
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0038/mask_only/render/template_notebook_color_matrix.json
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0038/mask_only/render/template_notebook_color_matrix.npz
+  case_0038/mask_only: rendered in 209.4 s (gpu)
+  case_0038: 423.0 s
+[render 26/29] case_0040
+  case_0040/fm_proj_lam100: rendering (0 strands left out)
+wrote /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0040/fm_proj_lam100/render/template_notebook_color_matrix.npz
+執行 Blender multi-view 渲染...
+00:00.255  blend            | Read blend: "/home/kyh/Desktop/P76154862/NCKU_3D_hair_reconstruction/inference/assets/blender_vis_base_v26_with_shrinkwrap_full_base.blend"
+00:06.192  cycles           | WARNING HIPEW initialization failed: Error opening HIP dynamic library
+00:37.102  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0040/fm_proj_lam100/render/front.png'
+01:15.170  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0040/fm_proj_lam100/render/_multiview_tmp.png'
+01:47.865  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0040/fm_proj_lam100/render/_multiview_tmp.png'
+02:31.792  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0040/fm_proj_lam100/render/_multiview_tmp.png'
+03:02.008  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0040/fm_proj_lam100/render/_multiview_tmp.png'
+04:20.736  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0040/fm_proj_lam100/render/_multiview_tmp.png'
+env_light_strength: Background node Strength set to 2.0
+template=template_notebook_color_matrix.npz: 30218/30218 strands highlighted (100.0%) [per-strand, no grid lookup]
+scalp grid (128x128): 9852/16384 cells mapped from 30218 strand roots -> /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0040/fm_proj_lam100/render
+Cycles device: GPU (OPTIX)
+wrote render to /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0040/fm_proj_lam100/render/front.png
+wrote 6-view composite (front/back/top/left/right/bottom) to /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0040/fm_proj_lam100/render/front_multiview.png
+Blender 5.0.0 (hash a37564c4df7a built 2025-11-18 10:44:21)
+
+Blender quit
+
+輸出檔案：
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0040/fm_proj_lam100/render/front.png
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0040/fm_proj_lam100/render/front_multiview.png
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0040/fm_proj_lam100/render/scalp_grid.npz
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0040/fm_proj_lam100/render/scalp_grid_rgb.jpg
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0040/fm_proj_lam100/render/template_notebook_color_matrix.json
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0040/fm_proj_lam100/render/template_notebook_color_matrix.npz
+Blender output:
+
+Multi-view outputs:
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0040/fm_proj_lam100/render/front.png
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0040/fm_proj_lam100/render/front_multiview.png
+<IPython.core.display.Image object>
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0040/fm_proj_lam100/render/scalp_grid.npz
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0040/fm_proj_lam100/render/scalp_grid_rgb.jpg
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0040/fm_proj_lam100/render/template_notebook_color_matrix.json
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0040/fm_proj_lam100/render/template_notebook_color_matrix.npz
+  case_0040/fm_proj_lam100: rendered in 261.0 s (gpu)
+  case_0040/mask_only: rendering (0 strands left out)
+wrote /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0040/mask_only/render/template_notebook_color_matrix.npz
+執行 Blender multi-view 渲染...
+00:00.253  blend            | Read blend: "/home/kyh/Desktop/P76154862/NCKU_3D_hair_reconstruction/inference/assets/blender_vis_base_v26_with_shrinkwrap_full_base.blend"
+00:06.191  cycles           | WARNING HIPEW initialization failed: Error opening HIP dynamic library
+00:51.056  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0040/mask_only/render/front.png'
+01:22.152  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0040/mask_only/render/_multiview_tmp.png'
+02:05.579  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0040/mask_only/render/_multiview_tmp.png'
+02:45.879  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0040/mask_only/render/_multiview_tmp.png'
+03:17.976  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0040/mask_only/render/_multiview_tmp.png'
+04:37.757  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0040/mask_only/render/_multiview_tmp.png'
+env_light_strength: Background node Strength set to 2.0
+template=template_notebook_color_matrix.npz: 30218/30218 strands highlighted (100.0%) [per-strand, no grid lookup]
+scalp grid (128x128): 9852/16384 cells mapped from 30218 strand roots -> /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0040/mask_only/render
+Cycles device: GPU (OPTIX)
+wrote render to /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0040/mask_only/render/front.png
+wrote 6-view composite (front/back/top/left/right/bottom) to /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0040/mask_only/render/front_multiview.png
+Blender 5.0.0 (hash a37564c4df7a built 2025-11-18 10:44:21)
+
+Blender quit
+
+輸出檔案：
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0040/mask_only/render/front.png
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0040/mask_only/render/front_multiview.png
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0040/mask_only/render/scalp_grid.npz
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0040/mask_only/render/scalp_grid_rgb.jpg
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0040/mask_only/render/template_notebook_color_matrix.json
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0040/mask_only/render/template_notebook_color_matrix.npz
+Blender output:
+
+Multi-view outputs:
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0040/mask_only/render/front.png
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0040/mask_only/render/front_multiview.png
+<IPython.core.display.Image object>
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0040/mask_only/render/scalp_grid.npz
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0040/mask_only/render/scalp_grid_rgb.jpg
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0040/mask_only/render/template_notebook_color_matrix.json
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0040/mask_only/render/template_notebook_color_matrix.npz
+  case_0040/mask_only: rendered in 278.0 s (gpu)
+  case_0040: 539.0 s
+[render 27/29] case_0043
+  case_0043/fm_proj_lam100: rendering (0 strands left out)
+wrote /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0043/fm_proj_lam100/render/template_notebook_color_matrix.npz
+執行 Blender multi-view 渲染...
+00:00.253  blend            | Read blend: "/home/kyh/Desktop/P76154862/NCKU_3D_hair_reconstruction/inference/assets/blender_vis_base_v26_with_shrinkwrap_full_base.blend"
+00:02.603  cycles           | WARNING HIPEW initialization failed: Error opening HIP dynamic library
+00:32.687  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0043/fm_proj_lam100/render/front.png'
+01:04.808  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0043/fm_proj_lam100/render/_multiview_tmp.png'
+01:32.849  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0043/fm_proj_lam100/render/_multiview_tmp.png'
+02:03.523  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0043/fm_proj_lam100/render/_multiview_tmp.png'
+02:32.317  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0043/fm_proj_lam100/render/_multiview_tmp.png'
+03:50.129  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0043/fm_proj_lam100/render/_multiview_tmp.png'
+env_light_strength: Background node Strength set to 2.0
+template=template_notebook_color_matrix.npz: 30191/30191 strands highlighted (100.0%) [per-strand, no grid lookup]
+scalp grid (128x128): 9795/16384 cells mapped from 30191 strand roots -> /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0043/fm_proj_lam100/render
+Cycles device: GPU (OPTIX)
+wrote render to /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0043/fm_proj_lam100/render/front.png
+wrote 6-view composite (front/back/top/left/right/bottom) to /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0043/fm_proj_lam100/render/front_multiview.png
+Blender 5.0.0 (hash a37564c4df7a built 2025-11-18 10:44:21)
+
+Blender quit
+
+輸出檔案：
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0043/fm_proj_lam100/render/front.png
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0043/fm_proj_lam100/render/front_multiview.png
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0043/fm_proj_lam100/render/scalp_grid.npz
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0043/fm_proj_lam100/render/scalp_grid_rgb.jpg
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0043/fm_proj_lam100/render/template_notebook_color_matrix.json
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0043/fm_proj_lam100/render/template_notebook_color_matrix.npz
+Blender output:
+
+Multi-view outputs:
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0043/fm_proj_lam100/render/front.png
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0043/fm_proj_lam100/render/front_multiview.png
+<IPython.core.display.Image object>
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0043/fm_proj_lam100/render/scalp_grid.npz
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0043/fm_proj_lam100/render/scalp_grid_rgb.jpg
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0043/fm_proj_lam100/render/template_notebook_color_matrix.json
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0043/fm_proj_lam100/render/template_notebook_color_matrix.npz
+  case_0043/fm_proj_lam100: rendered in 230.4 s (gpu)
+  case_0043/mask_only: rendering (0 strands left out)
+wrote /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0043/mask_only/render/template_notebook_color_matrix.npz
+執行 Blender multi-view 渲染...
+00:00.253  blend            | Read blend: "/home/kyh/Desktop/P76154862/NCKU_3D_hair_reconstruction/inference/assets/blender_vis_base_v26_with_shrinkwrap_full_base.blend"
+00:02.602  cycles           | WARNING HIPEW initialization failed: Error opening HIP dynamic library
+00:32.952  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0043/mask_only/render/front.png'
+01:04.871  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0043/mask_only/render/_multiview_tmp.png'
+01:33.199  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0043/mask_only/render/_multiview_tmp.png'
+02:03.525  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0043/mask_only/render/_multiview_tmp.png'
+02:32.425  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0043/mask_only/render/_multiview_tmp.png'
+03:51.102  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0043/mask_only/render/_multiview_tmp.png'
+env_light_strength: Background node Strength set to 2.0
+template=template_notebook_color_matrix.npz: 30191/30191 strands highlighted (100.0%) [per-strand, no grid lookup]
+scalp grid (128x128): 9795/16384 cells mapped from 30191 strand roots -> /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0043/mask_only/render
+Cycles device: GPU (OPTIX)
+wrote render to /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0043/mask_only/render/front.png
+wrote 6-view composite (front/back/top/left/right/bottom) to /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0043/mask_only/render/front_multiview.png
+Blender 5.0.0 (hash a37564c4df7a built 2025-11-18 10:44:21)
+
+Blender quit
+
+輸出檔案：
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0043/mask_only/render/front.png
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0043/mask_only/render/front_multiview.png
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0043/mask_only/render/scalp_grid.npz
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0043/mask_only/render/scalp_grid_rgb.jpg
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0043/mask_only/render/template_notebook_color_matrix.json
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0043/mask_only/render/template_notebook_color_matrix.npz
+Blender output:
+
+Multi-view outputs:
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0043/mask_only/render/front.png
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0043/mask_only/render/front_multiview.png
+<IPython.core.display.Image object>
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0043/mask_only/render/scalp_grid.npz
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0043/mask_only/render/scalp_grid_rgb.jpg
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0043/mask_only/render/template_notebook_color_matrix.json
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0043/mask_only/render/template_notebook_color_matrix.npz
+  case_0043/mask_only: rendered in 231.4 s (gpu)
+  case_0043: 461.8 s
+[render 28/29] case_0044
+  case_0044/fm_proj_lam100: rendering (0 strands left out)
+wrote /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0044/fm_proj_lam100/render/template_notebook_color_matrix.npz
+執行 Blender multi-view 渲染...
+00:00.254  blend            | Read blend: "/home/kyh/Desktop/P76154862/NCKU_3D_hair_reconstruction/inference/assets/blender_vis_base_v26_with_shrinkwrap_full_base.blend"
+00:03.117  cycles           | WARNING HIPEW initialization failed: Error opening HIP dynamic library
+00:36.612  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0044/fm_proj_lam100/render/front.png'
+01:06.202  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0044/fm_proj_lam100/render/_multiview_tmp.png'
+01:35.538  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0044/fm_proj_lam100/render/_multiview_tmp.png'
+02:05.149  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0044/fm_proj_lam100/render/_multiview_tmp.png'
+02:33.471  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0044/fm_proj_lam100/render/_multiview_tmp.png'
+03:51.152  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0044/fm_proj_lam100/render/_multiview_tmp.png'
+env_light_strength: Background node Strength set to 2.0
+template=template_notebook_color_matrix.npz: 30208/30208 strands highlighted (100.0%) [per-strand, no grid lookup]
+scalp grid (128x128): 9872/16384 cells mapped from 30208 strand roots -> /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0044/fm_proj_lam100/render
+Cycles device: GPU (OPTIX)
+wrote render to /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0044/fm_proj_lam100/render/front.png
+wrote 6-view composite (front/back/top/left/right/bottom) to /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0044/fm_proj_lam100/render/front_multiview.png
+Blender 5.0.0 (hash a37564c4df7a built 2025-11-18 10:44:21)
+
+Blender quit
+
+輸出檔案：
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0044/fm_proj_lam100/render/front.png
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0044/fm_proj_lam100/render/front_multiview.png
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0044/fm_proj_lam100/render/scalp_grid.npz
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0044/fm_proj_lam100/render/scalp_grid_rgb.jpg
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0044/fm_proj_lam100/render/template_notebook_color_matrix.json
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0044/fm_proj_lam100/render/template_notebook_color_matrix.npz
+Blender output:
+
+Multi-view outputs:
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0044/fm_proj_lam100/render/front.png
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0044/fm_proj_lam100/render/front_multiview.png
+<IPython.core.display.Image object>
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0044/fm_proj_lam100/render/scalp_grid.npz
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0044/fm_proj_lam100/render/scalp_grid_rgb.jpg
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0044/fm_proj_lam100/render/template_notebook_color_matrix.json
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0044/fm_proj_lam100/render/template_notebook_color_matrix.npz
+  case_0044/fm_proj_lam100: rendered in 231.4 s (gpu)
+  case_0044/mask_only: rendering (0 strands left out)
+wrote /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0044/mask_only/render/template_notebook_color_matrix.npz
+執行 Blender multi-view 渲染...
+00:00.254  blend            | Read blend: "/home/kyh/Desktop/P76154862/NCKU_3D_hair_reconstruction/inference/assets/blender_vis_base_v26_with_shrinkwrap_full_base.blend"
+00:03.113  cycles           | WARNING HIPEW initialization failed: Error opening HIP dynamic library
+00:36.847  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0044/mask_only/render/front.png'
+01:07.449  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0044/mask_only/render/_multiview_tmp.png'
+01:36.941  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0044/mask_only/render/_multiview_tmp.png'
+02:05.415  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0044/mask_only/render/_multiview_tmp.png'
+02:34.870  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0044/mask_only/render/_multiview_tmp.png'
+03:53.501  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0044/mask_only/render/_multiview_tmp.png'
+env_light_strength: Background node Strength set to 2.0
+template=template_notebook_color_matrix.npz: 30208/30208 strands highlighted (100.0%) [per-strand, no grid lookup]
+scalp grid (128x128): 9872/16384 cells mapped from 30208 strand roots -> /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0044/mask_only/render
+Cycles device: GPU (OPTIX)
+wrote render to /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0044/mask_only/render/front.png
+wrote 6-view composite (front/back/top/left/right/bottom) to /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0044/mask_only/render/front_multiview.png
+Blender 5.0.0 (hash a37564c4df7a built 2025-11-18 10:44:21)
+
+Blender quit
+
+輸出檔案：
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0044/mask_only/render/front.png
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0044/mask_only/render/front_multiview.png
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0044/mask_only/render/scalp_grid.npz
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0044/mask_only/render/scalp_grid_rgb.jpg
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0044/mask_only/render/template_notebook_color_matrix.json
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0044/mask_only/render/template_notebook_color_matrix.npz
+Blender output:
+
+Multi-view outputs:
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0044/mask_only/render/front.png
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0044/mask_only/render/front_multiview.png
+<IPython.core.display.Image object>
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0044/mask_only/render/scalp_grid.npz
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0044/mask_only/render/scalp_grid_rgb.jpg
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0044/mask_only/render/template_notebook_color_matrix.json
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0044/mask_only/render/template_notebook_color_matrix.npz
+  case_0044/mask_only: rendered in 233.8 s (gpu)
+  case_0044: 465.2 s
+[render 29/29] case_0046
+  case_0046/fm_proj_lam100: rendering (0 strands left out)
+wrote /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0046/fm_proj_lam100/render/template_notebook_color_matrix.npz
+執行 Blender multi-view 渲染...
+00:00.254  blend            | Read blend: "/home/kyh/Desktop/P76154862/NCKU_3D_hair_reconstruction/inference/assets/blender_vis_base_v26_with_shrinkwrap_full_base.blend"
+00:05.698  cycles           | WARNING HIPEW initialization failed: Error opening HIP dynamic library
+00:44.381  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0046/fm_proj_lam100/render/front.png'
+01:21.844  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0046/fm_proj_lam100/render/_multiview_tmp.png'
+01:47.737  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0046/fm_proj_lam100/render/_multiview_tmp.png'
+02:24.737  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0046/fm_proj_lam100/render/_multiview_tmp.png'
+02:52.251  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0046/fm_proj_lam100/render/_multiview_tmp.png'
+04:10.400  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0046/fm_proj_lam100/render/_multiview_tmp.png'
+env_light_strength: Background node Strength set to 2.0
+template=template_notebook_color_matrix.npz: 30355/30355 strands highlighted (100.0%) [per-strand, no grid lookup]
+scalp grid (128x128): 9931/16384 cells mapped from 30355 strand roots -> /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0046/fm_proj_lam100/render
+Cycles device: GPU (OPTIX)
+wrote render to /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0046/fm_proj_lam100/render/front.png
+wrote 6-view composite (front/back/top/left/right/bottom) to /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0046/fm_proj_lam100/render/front_multiview.png
+Blender 5.0.0 (hash a37564c4df7a built 2025-11-18 10:44:21)
+
+Blender quit
+
+輸出檔案：
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0046/fm_proj_lam100/render/front.png
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0046/fm_proj_lam100/render/front_multiview.png
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0046/fm_proj_lam100/render/scalp_grid.npz
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0046/fm_proj_lam100/render/scalp_grid_rgb.jpg
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0046/fm_proj_lam100/render/template_notebook_color_matrix.json
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0046/fm_proj_lam100/render/template_notebook_color_matrix.npz
+Blender output:
+
+Multi-view outputs:
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0046/fm_proj_lam100/render/front.png
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0046/fm_proj_lam100/render/front_multiview.png
+<IPython.core.display.Image object>
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0046/fm_proj_lam100/render/scalp_grid.npz
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0046/fm_proj_lam100/render/scalp_grid_rgb.jpg
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0046/fm_proj_lam100/render/template_notebook_color_matrix.json
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0046/fm_proj_lam100/render/template_notebook_color_matrix.npz
+  case_0046/fm_proj_lam100: rendered in 250.7 s (gpu)
+  case_0046/mask_only: rendering (0 strands left out)
+wrote /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0046/mask_only/render/template_notebook_color_matrix.npz
+執行 Blender multi-view 渲染...
+00:00.254  blend            | Read blend: "/home/kyh/Desktop/P76154862/NCKU_3D_hair_reconstruction/inference/assets/blender_vis_base_v26_with_shrinkwrap_full_base.blend"
+00:05.713  cycles           | WARNING HIPEW initialization failed: Error opening HIP dynamic library
+00:47.606  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0046/mask_only/render/front.png'
+01:26.307  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0046/mask_only/render/_multiview_tmp.png'
+02:02.521  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0046/mask_only/render/_multiview_tmp.png'
+02:38.372  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0046/mask_only/render/_multiview_tmp.png'
+03:07.849  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0046/mask_only/render/_multiview_tmp.png'
+04:26.162  render           | Saved: '/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0046/mask_only/render/_multiview_tmp.png'
+env_light_strength: Background node Strength set to 2.0
+template=template_notebook_color_matrix.npz: 30355/30355 strands highlighted (100.0%) [per-strand, no grid lookup]
+scalp grid (128x128): 9931/16384 cells mapped from 30355 strand roots -> /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0046/mask_only/render
+Cycles device: GPU (OPTIX)
+wrote render to /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0046/mask_only/render/front.png
+wrote 6-view composite (front/back/top/left/right/bottom) to /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0046/mask_only/render/front_multiview.png
+Blender 5.0.0 (hash a37564c4df7a built 2025-11-18 10:44:21)
+
+Blender quit
+
+輸出檔案：
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0046/mask_only/render/front.png
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0046/mask_only/render/front_multiview.png
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0046/mask_only/render/scalp_grid.npz
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0046/mask_only/render/scalp_grid_rgb.jpg
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0046/mask_only/render/template_notebook_color_matrix.json
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0046/mask_only/render/template_notebook_color_matrix.npz
+Blender output:
+
+Multi-view outputs:
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0046/mask_only/render/front.png
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0046/mask_only/render/front_multiview.png
+<IPython.core.display.Image object>
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0046/mask_only/render/scalp_grid.npz
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0046/mask_only/render/scalp_grid_rgb.jpg
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0046/mask_only/render/template_notebook_color_matrix.json
+/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/cases/case_0046/mask_only/render/template_notebook_color_matrix.npz
+  case_0046/mask_only: rendered in 266.4 s (gpu)
+  case_0046: 517.1 s
+rendering done: 24 new renders in 98.5 min
+summary: /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/summary.md
+report: /home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/contour_algo_test/data/hl_n50_s0/runs/run/report.html

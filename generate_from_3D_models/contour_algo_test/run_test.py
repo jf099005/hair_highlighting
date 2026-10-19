@@ -119,7 +119,7 @@ def plot_cell_projection(strand_positions, strands_mask_grid, base_strand_mask, 
                             *cell_frame(g["grid_pos"], g["grid_t1"], g["grid_t2"], g["grid_normal"], cu, cv),
                             g["half_size"], uc.H_MIN, uc.H_MAX)
     S = strand_positions.shape[0]
-    keys = crossing_keys(*segs, g["half_size"], 0, S, -1)
+    keys = crossing_keys(*segs[:5], g["half_size"], 0, S, -1)
     ka, kb = keys // S, keys % S
     opposite = base_strand_mask[ka] != base_strand_mask[kb]
     K = members.size
@@ -136,7 +136,7 @@ def plot_cell_projection(strand_positions, strands_mask_grid, base_strand_mask, 
     if min(x.size for x in groups) == 0:
         return None, info   # 這格沒有混色，沒什麼好畫
     shown = np.concatenate([rng.choice(x, min(n_show // 2, x.size), replace=False) for x in groups])
-    sx, sy, ex, ey, owner = segs
+    sx, sy, ex, ey, owner = segs[:5]
     sel = np.isin(owner, shown)
     p0, p1, own = np.stack([sx, sy], 1)[sel], np.stack([ex, ey], 1)[sel], owner[sel]
     hi = base_strand_mask[own]

@@ -52,7 +52,7 @@ def joint_projection_edges(grid, membership, positions_a, positions_b, h_min=H_M
         frame = cell_frame(grid.grid_pos, grid.grid_t1, grid.grid_t2, grid.grid_normal, *divmod(r, n))
         seg_a = project_segments(pos_a, a_ids, a_ids, *frame, half_size, float(h_min), float(h_max))
         seg_b = project_segments(pos_b, b_ids - n_a, b_ids, *frame, half_size, float(h_min), float(h_max))
-        segs = [np.concatenate([sa, sb]) for sa, sb in zip(seg_a, seg_b)]
+        segs = [np.concatenate([sa, sb]) for sa, sb in zip(seg_a[:5], seg_b[:5])]  # 2D part; depth unused
         return crossing_keys(*segs, half_size, int(n_bins or 0), S, n_a)
 
     keys, weights = weighted_pairs(work, rows, n_threads, show_progress, desc="joint projection overlap")

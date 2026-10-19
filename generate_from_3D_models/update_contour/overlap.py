@@ -44,12 +44,15 @@ class StrandGraph(NamedTuple):
 
 @njit(cache=True, nogil=True)
 def project_segments(strand_positions, members, owners, pos, t1, t2, normal, half_size, h_min, h_max):
-    """Local 2D segments (sx, sy, ex, ey, owner) of the strands `members` (rows of strand_positions) in one
-    cell: every segment with at least one endpoint inside the column; owner = owners[k] of member k."""
+    """Local segments (sx, sy, ex, ey, owner, sz, ez) of the strands `members` (rows of strand_positions) in one
+    cell: every segment with at least one endpoint inside the column; owner = owners[k] of member k.
+    (x, y) are the coordinates along t1 / t2; z is the height along the cell normal (depth, kept for future
+    use). The first five entries are the 2D segments crossing_keys takes: pass `segs[:5]`."""
     P = strand_positions.shape[1]
     K = members.shape[0]
     lx = np.empty((K, P))
     ly = np.empty((K, P))
+    lz = np.empty((K, P))
     inside = np.empty((K, P), np.bool_)
     n_seg = 0
     for k in range(K):
@@ -63,6 +66,7 @@ def project_segments(strand_positions, members, owners, pos, t1, t2, normal, hal
             h = dx * normal[0] + dy * normal[1] + dz * normal[2]
             lx[k, p] = x
             ly[k, p] = y
+            lz[k, p] = h
             inside[k, p] = abs(x) <= half_size and abs(y) <= half_size and h >= h_min and h <= h_max
         for p in range(P - 1):
             if inside[k, p] or inside[k, p + 1]:
@@ -72,6 +76,8 @@ def project_segments(strand_positions, members, owners, pos, t1, t2, normal, hal
     sy = np.empty(n_seg)
     ex = np.empty(n_seg)
     ey = np.empty(n_seg)
+    sz = np.empty(n_seg)
+    ez = np.empty(n_seg)
     owner = np.empty(n_seg, np.int64)
     i = 0
     for k in range(K):
@@ -81,9 +87,11 @@ def project_segments(strand_positions, members, owners, pos, t1, t2, normal, hal
                 sy[i] = ly[k, p]
                 ex[i] = lx[k, p + 1]
                 ey[i] = ly[k, p + 1]
+                sz[i] = lz[k, p]
+                ez[i] = lz[k, p + 1]
                 owner[i] = owners[k]
                 i += 1
-    return sx, sy, ex, ey, owner
+    return sx, sy, ex, ey, owner, sz, ez
 
 
 @njit(cache=True, nogil=True)
@@ -271,7 +279,7 @@ def build_projection_graph(strand_positions, strand_mask_grid, grid_pos, grid_no
         segs = project_segments(strand_positions, members, members,
                                 *cell_frame(grid_pos, grid_t1, grid_t2, grid_normal, *cell),
                                 float(half_size), float(h_min), float(h_max))
-        return crossing_keys(*segs, float(half_size), int(n_bins or 0), n_strands, -1)
+        return crossing_keys(*segs[:5], float(half_size), int(n_bins or 0), n_strands, -1)
 
     keys, weights = weighted_pairs(work, cells, n_threads, show_progress)
     return StrandGraph(*symmetric_csr(keys, weights, n_strands))

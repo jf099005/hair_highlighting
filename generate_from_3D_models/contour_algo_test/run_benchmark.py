@@ -3,7 +3,8 @@
 
     bench.sh run <benchmark_dir> [--run_name run] [--methods mask_only,fm_proj_lam1000,...]
                  [--variants_json extra.json] [--metrics strands,cell,projection,grid_score,shape]
-                 [--cases case_0000,case_0003] [--max_strands N] [--no_figures] [--render] [--no_analysis] [--overwrite]
+                 [--cases case_0000,case_0003] [--max_strands N] [--no_figures] [--no_render] [--render_device gpu|cpu] [--flux_analysis yes|no] [--overwrite]
+                 [--random_samples yes|no] [--samples_per_group 3] [--sample_seed 0]
                  [--boundary_fm] [--max_mem_gb G] [--min_free_gb 4] [--retry_skipped] [--no_isolate]
 
 Per case: load the hairstyle and the initial mask, compute the strand/column membership on the CPU
@@ -15,8 +16,8 @@ Per case: load the hairstyle and the initial mask, compute the strand/column mem
                                                     overlap_matrix (size of the projection graph)
     .../cases/<case_id>/<variant>/maps.npz          strand_mask, hidden, (n, n) metric maps (grid score, ...)
     .../cases/<case_id>/<variant>/roots.png         roots colored by the result (flips marked) + grid score map
-    .../cases/<case_id>/<variant>/render/           Blender multi-view (render_results.py; summarize renders the
-                                                    extremes with --render)
+    .../cases/<case_id>/<variant>/render/           Blender multi-view + render_info.json (render time;
+                                                    summarize renders the extremes unless --no_render)
     .../summary.csv, summary.json, summary.md, report.html   (summarize.py; rerun it alone any time)
 
 Finished (case, variant) pairs are skipped on a rerun unless --overwrite, so a run can be resumed and new
@@ -267,12 +268,12 @@ def main():
     p.add_argument("--max_strands", type=int, default=None,
                    help="random subset of strands per hairstyle (default: all; fewer = faster, less memory)")
     p.add_argument("--no_figures", dest="figures", action="store_false")
-    p.add_argument("--render", action="store_true",
-                   help="at the end, Blender-render the lowest / highest grid-score case of every group (CPU, slow)")
+    p.add_argument("--no_render", dest="render", action="store_false",
+                   help="skip Blender-rendering the extreme cases of every group at the end (default: render; CPU, "
+                        "~3.5 min per render)")
+    p.add_argument("--render", action="store_true", help=argparse.SUPPRESS)   # the default now; kept for old commands
     p.add_argument("--render_methods", default=None,
-                   help="with --render: comma list of variants or 'all' (default: mask_only + the selected fm variant)")
-    p.add_argument("--no_analysis", dest="analyze", action="store_false",
-                   help="skip the flux / vector field analysis of the extreme cases at the end")
+                   help="comma list of variants or 'all' (default: mask_only + the selected fm variant)")
     p.add_argument("--overwrite", action="store_true", help="recompute finished (case, variant) pairs")
     p.add_argument("--verbose", action="store_true", help="progress output of FM / overlap graph")
     p.add_argument("--boundary_fm", action="store_true",
@@ -286,7 +287,11 @@ def main():
     p.add_argument("--no_isolate", dest="isolate", action="store_false",
                    help="run the cases in this process, without the memory guard")
     p.add_argument("--_worker", action="store_true", help=argparse.SUPPRESS)
+    from highlighting.generate_from_3D_models.contour_algo_test import summarize as summarize_mod
+    summarize_mod.add_sample_args(p)
     args = p.parse_args()
+    if args.samples_per_group < 1:
+        p.error("--samples_per_group must be >= 1")
 
     bench_dir = os.path.abspath(args.benchmark_dir)
     bench = common.read_json(os.path.join(bench_dir, "benchmark.json"))
@@ -348,7 +353,9 @@ def main():
             run_case(os.path.join(bench_dir, "cases", cid), run_dir, args)
     print(f"all cases done in {(time.time() - t_all) / 60:.1f} min")
     from highlighting.generate_from_3D_models.contour_algo_test import summarize
-    summarize.summarize(run_dir, render=args.render, render_methods=args.render_methods, analyze=args.analyze)
+    summarize.summarize(run_dir, render=args.render, render_methods=args.render_methods, analyze=args.analyze and args.flux_analysis == "yes",
+                        random_samples=args.random_samples == "yes", samples_per_group=args.samples_per_group,
+                        sample_seed=args.sample_seed, render_device=args.render_device)
 
 
 if __name__ == "__main__":
