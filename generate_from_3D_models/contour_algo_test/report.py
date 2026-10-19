@@ -42,8 +42,7 @@ th, td { border-bottom:1px solid var(--line); padding:5px 10px; text-align:right
 th:first-child, td:first-child { text-align:left; }
 th { font-weight:600; color:var(--muted); font-size:12.5px; }
 .good { color:var(--good); font-weight:600; } .bad { color:var(--bad); font-weight:600; }
-.extremes { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:14px; }
-@media (max-width: 1000px) { .extremes { grid-template-columns:1fr; } }
+.extremes { display:grid; grid-template-columns:minmax(0, 1fr); gap:14px; }   /* one case per row */
 .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:12px; min-width:0; }
 .card .head { display:grid; grid-template-columns:140px 1fr; gap:12px; align-items:start; }
 .card .label { font-weight:600; font-size:13px; margin:10px 0 4px; }
@@ -118,7 +117,7 @@ def _analysis_html(run_dir, cid, reference, sel):
     fig = os.path.join(analysis_dir(run_dir, cid), "figures")
     if not os.path.isdir(fig):
         return ("<div class='note' style='margin-top:10px'>no flux / vector field analysis "
-                "(summarize without --no_analysis)</div>")
+                "(summarize with --flux_analysis yes)</div>")
     im = lambda name, alt: _img(run_dir, os.path.join(fig, name), alt)  # noqa: E731
     return ("<details><summary>Flux map &amp; vector field</summary>"
             "<p class='note'>The hairstyle's 3D |flux| (divergence of the hair flow field; it does not depend on the "
@@ -132,9 +131,13 @@ def _analysis_html(run_dir, cid, reference, sel):
             f"<div>{im('flux_edges.png', 'flux edges')}</div></div></details>")
 
 
-def _extreme_card(run_dir, cid, x, titles, variants, reference, sel, bench_dir):
+def _extreme_card(run_dir, cid, x, titles, variants, reference, sel, bench_dir, analysis=True):
     from highlighting.generate_from_3D_models.contour_algo_test.render_results import render_path
-    scores = "".join(f"<tr><th>{e(v)}</th><td>{s:.4f}</td></tr>" for v, s in x["scores"].items() if s is not None)
+    main = x.get("main_scores") or {GS: x["scores"]}
+    fmt = lambda s: f"{s:.4f}" if isinstance(s, (int, float)) else "-"  # noqa: E731
+    scores = ("<tr><th></th>" + "".join(f"<th>{e(c.split('.')[-1])}</th>" for c in main) + "</tr>"
+              + "".join(f"<tr><th>{e(v)}</th>" + "".join(f"<td>{fmt(main[c].get(v))}</td>" for c in main) + "</tr>"
+                        for v in variants))
     warn = (f"<div class='bad' style='margin-top:4px'>Degenerate: {e(sel)} kept only "
             f"{(x.get('min_label_retention') or 0):.0%} of the highlight or base strands (one color practically "
             "vanished; its grid score is trivially ~0). Shown because this group has no other result.</div>"
@@ -143,14 +146,19 @@ def _extreme_card(run_dir, cid, x, titles, variants, reference, sel, bench_dir):
            f"<div class='muted' style='font-size:12.5px'>{e(x['hairstyle'])} · {e(x['length_class'])} · "
            f"mask {e(x['mask_generator'])}</div><div class='head' style='margin-top:8px'>"
            + _img(run_dir, os.path.join(bench_dir or "", "cases", cid, "mask.png"), "mask preview")
-           + f"<table class='kv'><tr><th colspan='2' style='text-align:left'>{e(GS)}</th></tr>{scores}</table></div>"]
+           + f"<table class='kv'>{scores}</table></div>"]
+    from highlighting.generate_from_3D_models.contour_algo_test.render_results import render_seconds
     for v in variants:
         vd = os.path.join(run_dir, "cases", cid, v)
-        out.append(f"<div class='label'>{e(v)}</div><div class='pair'>"
+        sec, dev = (render_seconds(run_dir, cid, v, with_device=True) if os.path.exists(render_path(run_dir, cid, v))
+                    else (None, None))
+        rt = (f" <span class='muted' style='font-weight:400'>· render {sec:.1f} s"
+              + (f" ({e(dev.upper())})" if dev else "") + "</span>") if sec is not None else ""
+        out.append(f"<div class='label'>{e(v)}{rt}</div><div class='pair'>"
                    + _img(run_dir, os.path.join(vd, "roots.png"), "roots figure")
                    + _img(run_dir, render_path(run_dir, cid, v), f"render: bench.sh render {run_dir} --cases {cid} "
                                                                   f"--methods {v}") + "</div>")
-    out.append(_analysis_html(run_dir, cid, reference, sel) + "</div>")
+    out.append((_analysis_html(run_dir, cid, reference, sel) if analysis else "") + "</div>")
     return "".join(out)
 
 
@@ -205,7 +213,19 @@ def _group_body(run_dir, name, g, summary, key_metrics, bench_dir):
                 continue
             seen.add(cid)
             titles = [EXTREME_TITLES.get(k, k) for k, y in g["extremes"].items() if y["case"] == cid]
-            out.append(_extreme_card(run_dir, cid, x, titles, variants, reference, sel, bench_dir))
+            out.append(_extreme_card(run_dir, cid, x, titles, variants, reference, sel, bench_dir,
+                                     summary.get("flux_analysis", True)))
+        out.append("</div>")
+
+    if g.get("samples"):
+        rs = summary.get("random_samples") or {}
+        out.append(f"<h3>Random samples <span class='muted'>({len(g['samples'])} of {g['samples_of']} cases, "
+                   f"seed {rs.get('seed')})</span></h3><div class='extremes'>")
+        for x in g["samples"]:
+            titles = ["random sample"] + [EXTREME_TITLES.get(k, k) for k, y in g["extremes"].items()
+                                          if y["case"] == x["case"]]
+            out.append(_extreme_card(run_dir, x["case"], x, titles, variants, reference, sel, bench_dir,
+                                     summary.get("flux_analysis", True)))
         out.append("</div>")
     return "".join(out)
 
@@ -229,7 +249,7 @@ def make_report(run_dir, summary, key_metrics):
     if not any(os.path.exists(render_path(run_dir, x["case"], v)) for g in groups.values()
                for x in g["extremes"].values() for v in variants):
         body.append("<p class='bad'>No Blender renders yet: run <code>bench.sh summarize " + e(run_dir)
-                    + " --render</code> (CPU, ~3.5 min per render).</p>")
+                    + "</code> (renders by default; CPU, ~3.5 min per render).</p>")
     body.append("<h2>Variants</h2><div class='tablewrap'><table><tr><th>variant</th><th>method</th>"
                 "<th>kwargs</th></tr>")
     for v in variants:
@@ -238,29 +258,41 @@ def make_report(run_dir, summary, key_metrics):
         body.append(f"<tr><td>{e(v)}</td><td>{e(str(spec.get('method', '?')))}</td><td>{e(kw)}</td></tr>")
     body.append("</table></div>")
 
-    body.append(f"<h2>Overview: {e(GS)} by group</h2><p class='note'>Mean over the group's cases (lower = highlight "
-                f"and base strands mix less). Δ = variant − <code>{e(reference)}</code> on the same cases (green = "
-                "better); win = share of cases where the variant is better. Click a group for its page.</p>"
-                "<div class='tablewrap'><table><tr><th>group</th><th>cases</th>"
-                + "".join(f"<th>{e(v)}</th>" for v in variants)
-                + "".join(f"<th>Δ {e(v)}</th><th>win</th><th>Δ proj. cut</th><th>degenerate</th>" for v in others)
-                + "</tr>")
-    for name, g in groups.items():
-        cells = []
-        for v in variants:
-            s = g["variants"][v]["stats"].get(GS)
-            cells.append(f"<td>{s['mean']:.4f}</td>" if s else "<td>-</td>")
-        for v in others:
-            cmp = g["vs_reference"].get(v, {})
-            d = cmp.get(GS)
-            cells.append(f"<td class='{_delta_cls(d['mean_delta'], True)}'>{d['mean_delta']:+.4f} ({_rel(d)})</td>"
-                         f"<td>{d['win_rate']:.0%}</td>" if d else "<td>-</td><td>-</td>")
-            d = cmp.get("projection.cut_weight")
-            cells.append(f"<td class='{_delta_cls(d['mean_delta'], True)}'>{_rel(d)}</td>" if d else "<td>-</td>")
-            dg = g["variants"][v].get("degenerate", [])
-            cells.append(f"<td class='bad' title='{e(' '.join(dg))}'>{len(dg)}</td>" if dg else "<td>0</td>")
-        label = "<b>all</b>" if name == "all" else f"<a href='{page_name(name)}'>{e(name)}</a>"
-        body.append(f"<tr><td>{label}</td><td>{g['n_cases']}</td>{''.join(cells)}</tr>")
-    body.append("</table></div>")
+    main = summary.get("main_metrics", [GS])
+    titles = {"grid_score.mean_all": "average over all cells",
+              "grid_score.per_black_area": "total grid score / highlight (black) area",
+              "grid_score.per_white_area": "total grid score / base (white) area"}
+    body.append(f"<h2>Overview by group</h2><p class='note'>Mean over the group's cases (lower = highlight and base "
+                f"strands mix less). Δ = variant − <code>{e(reference)}</code> on the same cases (green = better); "
+                "win = share of cases where the variant is better. Black / white area = cells where the visible "
+                "highlight strands crossing the cell are a strict majority / the other cells crossed by visible "
+                "strands. Click a group for its page.</p>")
+    for k, metric in enumerate(main):
+        first = k == 0   # projection cut and degenerate counts once, in the first table
+        body.append(f"<h3><code>{e(metric)}</code> <span class='muted'>({e(titles.get(metric, ''))})</span></h3>"
+                    "<div class='tablewrap'><table><tr><th>group</th><th>cases</th>"
+                    + "".join(f"<th>{e(v)}</th>" for v in variants)
+                    + "".join(f"<th>Δ {e(v)}</th><th>win</th>"
+                              + ("<th>Δ proj. cut</th><th>degenerate</th>" if first else "") for v in others)
+                    + "</tr>")
+        for name, g in groups.items():
+            cells = []
+            for v in variants:
+                st = g["variants"][v]["stats"].get(metric)
+                cells.append(f"<td>{st['mean']:.4f}</td>" if st else "<td>-</td>")
+            for v in others:
+                cmp = g["vs_reference"].get(v, {})
+                d = cmp.get(metric)
+                cells.append(f"<td class='{_delta_cls(d['mean_delta'], True)}'>{d['mean_delta']:+.4f} ({_rel(d)})"
+                             f"</td><td>{d['win_rate']:.0%}</td>" if d else "<td>-</td><td>-</td>")
+                if first:
+                    d = cmp.get("projection.cut_weight")
+                    cells.append(f"<td class='{_delta_cls(d['mean_delta'], True)}'>{_rel(d)}</td>" if d
+                                 else "<td>-</td>")
+                    dg = g["variants"][v].get("degenerate", [])
+                    cells.append(f"<td class='bad' title='{e(' '.join(dg))}'>{len(dg)}</td>" if dg else "<td>0</td>")
+            label = "<b>all</b>" if name == "all" else f"<a href='{page_name(name)}'>{e(name)}</a>"
+            body.append(f"<tr><td>{label}</td><td>{g['n_cases']}</td>{''.join(cells)}</tr>")
+        body.append("</table></div>")
     body.append(_group_body(run_dir, "all", groups["all"], summary, key_metrics, bench_dir))
     return _page(run_dir, "all", "Highlighting benchmark report", "".join(body), groups, cfg, summary)

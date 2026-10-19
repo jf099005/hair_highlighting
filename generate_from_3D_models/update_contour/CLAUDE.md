@@ -23,6 +23,8 @@ strands rooted in it; cells with no roots keep the input value).
 - `joint_contour/` imports **private** helpers: `fm._b_insert/_b_remove/_bump`, `boundary_fm._activate/_bbump`,
   `overlap` internals (`project_segments`, `crossing_keys`, `weighted_pairs`, `cell_frame`, `symmetric_csr`),
   `grid.H_MIN/H_MAX/ScalpGrid`, `masks`, and `uv_to_rc`. Renaming or changing their argument lists breaks it.
+  `project_segments` returns `(sx, sy, ex, ey, owner, sz, ez)`: depth along the normal is appended for future
+  use and ignored today; every caller passes `segs[:5]` to `crossing_keys`.
 - `contour_algo_test/` (benchmark) calls `fm_refine`, `build_cell_incidence`, `build_projection_graph` and `trim`
   directly, and has its own numba membership kernel (`common.strand_mask_grid_cpu`) that must match
   `grid.compute_strand_mask_grid`. If you change `H_MIN`/`H_MAX` or the column test, update that kernel too.

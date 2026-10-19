@@ -5,8 +5,10 @@
 先 **build** (抽 hairstyle + 產生初始 mask)，再 **run** (跑各演算法並評分)，最後 **summarize** (平均 + report.html)。
 原本的單一 model 深入測試 `run_test.py` 保留在[最後一節](#單一-model-深入測試-run_testpy)。
 
-**只用 CPU**：`common.py` 一被 import 就設 `CUDA_VISIBLE_DEVICES=""`，python 與它啟動的 Blender 都看不到 GPU
-(要用 GPU 時先設 `CONTOUR_BENCH_ALLOW_GPU=1`)。髮絲/格子 membership 改用 numba 版本
+**Python 只用 CPU**：`common.py` 一被 import 就設 `CUDA_VISIBLE_DEVICES=""` (要用 GPU 時先設
+`CONTOUR_BENCH_ALLOW_GPU=1`)。**Blender 渲染預設用 GPU** (OptiX)：Blender 不理會 `CUDA_VISIBLE_DEVICES`；
+其他 GPU 工作在跑時用 `--render_device cpu` (run / summarize / render 都有) 改用 CPU 渲染 (較慢)，
+render_info.json 與 report 會記錄用的是哪個 device。髮絲/格子 membership 改用 numba 版本
 (`common.strand_mask_grid_cpu`，~10 萬根髮絲在 32×32 grid 上 < 1 s，結果跟 `update_contour` 的版本逐一相同；
 update_contour 的 numpy fallback 要 ~3 分鐘)。
 
@@ -16,14 +18,16 @@ bash bench.sh build 50 --seed 0 --out data/hl_n50
 # 或指定每個髮長分類抽進 pool 的 hairstyle 數 (預設 = 該類全部；0 = 不要這類)
 bash bench.sh build 50 --seed 0 --n_short 15 --n_mid 20 --n_long 20 --out data/hl_n50_bal
 # 跑預設 variants，最後自動 summarize (可續跑；--max_strands 30000 快速版)
-# --render：summarize 時用 Blender (CPU) 渲染極端 case，沒加就不會有渲染圖
-bash bench.sh run data/hl_n50 --run_name full --render
+# 預設最後會 summarize 並用 Blender (GPU；--render_device cpu 改 CPU) 渲染極端 case；--no_render 不渲染 (快速測試用)
+bash bench.sh run data/hl_n50 --run_name full
 # 之後加新的 variant 到同一個 run：只會算還沒有結果的 (case, variant)
 bash bench.sh run data/hl_n50 --run_name full --methods fm_proj_lam300 --variants_json my_variants.json
-# 重新彙整 (會對極端 case 做 flux / 向量場分析，--no_analysis 跳過)；--render 渲染每組的極端 case (預設只渲染 mask_only 與 select_method，--render_methods all = 全部 variant)
+# 重新彙整 (會對極端 case 與隨機樣本做 flux / 向量場分析，--flux_analysis no 跳過且不顯示)；預設渲染每組的極端 case (只渲染 mask_only 與 select_method，--render_methods all = 全部 variant；--no_render 不渲染)
 # report.html 先寫出，之後每渲染完一個 case 就更新一次，可以邊跑邊看
-bash bench.sh summarize data/hl_n50/runs/full --render [--render_methods all] [--select_method fm_proj_lam1000]
-# 事後渲染任意 case (CPU，每張數分鐘)
+bash bench.sh summarize data/hl_n50/runs/full [--no_render] [--render_methods all] [--select_method fm_proj_lam1000]
+# 另外從每個分類 (length:*、mask:*) 隨機抽 k 個 case (預設 3) 一起渲染；run 也有同樣的參數
+bash bench.sh summarize data/hl_n50/runs/full --random_samples yes [--samples_per_group 3] [--sample_seed 0]
+# 事後渲染任意 case (每張數分鐘；--render_device gpu|cpu)
 bash bench.sh render data/hl_n50/runs/full --cases case_0000,case_0003 [--methods mask_only,fm_proj_lam1000]
 ```
 
@@ -85,7 +89,7 @@ case 從 **pool** 抽 hairstyle：先取 `--min/--max_hair_length` 內的 hairst
                                       overlap_matrix (projection graph 大小)、case_peak_rss_gb
 .../case_XXXX/<variant>/maps.npz      strand_mask、hidden、strand_idx、(n, n) maps (grid score、每格異色對數、grid mask)
 .../case_XXXX/<variant>/roots.png     髮根 (翻成 highlight 橘、翻成 base 藍、hidden 紅 x、黃線 = 初始 mask) + grid score
-.../case_XXXX/<variant>/render/       Blender multi-view (front_multiview.png；只有 render / --render 才有)
+.../case_XXXX/<variant>/render/       Blender multi-view (front_multiview.png) + render_info.json (渲染秒數)
 .../case_XXXX/analysis/              極端 case 的 flux / 向量場分析 (summarize，analysis.py)
 <bench>/runs/<run_name>/summary.{csv,json,md}, report.html, report_<group>.html
 ```
@@ -118,15 +122,27 @@ OOM killer 的第一目標，桌面與編輯器不會被砍。重跑時 `skipped
 即某個顏色幾乎消失 (例如 FM 把整塊 highlight 翻掉)，grid score 理所當然 ~0。這種結果仍算進平均 (另外計數)，
 但只有在該組沒有其他結果時才會被選為極端 case (report 會標示)。
 
+**主要指標** (`summarize.MAIN_METRICS`)：`grid_score.mean_all` (所有格子平均)、`grid_score.per_black_area`
+(grid score 總和 / highlight 面積)、`grid_score.per_white_area` (grid score 總和 / base 面積)。report 首頁每個各有一張
+總覽表，極端 case 也列出這三個值 (極端 case 仍以 `mean_all` 挑選)。
+
 `summarize` 只報平均：全部、每個髮長分類 (`length:*`)、每個 mask generator (`mask:*`) 各一組；每組有各 variant 的
 mean ± std、與 `mask_only` 的配對比較 (平均差、相對差、勝率)，以及 `--select_method` (預設第一個 fm variant)
 的極端 case：grid score 最低 / 最高、相對 `mask_only` 改善最多 / 最少，report 中附初始 mask、每個 variant 的
 roots.png、(有的話) 渲染圖，以及 flux / 向量場分析 (`analysis.py`，run_test 的圖：hairstyle 的 |flux| map、每個控制點的
 流向、Canny 邊緣，與 `mask_only` (before) vs `select_method` (after) 的 grid score map、grid mask + 流向；CPU 每個 case
-約 10–30 s，`--no_analysis` 跳過)。report 分成多頁：`report.html` 是索引 (variants、各組總覽、全部 case)，每組一頁
+約 10–30 s)。`--flux_analysis yes|no` (預設 yes；`--no_analysis` = no) 控制是否計算並在 report 顯示 flux 分析
+(極端 case 與隨機樣本都算；no 時即使有舊的圖也不顯示)。report 分成多頁：`report.html` 是索引 (variants、各組總覽、全部 case)，每組一頁
 `report_<group>.html` (例如 `report_length-short.html`、`report_mask-stripe.html`)；failed 欄 (含 `skipped_oom`) 與
-degenerate 欄滑鼠移上去會列出 case。渲染圖只在 `--render` (或 `bench.sh render`) 後才有，每張 CPU 約 3.5 分鐘；
+degenerate 欄滑鼠移上去會列出 case。渲染預設開啟 (`run` 與 `summarize`；`--no_render` 關掉)，每張約 3.5 分鐘 (GPU 與 CPU 差不多：同一個 case 實測 GPU 216 s、CPU 204 s)；
 極端 case 通常 15–20 個，預設 2 個 variant 約 2 小時，`--render_methods all` (6 個) 約 6 小時。
+`--random_samples yes` (預設 `no`)：從每個分類組 (`length:*`、`mask:*`，不含 `all`) 隨機抽 `--samples_per_group` 個
+case (預設 3，該組不足時全取；只抽 `select_method` 有結果的 case)，跟極端 case 一起渲染 (同樣的 `--render_methods`) 並做 flux 分析，
+在每組頁面的 "Random samples" 區顯示，也列在 summary.md / summary.json (`groups[*].samples`)。抽樣由 `--sample_seed`
+與組名決定，重跑會抽到同樣的 case 並沿用既有的渲染圖。6 組 × 3 個約多 18 個 case，預設 2 個 variant 約再多 2 小時。
+
+每張渲染都會計時 (一次 Blender 執行同時產生 front.png 與 front_multiview.png，含 Blender 啟動時間)：印在 log、存到
+`<variant>/render/render_info.json` 與 `result.json` 的 `render_seconds`、summary.csv，report 中每張渲染圖旁也會顯示。
 
 **成本** (CPU，全部髮絲 ~10 萬根，中長髮)：每個 case ~2.5 分鐘 (projection FM 每個 variant 5–10 s，
 `fm_cell_lam1000` 40–80 s，grid score 每個 variant ~10 s)，peak RAM ~12 GB (projection graph，長髮可有上億對)。

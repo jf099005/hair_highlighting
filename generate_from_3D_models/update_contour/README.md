@@ -22,7 +22,7 @@
 | `majority.py` | `update_contour_mask`（bool 版，notebook `update_color`）、`update_contour`（RGB 多色版） |
 | `fm.py` | `build_cell_incidence`、`fm_refine`、`fm_objectives`：Fiduccia-Mattheyses，`clique`（Σ n_true·n_false）/ `cutnet`（混色格數）兩種目標，`lam` 偏移懲罰，`balance_tol` 面積限制 |
 | `boundary_fm.py` | Boundary FM 的 pass（`fm_refine(..., boundary=True)`；預設關閉 = 原本的 FM）：每個 pass 只從邊界髮絲開始（經過混色格子 / 有異色鄰居；`lam > 0` 時再加上已偏離初始標籤的），有同格 / 相鄰的髮絲移動時才加進候選。目標、gain bucket、平衡、`patience`、`lam` 都跟 `fm.py` 相同 |
-| `overlap.py` | `build_projection_graph` → `StrandGraph`（對稱 CSR）：兩根髮絲在某格的 2D 投影（切平面 t1/t2）有相交才算重疊，邊權重 = 相交的格數。可取代 `build_cell_incidence` 傳給 `fm_refine` / `fm_objectives` / `trim` |
+| `overlap.py` | `build_projection_graph` → `StrandGraph`（對稱 CSR）：兩根髮絲在某格的 2D 投影（切平面 t1/t2）有相交才算重疊，邊權重 = 相交的格數。可取代 `build_cell_incidence` 傳給 `fm_refine` / `fm_objectives` / `trim`。`project_segments` 另回傳沿法向的深度 `sz`/`ez`（排在最後，供未來使用；目前判定只用前五項 `segs[:5]`） |
 | `active_contour.py` | `prepare_natural_boundary`、`update_contour_active`，以及底層的 `ScalpSurface`、`boundary_snake_3d`、`active_contour_mask_3d` |
 | `trim.py` | `trim`、`strand_conflict_counts`：挑出衝突最嚴重的髮絲（渲染時整根丟掉） |
 | `core.py` | `update_mask(..., method=...)` 高階入口 |
