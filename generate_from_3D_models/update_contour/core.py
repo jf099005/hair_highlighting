@@ -67,8 +67,11 @@ def update_mask(
                           "fm":             fm_refine's mode ("clique"), max_passes (20), lam, balance_tol, patience,
                                             overlap ("cell" = all strands above a cell overlap (default) |
                                             "projection" = only strands whose 2D projections intersect in the
-                                            cell overlap, overlap.build_projection_graph), overlap_kwargs (dict
-                                            for build_projection_graph, e.g. n_bins, n_threads)
+                                            cell overlap, overlap.build_projection_graph |
+                                            "projection_depth" = projection, each crossing weighted 0..levels by
+                                            the light transmittance between the two strands' depths), overlap_kwargs
+                                            (dict for build_projection_graph, e.g. n_bins, n_threads; with
+                                            projection_depth also hair_width, hair_opacity, weight_levels)
                           "active_contour": edge_smooth (1.5), erode (3), snap_radius (8), ridge (dict for
                                             extract_natural_boundary), flux (dict for cal_grid_flux_3d),
                                             plus snake parameters alpha, beta, gamma, kappa, anchor, n_iter
@@ -129,12 +132,13 @@ def update_mask(
             overlap_kwargs = method_kwargs.pop("overlap_kwargs", {})
             if overlap == "cell":
                 incidence = build_cell_incidence(strand_mask_grid)
-            elif overlap == "projection":
+            elif overlap in ("projection", "projection_depth"):
                 incidence = build_projection_graph(
                     strand_positions, strand_mask_grid, g["grid_pos"], g["grid_normal"], g["half_size"],
-                    grid_t1=g["grid_t1"], grid_t2=g["grid_t2"], show_progress=verbose, **overlap_kwargs)
+                    grid_t1=g["grid_t1"], grid_t2=g["grid_t2"], show_progress=verbose,
+                    depth_weight=overlap == "projection_depth", **overlap_kwargs)
             else:
-                raise ValueError(f"overlap must be 'cell' or 'projection', got {overlap!r}")
+                raise ValueError(f"overlap must be 'cell', 'projection' or 'projection_depth', got {overlap!r}")
             strand_mask = fm_refine(incidence, strand_mask, verbose=verbose, **method_kwargs)
         else:  # active_contour
             flux_rc, flux_ok = cal_grid_flux_3d(

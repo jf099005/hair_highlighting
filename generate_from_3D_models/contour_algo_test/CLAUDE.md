@@ -87,6 +87,19 @@ Always go through `bench.sh`. It sets `PYTHONPATH` to the project root (namespac
 - `CaseContext` (`context.py`) is built once per case and shared by every variant. `cc.incidence("cell" |
   "projection")` builds the overlap graph lazily and caches it. The projection graph is the main memory cost
   (around 12 GB peak at full strands for long hair).
+- `cc.incidence("projection_depth")` is the depth-weighted projection graph (weights 0..8, see update_contour's
+  `overlap.py`). Only the opt-in variants `fm_projd_lam*` and the opt-in metric `projection_depth` build it; it is
+  cached next to the binary graph, so a case running both holds two graphs. Its `lam` is on the same scale as the binary
+  one (total weight ~0.94x); the first comparison run `data/hl_n50_s0/runs/depth_cmp` used lam x8 (800 / 8000), which
+  under-moves.
+- **On-disk graph cache** (`graph_cache.py`, on by default): `cc.incidence("projection" | "projection_depth")`
+  loads `data/graph_cache/<overlap>_<key>.npz` or builds and saves it. The key hashes the inputs (positions, smg,
+  grid frame, `H_MIN`/`H_MAX`, depth constants) plus the source of `update_contour/overlap.py`, so it is
+  shared across cases with the same hairstyle/subset, reruns, new lam variants and OOM-restarted children, and
+  output is bit-identical to a fresh build (checked on smoke: cold, warm and `--no_graph_cache` give identical
+  `maps.npz` and metrics). If the graph also depends on something new, add it to `graph_key`. ~3 GB per long-hair
+  graph, never pruned; no write if free disk would drop below 20 GB. `run --graph_cache DIR` / `--no_graph_cache`.
+  `case_timings.json` gets `incidence_<overlap>_load` on a hit, `incidence_<overlap>` + `_save` on a miss.
 - `method_seconds` leaves out the graph build time (that goes to `case_timings.json`). If a method builds its own
   expensive shared state, put it on `cc` so the timing stays fair.
 - `mask_only` is the reference. It must stay a no-op, because all paired deltas and win rates are relative to it.

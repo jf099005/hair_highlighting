@@ -16,6 +16,8 @@ Metrics:
   cell          column rule: per cell, visible highlight x visible base strands; mixed cells, clique cut
   projection    projection rule: visible highlight/base pairs whose 2D projections intersect in some
                 cell (cut pairs) and the number of (pair, cell) crossings (cut weight)
+  projection_depth  (not default; builds the depth-weighted graph) the same on the depth-weighted
+                projection graph: cut weight = summed 0..8 transmittance weights of the cut crossings
   grid_score    convex-hull overlap of highlight vs base per cell (mask_analysis.cal_grid_score, the score
                 of run_test.py / FM_test_3D; larger = colors more mixed). Besides the average over all cells:
                 the total score divided by the black (highlight) and the white (base) area (as the fusion
@@ -114,7 +116,15 @@ def cell(rv):
 
 @register_metric("projection")
 def projection(rv):
-    G = rv.cc.incidence("projection")
+    return _graph_cut(rv, rv.cc.incidence("projection"))
+
+
+@register_metric("projection_depth")
+def projection_depth(rv):
+    return _graph_cut(rv, rv.cc.incidence("projection_depth"))
+
+
+def _graph_cut(rv, G):
     src = np.repeat(np.arange(G.n_strands), np.diff(G.ptr))
     sel = (rv.state[src] != rv.state[G.nbr]) & rv.visible[src] & rv.visible[G.nbr]
     return dict(cut_pairs=int(sel.sum()) // 2, cut_weight=int(G.weight[sel].sum()) // 2), {}

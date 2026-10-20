@@ -62,7 +62,9 @@ def _trim(cc, state, n, overlap):
 def fm(cc, overlap="projection", mode="clique", lam=1000, max_passes=3, balance_tol=0.02, patience=None,
        trim=0, trim_overlap=None, boundary=False):
     """update_contour.fm_refine on the initial per-strand mask (the FM_test_3D / run_test.py setup).
-    overlap: "cell" | "projection" (which strand pairs count as overlapping, see update_contour README).
+    overlap: "cell" | "projection" | "projection_depth" (which strand pairs count as overlapping, and how much,
+    see update_contour README). projection_depth weights are 0..8 per crossing cell, but far crossings drop out,
+    so its total weight (and the lam scale) is about the same as projection's (measured ~0.94x).
     trim: if > 0, additionally hide the `trim` strands that conflict most (update_contour.trim) on
     `trim_overlap` (default: the same overlap).
     boundary: True = Boundary FM (update_contour.boundary_fm); run_benchmark --boundary_fm sets it on every fm variant."""
@@ -73,7 +75,7 @@ def fm(cc, overlap="projection", mode="clique", lam=1000, max_passes=3, balance_
     state = hist[-1]
     info = dict(n_passes=len(hist) - 1,
                 pass_flip_ratios=[float((b != a).mean()) for a, b in zip(hist[:-1], hist[1:])],
-                objective_names=["cut pairs", "cut weight"] if overlap == "projection"
+                objective_names=["cut pairs", "cut weight"] if overlap.startswith("projection")
                 else ["mixed cells", "clique cut"],
                 objectives_before=list(cc.uc.fm_objectives(inc, hist[0])),
                 objectives_after=list(cc.uc.fm_objectives(inc, state)))
@@ -114,6 +116,11 @@ VARIANTS = {
     # FM with the column rule (every pair in a column overlaps)
     "fm_cell_lam1000": dict(method="fm", kwargs=dict(overlap="cell", mode="clique", lam=1000)),
     "trim100": dict(method="trim_only", kwargs=dict(trim=100, overlap="projection")),
+    # FM with depth-weighted projection overlap (weights 0..8; total weight ~ the binary one, so the same lam);
+    # not in DEFAULT_VARIANTS: it builds a second projection graph per case
+    "fm_projd_lam100": dict(method="fm", kwargs=dict(overlap="projection_depth", lam=100)),
+    "fm_projd_lam1000": dict(method="fm", kwargs=dict(overlap="projection_depth", lam=1000)),
+    "fm_projd_lam10000": dict(method="fm", kwargs=dict(overlap="projection_depth", lam=10000)),
     "majority_bool": dict(method="majority_bool", kwargs=dict(n_iter=3, threshold=0.1)),
 }
 DEFAULT_VARIANTS = ("mask_only", "fm_proj_lam100", "fm_proj_lam1000", "fm_proj_lam10000",

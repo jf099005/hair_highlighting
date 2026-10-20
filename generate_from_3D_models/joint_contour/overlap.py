@@ -25,20 +25,32 @@ from numba import njit
 
 from highlighting.generate_from_3D_models.update_contour.grid import H_MAX, H_MIN
 from highlighting.generate_from_3D_models.update_contour.overlap import (
-    StrandGraph, cell_frame, crossing_keys, project_segments, symmetric_csr, weighted_pairs,
+    HAIR_OPACITY, HAIR_WIDTH, WEIGHT_LEVELS, StrandGraph, cell_frame, check_weight_levels, crossing_keys,
+    crossing_keys_weighted, project_segments, projection_kappa, symmetric_csr, weighted_pairs,
 )
+
+# joint depth weighting: a column holds the strands of both heads, but only about one head's worth of them is
+# visible in the final result (each strand is visible iff its label matches its head), so the occluding
+# length between two crossing strands is counted at this fraction.
+JOINT_OCCLUSION_SCALE = 0.5
 
 
 def joint_projection_edges(grid, membership, positions_a, positions_b, h_min=H_MIN, h_max=H_MAX,
-                           n_bins=None, n_threads=None, show_progress=True):
+                           n_bins=None, n_threads=None, show_progress=True, depth_weight=False,
+                           hair_width=HAIR_WIDTH, hair_opacity=HAIR_OPACITY, weight_levels=WEIGHT_LEVELS):
     """StrandGraph of the A-B projection crossings over every column that contains strands of both heads.
     membership: JointMembership (grid.strand_cell_membership of both heads, built with the same
-    h_min / h_max). n_bins / n_threads: see update_contour.overlap.build_projection_graph."""
+    h_min / h_max). n_bins / n_threads: see update_contour.overlap.build_projection_graph.
+    depth_weight / hair_width / hair_opacity / weight_levels: as build_projection_graph (overlap="projection_depth");
+    the depth profile of a column holds both heads' segments, counted at JOINT_OCCLUSION_SCALE."""
     pos_a = np.ascontiguousarray(positions_a)
     pos_b = np.ascontiguousarray(positions_b)
     M, n_a, n = membership.M, membership.n_a, membership.n
     S = membership.n_strands
     half_size = float(grid.half_size)
+    if depth_weight:
+        levels = check_weight_levels(weight_levels, S)
+        kappa = projection_kappa(half_size, hair_width, hair_opacity, JOINT_OCCLUSION_SCALE)
 
     rows = []
     for r in range(M.shape[0]):
@@ -52,10 +64,14 @@ def joint_projection_edges(grid, membership, positions_a, positions_b, h_min=H_M
         frame = cell_frame(grid.grid_pos, grid.grid_t1, grid.grid_t2, grid.grid_normal, *divmod(r, n))
         seg_a = project_segments(pos_a, a_ids, a_ids, *frame, half_size, float(h_min), float(h_max))
         seg_b = project_segments(pos_b, b_ids - n_a, b_ids, *frame, half_size, float(h_min), float(h_max))
-        segs = [np.concatenate([sa, sb]) for sa, sb in zip(seg_a[:5], seg_b[:5])]  # 2D part; depth unused
-        return crossing_keys(*segs, half_size, int(n_bins or 0), S, n_a)
+        sx, sy, ex, ey, owner, sz, ez = [np.concatenate([sa, sb]) for sa, sb in zip(seg_a, seg_b)]
+        if depth_weight:
+            return crossing_keys_weighted(sx, sy, ex, ey, owner, sz, ez, half_size, int(n_bins or 0), S, n_a,
+                                          kappa, levels)
+        return crossing_keys(sx, sy, ex, ey, owner, half_size, int(n_bins or 0), S, n_a)
 
-    keys, weights = weighted_pairs(work, rows, n_threads, show_progress, desc="joint projection overlap")
+    keys, weights = weighted_pairs(work, rows, n_threads, show_progress, desc="joint projection overlap",
+                                   packed=depth_weight)
     return StrandGraph(*symmetric_csr(keys, weights, S))
 
 

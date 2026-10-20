@@ -71,6 +71,7 @@ case 從 **pool** 抽 hairstyle：先取 `--min/--max_hair_length` 內的 hairst
 | `fm_proj_lam1000_trim100` | 同上 + trim 100 根 |
 | `fm_cell_lam1000` | FM，column rule (同格即重疊) |
 | `trim100`、`majority_bool` | 非預設，需用 `--methods` 指定 |
+| `fm_projd_lam100` / `_lam1000` / `_lam10000` | 非預設。FM，`projection_depth` overlap（交點依深度穿透率給 0..8 權重；總權重約等於二元版，lam 尺度相同）；每個 case 多建一張 graph |
 
   不改程式也能加 variant：`--variants_json my_variants.json`，
   `{"fm_proj_lam300": {"method": "fm", "kwargs": {"overlap": "projection", "lam": 300}}}`。
@@ -97,6 +98,14 @@ case 從 **pool** 抽 hairstyle：先取 `--min/--max_hair_length` 內的 hairst
 `method_seconds` 不含 overlap graph 的建構 (每個 case 只建一次，記在 `case_timings.json`)。
 已完成的 (case, variant) 重跑時會跳過 (`--overwrite` 重算)。
 
+**Projection graph 磁碟快取** ([`graph_cache.py`](graph_cache.py))：`projection` / `projection_depth` graph 建好後存到
+`data/graph_cache/<overlap>_<key>.npz`，之後同一個髮型 (同 `--max_strands` 子集) 的 case、重跑、新加的 lam variant、
+被記憶體保護砍掉後重開的子程序都直接讀檔，不再重建 (長髮約 30–45 s / 12 GB peak)。key 是輸入本身的 hash (髮絲座標、
+membership、grid 座標系、column 上下限、depth 參數) 加上 `update_contour/overlap.py` 的原始碼，資料或 overlap 程式一改就換新 key，
+結果與重建逐位元相同。長髮一張圖約 3 GB；舊檔不會自動刪，空間不夠時直接刪資料夾。剩餘磁碟會低於 20 GB 時不寫入。
+`--graph_cache DIR` 換位置，`--no_graph_cache` 關掉。`case_timings.json` 命中時記 `incidence_<overlap>_load`，
+未命中時記 `incidence_<overlap>` 與 `incidence_<overlap>_save`。
+
 **記憶體保護** (同 fusion benchmark)：每個 case 在自己的子程序跑，主程序監看它的 RAM。超過 `--max_mem_gb`
 (預設機器 RAM 的 70%) 或系統可用記憶體低於 `--min_free_gb` (預設 4 GB) 時就砍掉子程序，當下在跑的 variant 記為
 `status: skipped_oom`，該 case 其他 variant 在新的子程序繼續，整個 run 繼續下一個 case。子程序把自己設成 kernel
@@ -110,6 +119,7 @@ OOM killer 的第一目標，桌面與編輯器不會被砍。重跑時 `skipped
 |---|---|
 | `grid_score.*` | 每格 highlight / base 投影凸包重疊 (`mask_analysis.cal_grid_score`；= run_test 的 mean_grid_score)。`mixed_mean` 只看兩色都有的格子，`frac_above` = 分數 > 0.1 的格子比例。`total` = 分數總和；`per_black_area` / `per_white_area` = 總和除以黑 (highlight) / 白 (base) 面積：穿過該格的可見髮絲中 highlight 過半的格子數 (`black_cells`) / 其他有髮絲穿過的格子數 (`white_cells`)，同 fusion benchmark |
 | `projection.*` | 投影相交規則：異色且 2D 投影相交的髮絲對數 (`cut_pairs`) 與 (對, 格) 數 (`cut_weight`，= projection FM 的目標函數) |
+| `projection_depth.*` | 非預設（`--metrics ...,projection_depth`）。同 `projection.*`，但在深度加權 graph 上：`cut_weight` = 被切開交點的 0..8 權重總和 (= projection_depth FM 的目標函數) |
 | `cell.*` | column rule：混色格數 (`mixed_cells`)、Σ n_highlight·n_base (`clique_cut`) |
 | `strands.*` | highlight 比例、相對初始 mask 的翻轉比例 (與兩個方向的根數)、hidden 根數、可見的 highlight / base 根數 (`visible_highlight` / `visible_base`) |
 | `shape.*` | 每個有髮根的格子取其髮根的多數 label 得到 grid mask：與初始 mask 的 IoU、highlight 連通塊數、邊界長度 |

@@ -15,6 +15,9 @@ import numpy as np  # noqa: E402
 from highlighting.generate_from_3D_models.update_contour import (  # noqa: E402
     METHODS, default_dataset_path, load_mask, update_mask,
 )
+from highlighting.generate_from_3D_models.update_contour.overlap import (  # noqa: E402
+    HAIR_OPACITY, HAIR_WIDTH, WEIGHT_LEVELS,
+)
 
 
 def main(argv=None):
@@ -35,8 +38,15 @@ def main(argv=None):
     g.add_argument("--max_passes", type=int, default=20)
     g.add_argument("--lam", type=int, default=0, help="deviation penalty (non-negative int)")
     g.add_argument("--balance_tol", type=float, default=0.02)
-    g.add_argument("--overlap", choices=["cell", "projection"], default="cell",
-                   help="cell: all strands above a cell overlap; projection: only strands whose 2D projections intersect")
+    g.add_argument("--overlap", choices=["cell", "projection", "projection_depth"], default="cell",
+                   help="cell: all strands above a cell overlap; projection: only strands whose 2D projections "
+                        "intersect; projection_depth: projection, each crossing weighted by the light transmittance "
+                        "between the two strands' depths")
+    g.add_argument("--hair_opacity", type=float, default=HAIR_OPACITY,
+                   help="projection_depth: fraction of light one hair blocks, in (0, 1)")
+    g.add_argument("--hair_width", type=float, default=HAIR_WIDTH, help="projection_depth: hair diameter (m)")
+    g.add_argument("--weight_levels", type=int, default=WEIGHT_LEVELS,
+                   help="projection_depth: crossing weights are integers 0..weight_levels")
     g.add_argument("--boundary_fm", action="store_true",
                    help="Boundary FM: each pass starts from the boundary strands only (default off = plain FM)")
     g = p.add_argument_group("active_contour")
@@ -47,7 +57,10 @@ def main(argv=None):
 
     method_kwargs = {
         "fm": dict(mode=args.fm_mode, max_passes=args.max_passes, lam=args.lam, balance_tol=args.balance_tol,
-                   overlap=args.overlap, boundary=args.boundary_fm),
+                   overlap=args.overlap, boundary=args.boundary_fm,
+                   **(dict(overlap_kwargs=dict(hair_opacity=args.hair_opacity, hair_width=args.hair_width,
+                                               weight_levels=args.weight_levels))
+                      if args.overlap == "projection_depth" else {})),
         "active_contour": dict(snap_radius=args.snap_radius, edge_smooth=args.edge_smooth, n_iter=args.snake_iter),
     }.get(args.method)
 

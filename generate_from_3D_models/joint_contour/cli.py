@@ -14,6 +14,7 @@ import numpy as np  # noqa: E402
 
 from highlighting.generate_from_3D_models.joint_contour import load_mask, update_joint_mask  # noqa: E402
 from highlighting.generate_from_3D_models.update_contour import default_dataset_path  # noqa: E402
+from highlighting.generate_from_3D_models.update_contour.overlap import HAIR_OPACITY, HAIR_WIDTH, WEIGHT_LEVELS  # noqa: E402
 
 
 def main(argv=None):
@@ -33,9 +34,15 @@ def main(argv=None):
                    help="FM node = one strand (default) or one root cell shared by both heads' strands")
     p.add_argument("--movable_only", action="store_true",
                    help="only move nodes whose root cell has roots of both heads (default off)")
-    p.add_argument("--overlap", choices=["cell", "projection"], default="cell",
+    p.add_argument("--overlap", choices=["cell", "projection", "projection_depth"], default="cell",
                    help="cell: visible A/B strands in the same column cross (default); "
-                        "projection: only when their 2D projections intersect")
+                        "projection: only when their 2D projections intersect; projection_depth: projection, "
+                        "each crossing weighted by the light transmittance between the two strands' depths")
+    p.add_argument("--hair_opacity", type=float, default=HAIR_OPACITY,
+                   help="projection_depth: fraction of light one hair blocks, in (0, 1)")
+    p.add_argument("--hair_width", type=float, default=HAIR_WIDTH, help="projection_depth: hair diameter (m)")
+    p.add_argument("--weight_levels", type=int, default=WEIGHT_LEVELS,
+                   help="projection_depth: crossing weights are integers 0..weight_levels")
     p.add_argument("--boundary_fm", action="store_true",
                    help="Boundary FM: each pass starts from the nodes in conflict columns only (default off = plain FM)")
     args = p.parse_args(argv)
@@ -46,7 +53,10 @@ def main(argv=None):
         dataset_path=args.dataset_path, device=args.device,
         method_kwargs=dict(mode=args.fm_mode, max_passes=args.max_passes, lam=args.lam, balance_tol=args.balance_tol,
                            node_unit=args.node_unit, movable_only=args.movable_only, overlap=args.overlap,
-                           boundary=args.boundary_fm),
+                           boundary=args.boundary_fm,
+                           **(dict(overlap_kwargs=dict(hair_opacity=args.hair_opacity, hair_width=args.hair_width,
+                                                       weight_levels=args.weight_levels))
+                              if args.overlap == "projection_depth" else {})),
     )
     objectives = result.pop("objectives")
     out = args.out or os.path.splitext(args.mask)[0] + "_joint.npz"
