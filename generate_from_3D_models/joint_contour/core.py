@@ -54,8 +54,10 @@ def update_joint_mask(
                        overlap: "cell" (default) = a visible A and a visible B strand cross when they
                        share a column; "projection" = only when their 2D projections intersect in the
                        column (overlap.joint_projection_edges; `mode` is then ignored and FM minimizes
-                       the weighted crossing pairs). overlap_kwargs: dict for joint_projection_edges
-                       (n_bins, n_threads).
+                       the weighted crossing pairs); "projection_depth" = projection, each crossing
+                       weighted 0..levels by the light transmittance between the two strands' depths.
+                       overlap_kwargs: dict for joint_projection_edges (n_bins, n_threads; with
+                       projection_depth also hair_width, hair_opacity, weight_levels).
         grid:          optional prebuilt ScalpGrid of resolution N.
         membership_a / membership_b: optional precomputed grid.strand_cell_membership of each head
                        (e.g. reuse head A's when refining several donors against the same base).
@@ -99,14 +101,14 @@ def update_joint_mask(
     node_unit = method_kwargs.pop("node_unit", "strand")
     overlap = method_kwargs.pop("overlap", "cell")
     overlap_kwargs = method_kwargs.pop("overlap_kwargs", {})
-    if overlap not in ("cell", "projection"):
-        raise ValueError(f"overlap must be 'cell' or 'projection', got {overlap!r}")
+    if overlap not in ("cell", "projection", "projection_depth"):
+        raise ValueError(f"overlap must be 'cell', 'projection' or 'projection_depth', got {overlap!r}")
     incidence = build_joint_incidence(membership, rowcol_a, rowcol_b, node_unit=node_unit)
     x0 = incidence.node_state_from_mask(mask)
     edges = None
-    if overlap == "projection":
+    if overlap in ("projection", "projection_depth"):
         edges = joint_projection_edges(grid, membership, positions_a, positions_b, show_progress=verbose,
-                                       **overlap_kwargs)
+                                       depth_weight=overlap == "projection_depth", **overlap_kwargs)
         fm_target = build_joint_projection_graph(incidence, edges, membership.n_a)
     else:
         fm_target = incidence

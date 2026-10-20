@@ -30,6 +30,9 @@
   `node_unit`、`balance_tol`、`movable_only`、`lam` 照常可用。
 - `objectives` 的 `before` / `after` 仍是柱體規則的數字（相容），另外多 `projection_before` / `projection_after` =（交叉對數, 加權交叉對數）。
 - `joint_trim(..., edges=edges)` / `joint_conflict_counts(..., edges=edges)` 改用投影相交計算衝突。
+- `overlap="projection_depth"`：同上，但每個交點依兩根髮絲之間的穿透率給 0..8 的權重（定義見 update_contour README「深度加權」）。
+  柱體內兩顆頭的線段都算進深度分布，但最後大約只有一顆頭的量是 visible，所以遮擋長度乘 `JOINT_OCCLUSION_SCALE` = 0.5。
+  `overlap_kwargs` / CLI 可設 `hair_width`、`hair_opacity`、`weight_levels`；`projection_before/after` 的加權交叉數改用這個權重。
 
 ## 可選限制（預設全部關閉）
 
@@ -104,7 +107,7 @@ PYTHON=~/anaconda3/envs/hair_exp/bin/python ./run_joint_contour.sh \
     --npz_a .../base_13_idx_94847/full_strands.npz --npz_b .../base_0_idx_77679/full_strands.npz \
     --mask my_mask.npy --max_passes 3 --out my_mask_joint.npz
 # 可選限制: --node_unit cell --balance_tol 0.02 --movable_only
-# 投影相交判定: --overlap projection
+# 投影相交判定: --overlap projection（深度加權: --overlap projection_depth [--hair_opacity 0.5 --weight_levels 8]）
 ```
 
 需要 numba、scipy、torch（GPU 歸屬查詢）以及 `DiffLocks_Dataset/difflocks_dataset/body_data/scalp.ply`。

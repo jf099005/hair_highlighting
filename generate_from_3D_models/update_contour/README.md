@@ -22,7 +22,7 @@
 | `majority.py` | `update_contour_mask`（bool 版，notebook `update_color`）、`update_contour`（RGB 多色版） |
 | `fm.py` | `build_cell_incidence`、`fm_refine`、`fm_objectives`：Fiduccia-Mattheyses，`clique`（Σ n_true·n_false）/ `cutnet`（混色格數）兩種目標，`lam` 偏移懲罰，`balance_tol` 面積限制 |
 | `boundary_fm.py` | Boundary FM 的 pass（`fm_refine(..., boundary=True)`；預設關閉 = 原本的 FM）：每個 pass 只從邊界髮絲開始（經過混色格子 / 有異色鄰居；`lam > 0` 時再加上已偏離初始標籤的），有同格 / 相鄰的髮絲移動時才加進候選。目標、gain bucket、平衡、`patience`、`lam` 都跟 `fm.py` 相同 |
-| `overlap.py` | `build_projection_graph` → `StrandGraph`（對稱 CSR）：兩根髮絲在某格的 2D 投影（切平面 t1/t2）有相交才算重疊，邊權重 = 相交的格數。可取代 `build_cell_incidence` 傳給 `fm_refine` / `fm_objectives` / `trim`。`project_segments` 另回傳沿法向的深度 `sz`/`ez`（排在最後，供未來使用；目前判定只用前五項 `segs[:5]`） |
+| `overlap.py` | `build_projection_graph` → `StrandGraph`（對稱 CSR）：兩根髮絲在某格的 2D 投影（切平面 t1/t2）有相交才算重疊，邊權重 = 相交的格數。可取代 `build_cell_incidence` 傳給 `fm_refine` / `fm_objectives` / `trim`。`depth_weight=True` 時每個交點依深度給權重（見下方「深度加權」）。`project_segments` 回傳 `(sx, sy, ex, ey, owner, sz, ez)`，`sz`/`ez` = 沿法向的深度 |
 | `active_contour.py` | `prepare_natural_boundary`、`update_contour_active`，以及底層的 `ScalpSurface`、`boundary_snake_3d`、`active_contour_mask_3d` |
 | `trim.py` | `trim`、`strand_conflict_counts`：挑出衝突最嚴重的髮絲（渲染時整根丟掉） |
 | `core.py` | `update_mask(..., method=...)` 高階入口 |
@@ -40,7 +40,27 @@
 | `overlap` | 判定 | 傳給 FM 的結構 | 成本 |
 |---|---|---|---|
 | `"cell"`（預設） | 同一格柱體內的髮絲兩兩都算重疊 | `build_cell_incidence` → 4 個 CSR 陣列（只留 ≥ 2 根髮絲的格子） | 幾乎免費 |
-| `"projection"` | 兩根髮絲在該格切平面上的 2D 投影線段有相交才算 | `build_projection_graph` → `StrandGraph`（`mode` 被忽略，最小化被切開的邊權重） | 32×32、~98k 根髮絲約 30–40 s、~6 GB（~2 億對）；只建一次，FM 過程中不重算 |
+| `"projection"` | 兩根髮絲在該格切平面上的 2D 投影線段有相交才算 | `build_projection_graph` → `StrandGraph`（`mode` 被忽略，最小化被切開的邊權重） | 32×32、~98k 根髮絲約 30–45 s、peak ~13 GB（長髮 ~3 億對）；只建一次，FM 過程中不重算 |
+| `"projection_depth"` | 同 projection，但每個交點依兩根髮絲的深度差給 0..8 的權重（見下方） | `build_projection_graph(..., depth_weight=True)` → `StrandGraph` | 與 projection 相同或更少（q = 0 的交點被丟掉，長髮少 ~2/3 的對）；記憶體相同 |
+
+### 深度加權（`overlap="projection_depth"`）
+
+`projection` 只看 2D 投影有沒有相交，忽略深度：貼著頭皮的髮絲和最外層的髮絲在投影上相交也算一次。
+`projection_depth` 用光學的穿透率決定每個交點的權重：沿該格法向看，兩根髮絲在交點處的深度為 z_a、z_b，
+兩者之間的光要穿過中間的髮絲層，每根髮絲擋掉 `hair_opacity` 比例的光（Beer–Lambert）：
+
+    層數   = hair_width × L(z_lo, z_hi) / 格子面積     L = 該格中段深度落在兩者之間的線段投影長度總和
+    穿透率 T = (1 − hair_opacity) ^ 層數                ∈ (0, 1]
+    q      = round(weight_levels × T)                  0（彼此看不到，丟掉）.. weight_levels（緊鄰）
+
+- 深度幾乎相同的兩根髮絲 q ≈ weight_levels；一根在頭皮、一根在最外層（中間隔著整層頭髮）q ≈ 0。
+  實測（base_0_idx_17453，全部髮絲）：深度差 < 0.2 mm 平均 q ≈ 6，> 16 mm（中間 ~18 層）q = 0。
+- 同一對髮絲在同一格有多個交點時取最大的 q；邊權重 = 各格 q 的總和。q 是整數，FM 的 gain bucket 照舊（`max_gain` 約為原本的 1–3 倍）。
+- q 存在 int64 pair key 的低 `Q_BITS` = 8 位元，跨格合併仍是同一個 int64 排序，不多花記憶體。
+- 參數（`overlap_kwargs` / CLI）：`hair_width`（預設 7e-5 m）、`hair_opacity`（0.5）、`weight_levels`（8，上限 255）。
+- 權重雖是 0..8，但遠距的交點被丟掉，總權重跟二元版差不多（benchmark 10 個全髮絲 case 的初始 mask：深度加權 cut ≈ 二元 cut 的 0.94 倍），
+  所以 `lam` 用跟 `projection` 相同的尺度即可（實測乘 8 會讓 FM 幾乎不動）。
+  `--max_strands` 抽樣會讓頭髮變稀、變透明，權重整體偏高。
 
 ## 用法
 
@@ -66,7 +86,7 @@ out["strand_colors"]  # (S, 3)
 |---|---|---|
 | `"majority"`（預設） | RGB 版 majority vote，支援多色 (N,N,3) mask | `n_iter`、`threshold` |
 | `"majority_bool"` | bool 版 majority vote | `n_iter`、`threshold` |
-| `"fm"` | Fiduccia-Mattheyses | `method_kwargs`: `mode`（`"clique"`（`update_mask` 的預設）/ `"cutnet"`）、`max_passes`（20）、`lam`（0）、`balance_tol`（0.02）、`patience`、`boundary`（`False`）、`overlap`（`"cell"` / `"projection"`）、`overlap_kwargs`（`n_bins`、`n_threads`） |
+| `"fm"` | Fiduccia-Mattheyses | `method_kwargs`: `mode`（`"clique"`（`update_mask` 的預設）/ `"cutnet"`）、`max_passes`（20）、`lam`（0）、`balance_tol`（0.02）、`patience`、`boundary`（`False`）、`overlap`（`"cell"` / `"projection"` / `"projection_depth"`）、`overlap_kwargs`（`n_bins`、`n_threads`；`projection_depth` 另有 `hair_width`、`hair_opacity`、`weight_levels`） |
 | `"active_contour"` | 3D snake 吸附到 \|flux\| 山脊 | `n_iter`（輪數）；`method_kwargs`: `snap_radius`、`edge_smooth`、`erode`、`ridge`、`flux`、snake 的 `alpha/beta/gamma/kappa/anchor/n_iter` |
 
 注意：直接呼叫 `fm_refine` 時 `mode` 的預設是 `"cutnet"`，經過 `update_mask` / CLI 則是 `"clique"`。
@@ -125,7 +145,7 @@ PYTHON=~/anaconda3/envs/hair_exp/bin/python ./run_update_contour.sh \
 
 - 通用：`--method {majority,majority_bool,fm,active_contour}`（預設 `majority`）、`--n_iter`、`--threshold`、
   `--dataset_path`、`--base_color R G B`、`--highlight_color R G B`、`--device auto|cuda|cpu`。
-- FM：`--fm_mode {clique,cutnet}`、`--max_passes`、`--lam`、`--balance_tol`、`--overlap {cell,projection}`、`--boundary_fm`。
+- FM：`--fm_mode {clique,cutnet}`、`--max_passes`、`--lam`、`--balance_tol`、`--overlap {cell,projection,projection_depth}`、`--hair_opacity`、`--hair_width`、`--weight_levels`（後三者只用於 `projection_depth`）、`--boundary_fm`。
 - Active contour：`--snap_radius`、`--edge_smooth`、`--snake_iter`。
 - `--mask` 可為 `.npy` / `.npz`（key `mask`）/ `.png`，(N,N) 或 (N,N,3)；輸出 `.npz`（預設 `<mask>_updated.npz`）
   含 `mask`、`binary_mask`、`strand_colors`、`strand_mask`。

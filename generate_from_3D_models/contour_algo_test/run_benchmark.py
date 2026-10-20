@@ -11,7 +11,7 @@ Per case: load the hairstyle and the initial mask, compute the strand/column mem
 (common.strand_mask_grid_cpu), run every variant (methods.py), score its per-strand mask (metrics.py).
 
     <benchmark_dir>/runs/<run_name>/run_config.json
-    .../cases/<case_id>/case_timings.json           membership / overlap-graph build times
+    .../cases/<case_id>/case_timings.json           membership / overlap-graph build (or cache load) times
     .../cases/<case_id>/<variant>/result.json       status, variant (method + kwargs), method info, metrics,
                                                     overlap_matrix (size of the projection graph)
     .../cases/<case_id>/<variant>/maps.npz          strand_mask, hidden, (n, n) metric maps (grid score, ...)
@@ -49,6 +49,7 @@ import numpy as np
 from highlighting.generate_from_3D_models.contour_algo_test import common
 from highlighting.generate_from_3D_models.contour_algo_test import methods as methods_mod
 from highlighting.generate_from_3D_models.contour_algo_test import metrics as metrics_mod
+from highlighting.generate_from_3D_models.contour_algo_test import graph_cache
 from highlighting.generate_from_3D_models.contour_algo_test.context import CaseContext
 
 
@@ -122,6 +123,7 @@ def worker_argv(args, run_dir, cid, variants):
         argv.append("--boundary_fm")
     if args.max_strands is not None:
         argv += ["--max_strands", str(args.max_strands)]
+    argv += ["--graph_cache", args.graph_cache] if args.graph_cache else ["--no_graph_cache"]
     for flag, on in (("--no_figures", not args.figures), ("--verbose", args.verbose)):
         if on:
             argv.append(flag)
@@ -196,7 +198,7 @@ def run_case(case_dir, run_dir, args):
     mask = np.load(os.path.join(case_dir, case["mask_file"]))
     grid = common.scalp_grid(case["grid_n"], args.dataset_path)
     load_s = time.time() - t0
-    cc = CaseContext(hair, mask, grid, verbose=args.verbose)
+    cc = CaseContext(hair, mask, grid, verbose=args.verbose, graph_cache_dir=args.graph_cache)
     print(f"  {cid}: {case['hairstyle']['name']} ({cc.n_strands} strands, {case['hairstyle']['length_class']}), "
           f"{case['mask_generator']} (strand frac {cc.init_state.mean():.3f}); load {load_s:.1f}s, "
           f"membership {cc.timings['membership']:.1f}s")
@@ -286,6 +288,10 @@ def main():
     p.add_argument("--retry_skipped", action="store_true", help="rerun results marked skipped_oom")
     p.add_argument("--no_isolate", dest="isolate", action="store_false",
                    help="run the cases in this process, without the memory guard")
+    p.add_argument("--graph_cache", default=graph_cache.DEFAULT_CACHE_DIR,
+                   help="folder of the on-disk projection-graph cache (graph_cache.py; default data/graph_cache)")
+    p.add_argument("--no_graph_cache", dest="graph_cache", action="store_const", const=None,
+                   help="always build the projection graphs, never read or write the cache")
     p.add_argument("--_worker", action="store_true", help=argparse.SUPPRESS)
     from highlighting.generate_from_3D_models.contour_algo_test import summarize as summarize_mod
     summarize_mod.add_sample_args(p)

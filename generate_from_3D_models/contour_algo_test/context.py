@@ -8,17 +8,20 @@
     incidence(name) the overlap structure FM / trim / the metrics use, built lazily and cached:
                     "cell"       update_contour.build_cell_incidence (every pair in a column overlaps)
                     "projection" update_contour.build_projection_graph (2D projections intersect)
+                    "projection_depth" the same, each crossing weighted 0..8 by the light transmittance between
+                                 the two strands' depths (build_projection_graph(depth_weight=True))
+                    both projection graphs are also cached on disk under graph_cache_dir (graph_cache.py)
 overlap_matrix()  size of the projection graph (None until it is built), recorded in every result.json
 """
 import time
 
 import numpy as np
 
-from highlighting.generate_from_3D_models.contour_algo_test import common
+from highlighting.generate_from_3D_models.contour_algo_test import common, graph_cache
 
 
 class CaseContext:
-    def __init__(self, hair, mask, grid, verbose=False):
+    def __init__(self, hair, mask, grid, verbose=False, graph_cache_dir=None):
         import highlighting.generate_from_3D_models.update_contour as uc
         self.uc = uc
         self.hair = hair
@@ -29,6 +32,7 @@ class CaseContext:
         self.g = grid.arrays()
         self.n = grid.n
         self.verbose = verbose
+        self.graph_cache_dir = graph_cache_dir   # graph_cache.py; None = always build the projection graphs
         self.timings = {}
         self.mask = np.asarray(mask, bool)
         self.row_idx, self.col_idx = grid.root_rowcol(self.root_uv)
@@ -44,15 +48,24 @@ class CaseContext:
             t0 = time.time()
             if overlap == "cell":
                 inc = self.uc.build_cell_incidence(self.smg)
-            elif overlap == "projection":
+                self.timings[f"incidence_{overlap}"] = round(time.time() - t0, 2)
+            elif overlap in ("projection", "projection_depth"):
                 g = self.g
-                inc = self.uc.build_projection_graph(
-                    self.positions, self.smg, g["grid_pos"], g["grid_normal"], g["half_size"],
-                    grid_t1=g["grid_t1"], grid_t2=g["grid_t2"], show_progress=self.verbose)
+
+                def build():
+                    return self.uc.build_projection_graph(
+                        self.positions, self.smg, g["grid_pos"], g["grid_normal"], g["half_size"],
+                        grid_t1=g["grid_t1"], grid_t2=g["grid_t2"], show_progress=self.verbose,
+                        depth_weight=overlap == "projection_depth")
+                if self.graph_cache_dir:
+                    inc = graph_cache.get_or_build(self.graph_cache_dir, overlap, self.positions, self.smg, g,
+                                                   build, self.timings)
+                else:
+                    inc = build()
+                    self.timings[f"incidence_{overlap}"] = round(time.time() - t0, 2)
             else:
-                raise ValueError(f"overlap must be 'cell' or 'projection', got {overlap!r}")
+                raise ValueError(f"overlap must be 'cell', 'projection' or 'projection_depth', got {overlap!r}")
             self._incidence[overlap] = inc
-            self.timings[f"incidence_{overlap}"] = round(time.time() - t0, 2)
         return self._incidence[overlap]
 
     def overlap_matrix(self):

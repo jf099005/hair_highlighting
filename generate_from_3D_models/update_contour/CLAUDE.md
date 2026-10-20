@@ -21,10 +21,12 @@ strands rooted in it; cells with no roots keep the input value).
 ## Who depends on this (check before changing signatures or internals)
 
 - `joint_contour/` imports **private** helpers: `fm._b_insert/_b_remove/_bump`, `boundary_fm._activate/_bbump`,
-  `overlap` internals (`project_segments`, `crossing_keys`, `weighted_pairs`, `cell_frame`, `symmetric_csr`),
+  `overlap` internals (`project_segments`, `crossing_keys`, `crossing_keys_weighted`, `weighted_pairs`,
+  `cell_frame`, `symmetric_csr`, `projection_kappa`, `check_weight_levels`, `HAIR_WIDTH/HAIR_OPACITY/WEIGHT_LEVELS`),
   `grid.H_MIN/H_MAX/ScalpGrid`, `masks`, and `uv_to_rc`. Renaming or changing their argument lists breaks it.
-  `project_segments` returns `(sx, sy, ex, ey, owner, sz, ez)`: depth along the normal is appended for future
-  use and ignored today; every caller passes `segs[:5]` to `crossing_keys`.
+  `project_segments` returns `(sx, sy, ex, ey, owner, sz, ez)`, where `sz`/`ez` are the depths along the cell normal.
+  The binary path passes `segs[:5]` to `crossing_keys` and ignores depth. Only the depth-weighted path
+  (`crossing_keys_weighted`, `overlap="projection_depth"`) uses `sz`/`ez`.
 - `contour_algo_test/` (benchmark) calls `fm_refine`, `build_cell_incidence`, `build_projection_graph` and `trim`
   directly, and has its own numba membership kernel (`common.strand_mask_grid_cpu`) that must match
   `grid.compute_strand_mask_grid`. If you change `H_MIN`/`H_MAX` or the column test, update that kernel too.
@@ -62,8 +64,16 @@ strands rooted in it; cells with no roots keep the input value).
 - `state0` (the lam reference) is the state passed into `fm_refine`, fixed for all passes.
 - Boundary FM (`boundary_fm.py`) shares the bucket helpers with `fm.py`; keep `_fm_pass`/`_bfm_pass` (and the
   `_graph` variants) in sync when changing gain or balance logic. `joint_contour/boundary_fm.py` mirrors it too.
-- `build_projection_graph` is the expensive step (~30–40 s, ~6 GB at 32×32 / ~98k strands). Build it once and
-  reuse it; FM never recomputes it.
+- `build_projection_graph` is the expensive step (~30–45 s, peak ~13 GB for long hair at 32×32 / ~98k strands).
+  Build it once and reuse it; FM never recomputes it.
+- `depth_weight=True` (`overlap="projection_depth"`): each crossing gets q = round(levels · T) in 0..levels, T the
+  Beer–Lambert transmittance of the hair between the two strands' depths at the crossing (module docstring of
+  `overlap.py`). q is packed into the low `Q_BITS` of the pair key (`crossing_keys_weighted`, merged by
+  `weighted_pairs(packed=True)`), so the binary path (`crossing_keys`, `_crossings` with `levels=0`) is untouched
+  and must stay bit-identical. Although q is 0..8, far crossings drop out, so the total
+  weight is about the same as the binary one (initial masks, 10 full-strand benchmark cases: depth cut ≈ 0.94x the
+  binary cut). Use `lam` on the same scale as binary projection, not 8x (lam x8 nearly froze FM). Strand
+  subsampling makes hair look thinner and weights higher.
 
 ## Performance notes
 
