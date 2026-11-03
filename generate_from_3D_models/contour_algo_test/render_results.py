@@ -10,10 +10,12 @@ mask_analysis.render.render_strand_mask (base white, highlight black) into
 "render_seconds", and is printed and shown in the report. Hidden strands (trim) and, for runs with
 --max_strands, the strands outside the subset are left out of the render.
 
-Rendering device: Blender ignores the CUDA_VISIBLE_DEVICES="" that common.py sets, so by default (device "gpu")
-the coloring_by_strand render script renders on the GPU (OptiX, or CYCLES_DEVICE=CUDA). Device "cpu"
-(--render_device cpu) sets CYCLES_DEVICE=NONE for the Blender runs: the script then finds no GPU and falls back
-to the CPU (slower; use it while other GPU jobs run). The device is recorded in render_info.json.
+Rendering device: common.py hides CUDA from python (CUDA_VISIBLE_DEVICES=""). Blender started under that still
+*lists* the GPU and prints "Cycles device: GPU (OPTIX)", but Cycles then silently renders on the CPU (measured:
+128 samples in 45.6 s vs 1.9 s on the GPU). So device "gpu" (default) clears that empty CUDA_VISIBLE_DEVICES for
+the Blender runs only (python stays CPU only); the render script then uses OptiX (or CYCLES_DEVICE=CUDA).
+Device "cpu" (--render_device cpu) sets CYCLES_DEVICE=NONE and keeps CUDA hidden: the script finds no GPU and
+uses the CPU (use it while other GPU jobs run). The device is recorded in render_info.json.
 """
 import argparse
 import os
@@ -43,25 +45,29 @@ RENDER_DEVICES = ("gpu", "cpu")
 
 
 class _render_device:
-    """context manager: CYCLES_DEVICE=NONE for "cpu" (the render script then finds no GPU and uses the CPU);
-    "gpu" leaves the environment as it is (OptiX by default, or the user's CYCLES_DEVICE)"""
+    """context manager for the Blender runs: "cpu" sets CYCLES_DEVICE=NONE (the render script then finds no GPU
+    and uses the CPU); "gpu" clears the empty CUDA_VISIBLE_DEVICES that common.py sets (with it Cycles lists the
+    GPU but renders on the CPU) and leaves CYCLES_DEVICE as it is (OptiX by default). A non-empty
+    CUDA_VISIBLE_DEVICES (a device the user picked) is kept. Both are restored on exit."""
     def __init__(self, device):
         if device not in RENDER_DEVICES:
             raise ValueError(f"render device must be one of {RENDER_DEVICES}, got {device!r}")
         self.device = device
 
     def __enter__(self):
-        self.old = os.environ.get("CYCLES_DEVICE")
+        self.old = {k: os.environ.get(k) for k in ("CYCLES_DEVICE", "CUDA_VISIBLE_DEVICES")}
         if self.device == "cpu":
             os.environ["CYCLES_DEVICE"] = "NONE"
+        elif self.old["CUDA_VISIBLE_DEVICES"] == "":
+            del os.environ["CUDA_VISIBLE_DEVICES"]
         return self
 
     def __exit__(self, *exc):
-        if self.device == "cpu":
-            if self.old is None:
-                os.environ.pop("CYCLES_DEVICE", None)
+        for k, v in self.old.items():
+            if v is None:
+                os.environ.pop(k, None)
             else:
-                os.environ["CYCLES_DEVICE"] = self.old
+                os.environ[k] = v
 
 
 def render_case(run_dir, cid, variants=None, overwrite=False, device="gpu"):

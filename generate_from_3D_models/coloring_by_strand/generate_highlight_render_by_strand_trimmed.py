@@ -253,6 +253,33 @@ def setup_highlight_material(mat, base_rgb, softness):
     nt.links.new(mix_shader.outputs["Shader"], material_output.inputs["Surface"])
 
 
+def setup_melanin_material(mat, roughness=None, radial_roughness=None, coat=None):
+    """per-strand melanin colors (template "melanin" / "melanin_redness" -> point attributes hl_melanin /
+    hl_melanin_redness) on both hair BSDFs in MELANIN parametrization, as DiffLocks' dataset renders color hair;
+    optionally DiffLocks' per-sample bsdf_roughness / bsdf_radial_roughness / bsdf_coat (metadata.json)."""
+    nt = mat.node_tree
+    for bsdf_name in ("Cycles bsdf", "Cycles bsdf.001"):
+        bsdf = nt.nodes.get(bsdf_name)
+        bsdf.parametrization = 'MELANIN'
+        for inp, attr in (("Melanin", "hl_melanin"), ("Melanin Redness", "hl_melanin_redness")):
+            for link in list(bsdf.inputs[inp].links):
+                nt.links.remove(link)
+            node = nt.nodes.new('ShaderNodeAttribute')
+            node.attribute_name = attr
+            nt.links.new(node.outputs["Fac"], bsdf.inputs[inp])
+        for inp in ("Tint", "Random Color"):
+            for link in list(bsdf.inputs[inp].links):
+                nt.links.remove(link)
+        bsdf.inputs["Tint"].default_value = (1.0, 1.0, 1.0, 1.0)
+        bsdf.inputs["Random Color"].default_value = 0.0
+        for inp, v in (("Roughness", roughness), ("Radial Roughness", radial_roughness), ("Coat", coat)):
+            if v is not None:
+                for link in list(bsdf.inputs[inp].links):
+                    nt.links.remove(link)
+                bsdf.inputs[inp].default_value = float(v)
+    print(f"melanin colors per strand; roughness {roughness}, radial roughness {radial_roughness}, coat {coat}")
+
+
 def use_gpu(scene):
     """Render with Cycles on the GPU (as experiments/gpu_render.py): OptiX by default, CYCLES_DEVICE=CUDA when
     OptiX crashes on a hair scene (Blender 5.0: "Misaligned address in CUDA queue"). Falls back to the CPU
@@ -289,6 +316,20 @@ def blender_main():
                               'to the per-strand template arrays (highlighted/highlight_color/root_uv), so they '
                               'stay index-aligned with the kept strands. Applied AFTER --ignore_npz.')
     parser.add_argument('--env_light_strength', type=float, default=2.0)
+    parser.add_argument('--hair_radius', type=float, default=None,
+                         help='strand root radius in dataset meters (sets the hair object\'s GeometryNodes '
+                              'Input_3; the .blend uses 0.001 = 2 mm wide strands, ~28x a real hair). None = '
+                              'keep the .blend value. With real hair (~3.5e-5) use --strands_subsample 1.')
+    parser.add_argument('--bsdf_roughness', type=float, default=None,
+                         help='with melanin templates: hair BSDF Roughness (DiffLocks metadata bsdf_roughness)')
+    parser.add_argument('--bsdf_radial_roughness', type=float, default=None,
+                         help='with melanin templates: hair BSDF Radial Roughness (metadata bsdf_radial_roughness)')
+    parser.add_argument('--bsdf_coat', type=float, default=None,
+                         help='with melanin templates: hair BSDF Coat (metadata bsdf_coat)')
+    parser.add_argument('--max_bounces', type=int, default=None,
+                         help='Cycles light-path bounces (total / glossy / transmission / transparent); the .blend '
+                              'uses 4, which cuts the multiple scattering of light through light-colored hair. '
+                              'None = keep the .blend values.')
 
     parser.add_argument('--base_color', type=float, nargs=3, required=True, metavar=('R', 'G', 'B'))
 
@@ -320,6 +361,9 @@ def blender_main():
     template_highlighted = template_data["highlighted"]
     template_highlight_color = template_data["highlight_color"]
     template_root_uv = template_data["root_uv"]
+    # optional melanin colors (DiffLocks' MELANIN parametrization): per-strand melanin / melanin_redness in [0, 1]
+    template_melanin = template_data["melanin"] if "melanin" in template_data.files else None
+    template_redness = template_data["melanin_redness"] if "melanin_redness" in template_data.files else None
 
     hair_geom = np.load(args.input_npz)
     points = hair_geom["positions"]  # nr_strands x nr_points_per_strand x 3
@@ -354,6 +398,8 @@ def blender_main():
         root_uv = root_uv[keep].copy()
         template_highlighted = template_highlighted[keep].copy()
         template_highlight_color = template_highlight_color[keep].copy()
+        if template_melanin is not None:
+            template_melanin, template_redness = template_melanin[keep].copy(), template_redness[keep].copy()
         nr_strands = points.shape[0]
         print(f"--ignore_npz: dropped {int(ignore_mask.sum())}/{ignore_mask.shape[0]} strands before rendering "
               f"({nr_strands} remain)")
@@ -365,6 +411,8 @@ def blender_main():
         root_uv = root_uv[keep_idx].copy()
         template_highlighted = template_highlighted[keep_idx].copy()
         template_highlight_color = template_highlight_color[keep_idx].copy()
+        if template_melanin is not None:
+            template_melanin, template_redness = template_melanin[keep_idx].copy(), template_redness[keep_idx].copy()
 
     points_input_convention = points.copy()
 
@@ -438,9 +486,24 @@ def blender_main():
 
     mat = bpy.data.materials.get("Bgen_Hair_Shader")
     setup_highlight_material(mat, base_rgb, args.transition_softness)
+    if template_melanin is not None:
+        for name, vals in (("hl_melanin", template_melanin), ("hl_melanin_redness", template_redness)):
+            a = curves_data.attributes.new(name=name, type='FLOAT', domain='POINT')
+            a.data.foreach_set("value", np.repeat(np.asarray(vals, np.float32), nr_points_per_strand))
+        setup_melanin_material(mat, args.bsdf_roughness, args.bsdf_radial_roughness, args.bsdf_coat)
 
     scene = bpy.context.scene
     use_gpu(scene)
+    if args.hair_radius is not None:
+        gn = obj.modifiers.get("GeometryNodes")
+        gn["Input_3"] = float(args.hair_radius)
+        obj.data.update_tag()
+        print(f"hair root radius set to {args.hair_radius} m")
+    if args.max_bounces is not None:
+        cy = scene.cycles
+        cy.max_bounces = cy.glossy_bounces = cy.transmission_bounces = int(args.max_bounces)
+        cy.transparent_max_bounces = max(cy.transparent_max_bounces, int(args.max_bounces))
+        print(f"light path bounces set to {args.max_bounces}")
     scene.cycles.samples = args.samples
     scene.render.resolution_x = args.resolution
     scene.render.resolution_y = args.resolution

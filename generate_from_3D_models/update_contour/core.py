@@ -8,9 +8,11 @@ np arrays + current n x n mask in, updated n x n mask out. Methods:
 * "fm":              fm.fm_refine (Fiduccia-Mattheyses) on the bool per-strand mask.
 * "active_contour":  active_contour.update_contour_active (3D snake onto the |flux| ridges),
                      `n_iter` rounds.
+* "2_stage":         two_stage.two_stage_refine: FM without the strands whose root cell has |flux| > threshold,
+                     then each of them takes the majority label (by crossing weight) of the kept strands it crosses.
 
 The bool methods binarize a color mask (color != base_color) and paint True with `highlight_color`.
-Lower-level pieces live in grid / masks / flux / majority / fm / active_contour / trim.
+Lower-level pieces live in grid / masks / majority / fm / active_contour / trim (flux: ../flow_field).
 """
 from __future__ import annotations
 
@@ -19,16 +21,19 @@ import numpy as np
 from highlighting.generate_from_3D_models.update_contour.active_contour import (
     prepare_natural_boundary, update_contour_active,
 )
-from highlighting.generate_from_3D_models.update_contour.flux import cal_grid_flux_3d
+from highlighting.generate_from_3D_models.flow_field.flux import cal_grid_flux_3d
 from highlighting.generate_from_3D_models.update_contour.fm import build_cell_incidence, fm_refine
 from highlighting.generate_from_3D_models.update_contour.grid import ScalpGrid, default_dataset_path  # noqa: F401
 from highlighting.generate_from_3D_models.update_contour.majority import update_contour, update_contour_mask
 from highlighting.generate_from_3D_models.update_contour.overlap import build_projection_graph
+from highlighting.generate_from_3D_models.update_contour.two_stage import (
+    DEFAULT_THRESHOLD, strand_divergence, two_stage_refine,
+)
 from highlighting.generate_from_3D_models.update_contour.masks import (
     grid_mask_to_strand_mask, load_mask, normalize_mask, strand_colors_to_root_grid,
 )
 
-METHODS = ("majority", "majority_bool", "fm", "active_contour")
+METHODS = ("majority", "majority_bool", "fm", "active_contour", "2_stage")
 
 
 def update_mask(
@@ -72,6 +77,10 @@ def update_mask(
                                             the light transmittance between the two strands' depths), overlap_kwargs
                                             (dict for build_projection_graph, e.g. n_bins, n_threads; with
                                             projection_depth also hair_width, hair_opacity, weight_levels)
+                          "2_stage":        everything of "fm" (overlap, overlap_kwargs, mode, max_passes, lam, ...)
+                                            plus threshold (0.3; strands whose root cell has |flux| > threshold
+                                            skip stage 1), top_pct (instead of threshold: the top top_pct % of
+                                            strands by divergence), flux (dict for cal_grid_flux_3d)
                           "active_contour": edge_smooth (1.5), erode (3), snap_radius (8), ridge (dict for
                                             extract_natural_boundary), flux (dict for cal_grid_flux_3d),
                                             plus snake parameters alpha, beta, gamma, kappa, anchor, n_iter
@@ -126,7 +135,7 @@ def update_mask(
                     strand_mask, g["half_size"], strand_mask_grid=strand_mask_grid, threshold=threshold,
                     grid_t1=g["grid_t1"], grid_t2=g["grid_t2"], show_progress=verbose,
                 )
-        elif method == "fm":
+        elif method in ("fm", "2_stage"):
             method_kwargs.setdefault("mode", "clique")
             overlap = method_kwargs.pop("overlap", "cell")
             overlap_kwargs = method_kwargs.pop("overlap_kwargs", {})
@@ -139,7 +148,17 @@ def update_mask(
                     depth_weight=overlap == "projection_depth", **overlap_kwargs)
             else:
                 raise ValueError(f"overlap must be 'cell', 'projection' or 'projection_depth', got {overlap!r}")
-            strand_mask = fm_refine(incidence, strand_mask, verbose=verbose, **method_kwargs)
+            if method == "fm":
+                strand_mask = fm_refine(incidence, strand_mask, verbose=verbose, **method_kwargs)
+            else:
+                flux_rc, _ = cal_grid_flux_3d(
+                    strand_positions, g["grid_pos"], g["grid_normal"], g["grid_valid"], g["half_size"],
+                    strand_mask_grid, grid_t1=g["grid_t1"], grid_t2=g["grid_t2"], show_progress=verbose,
+                    **method_kwargs.pop("flux", {}))
+                strand_mask = two_stage_refine(
+                    incidence, strand_mask, strand_divergence(flux_rc, row_idx, col_idx),
+                    threshold=method_kwargs.pop("threshold", DEFAULT_THRESHOLD),
+                    top_pct=method_kwargs.pop("top_pct", None), verbose=verbose, **method_kwargs)["state"]
         else:  # active_contour
             flux_rc, flux_ok = cal_grid_flux_3d(
                 strand_positions, g["grid_pos"], g["grid_normal"], g["grid_valid"], g["half_size"],

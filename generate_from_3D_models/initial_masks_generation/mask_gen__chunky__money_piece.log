@@ -1,0 +1,587 @@
+# mask_gen__chunky__money_piece.log
+# 初始 mask 生成 (chunky / money piece) 的實作與實驗紀錄。時間為 2026-10-22 起。
+# 環境: ~/anaconda3/envs/hair_exp, PYTHONPATH=/home/kyh/Desktop/P76154862, CPU only (CUDA hidden)
+
+================================================================================
+[1] 現況調查 (2026-10-22)
+================================================================================
+- initial_masks_generation/ 原本是空資料夾 (SKILL.md 不存在)；任務規格來自使用者訊息。
+- 可重用的元件:
+  * flow_field.cal_grid_flux_3d           每格 3D flux (div)，(row, col)
+  * flow_field.compute_grid_vector_field  每格加權平均切向量 (world, (u_idx, v_idx))，權重偏髮根
+  * contour_algo_test.common.strand_mask_grid_cpu  numba membership (<1 s)
+  * contour_algo_test.common.scalp_grid / root_count_map / load_hairstyle / save_mask_png
+  * contour_algo_test.context.CaseContext + metrics.evaluate (grid_score, cell, shape, ...)
+  * contour_algo_test.masks: 既有 baseline generator (blobs = chunky 近似, stripe = money piece 近似)
+  * contour_algo_test bench.sh run/summarize/compare: 官方測試流程
+- contour_algo_test 的 @register_mask 只拿得到 (rng, root_count)，拿不到髮絲幾何，
+  所以 flow-aware 的 generator 不能直接塞進 masks.py。決定: 本 package 自己寫一個
+  build 腳本，輸出跟 build_benchmark.py 完全相同格式的 benchmark 資料夾
+  (benchmark.json + cases/*/case.json + mask.npy)，之後直接用 bench.sh run。
+  => 不修改 contour_algo_test (gen_dataset 依賴它的介面)。
+
+觀察 (base_15_idx_1144 long, base_0_idx_69418 mid, base_14_idx_1307 long; 32x32, full strands):
+- scalp 座標: y 朝上，+z = 前額 (row 0 側, z≈+0.08)，row 31 = 後頸 (z≈-0.11, y 低)，
+  col 4 ≈ x=+0.1, col 28 ≈ x=-0.1。grid row 大致 = 前→後，col = 左右。
+- flux 範圍: -0.32..1.38 / -0.28..0.35 / -0.21..1.29。高 flux (>0.3) 幾乎都是「一條分線」
+  (中分線，col 14-16，row 0-17)，不是單一的髮旋點。沒有分線的髮型 (base_0) flux 全部 < 0.35。
+  => 「生長點」在 DiffLocks 通常是一條 source ridge；放射狀 (西瓜) 的中心要從 ridge 取一點，
+     沒有 ridge 時退回頭頂 (max y)。
+- column 向量場 (compute_grid_vector_field) 在分線兩側方向相反，mag 在分線上變小；
+  髮根生長方向 (root→第 8 點) 比較雜，但每格都有。
+
+================================================================================
+[2] 文獻調查 (2026-10-22)
+================================================================================
+問題可以看成: 在曲面 (scalp) 上，給定一個方向場 (髮流) 與一些 source (分線/髮旋)，
+做一個「邊界盡量沿著方向場、且盡量落在不連續處 (|div| 高)」的分割，並符合某種風格的大形狀。
+- Bougleux, Peyré, Cohen, "Anisotropic Geodesics for Perceptual Grouping and Domain Meshing",
+  ECCV 2008: 由 tensor field 定義 Riemannian metric，在上面做 geodesic Voronoi。
+  => 直接對應: metric 沿髮流便宜、橫越髮流貴 => Voronoi 邊界自然沿髮流。
+- Zhuang, Zou, Carr, Ju, "Anisotropic Geodesics for Live-wire Mesh Segmentation",
+  CGF (PG) 2014: 以 tensor-based anisotropic metric 的 geodesic 當分割線，邊界沿特徵方向。
+- Mirebeau, "Anisotropic Fast-Marching on cartesian grids using Lattice Basis Reduction"
+  (arXiv 1201.1546) 與 HFM library: 格點上解 Riemannian eikonal；提醒格點 stencil 太小會有
+  metrication error、各向異性比 ~10 以內最準。=> 用 16 鄰居 (含 knight move) 的 Dijkstra，
+  各向異性比預設 ≤ 8。
+- 向量場拓撲分割 (Mahrous et al. 2004 "Topological segmentation in three-dimensional vector
+  fields"; Zhang et al. 2016 integral-curve based segmentation): 以 streamline / separatrix 為界
+  的分割，邊界天生與流向對齊。=> 與「從生長點沿 vector field 畫分界」相同精神；
+  anisotropic geodesic Voronoi 是它在格點上的穩健離散版 (不需要積分 streamline、不怕停滯點)。
+- 髮絲 wisp clustering (Wang et al. SIGGRAPH 2009 example-based hair geometry synthesis;
+  Luo, Li, Rusinkiewicz SIGGRAPH 2013 structure-aware hair capture): 以方向場/鄰近性把髮絲分群。
+  分群的邊界也是沿流向。
+- 找不到直接做「3D strand 挑染 mask 生成」的近期論文 (2024-2026 搜尋只找到 hair card /
+  facial hair 重建: HairCS arXiv 2609.16465, Wispy to Voluminous arXiv 2606.08041)。
+
+結論: 採用「各向異性 geodesic Voronoi (Riemannian metric 由髮流 structure tensor 與 |div|
+barrier 組成) + 依風格放置種子」的架構；新風格只要寫「種子 + label」。
+
+================================================================================
+[3] 第一版: anisotropic geodesic Voronoi (2026-10-22)
+================================================================================
+實作 field.py (HairField), geodesic.py (16 鄰居 Riemannian metric graph + multi-source Dijkstra),
+styles.py (registry), postprocess.py (BFS 清理), generate.py (bisection 調 size 到目標 strand fraction)。
+- 髮流方向: column 平均切向量 (flow_field.compute_grid_vector_field) 與 髮根生長方向 的
+  structure tensor 相加 (blend) 後 Gaussian 平滑 (sigma 1 cell)，取主特徵向量 + coherence。
+  用 tensor 而不是平均向量: 分線兩側方向相反，平均向量會互相抵消；tensor 不分正負號。
+- edge cost = sqrt(d^T M d) * (1 + beta*min(|flux|,cap)/cap)，M = I + (alpha^2-1)*c*(I - f f^T)。
+  knight move / 對角 edge 也算路過格子的 barrier，避免跳過一格寬的分線牆。
+
+chunky v1: 種子 = 頭頂小圓盤，依方位角分扇區，再 Voronoi 長出去。
+  失敗: 圓盤太小、扇區只剩 1-2 個；而且 base_0 的 crown 被挑到前額 (唯一的 source 格在前面)。
+  => find_crown: source 格必須在 head top 4 cm 內才採用，否則用 head top (row 10, col 16)。
+chunky v2: 每條扇區邊界 = live-wire (Zhuang et al. 2014)：從 crown 到目標方位角附近髮際線格的
+  各向異性最短路徑，邊界之間 BFS flood fill。
+  失敗 1: 前額髮流沿髮際線橫走，最便宜的路徑先往前再貼著髮際線繞，牆在邊緣上切不開任何東西。
+          => 每條邊界限制在自己方位角的走廊內 (corridor = 與相鄰邊界間距的 45%) + crown 小圓盤；
+             走廊互不重疊 => 邊界不交叉、保持放射狀，走廊內仍可沿髮流彎曲。
+  失敗 2 (bug): highlight_first=True 時 highlight 是偶數扇區但 mask 取奇數 => 整個反相、bisection
+          不單調。拿掉 highlight_first (offset 已隨機)。
+  失敗 3 (bug): 前額最外 1-2 排是 scalp 上「沒有髮根」的格子，牆只畫到有髮根的髮際線，
+          flood fill 從無髮根格子繞過去，整個前額連成一塊。=> 只在有髮根的格子 fill，
+          無髮根格子最後用最近鄰補 (postprocess.fill_unrooted)。
+  修完後: 明顯的放射狀條紋，flow 版的邊界會沿髮流彎曲 (圖: data/*/figures/masks_*.png)。
+money_piece v1: highlight 種子 = 分線兩側前額髮際線的兩段，base 種子 = 其餘整圈髮際線，
+  highlight = 自己的 Voronoi 區且 geodesic 距離 <= D (size -> D)。
+  問題: 側邊髮際線的 base 種子離頭頂太近，highlight 長不深，target 0.08-0.10 達不到 (只到 0.05)。
+  => base 種子只取「前額髮際線上不屬於 highlight 的格子」(負責限制左右寬)，深度只由 D 決定，
+     max_depth 0.12 -> 0.25 m。
+
+[3.1] 開發期評估 (eval_dev.py, scratchpad): hl_n50_s0 pool 前 8 個中長髮 x 4 trials，相同 target
+  fraction，指標 = projection graph cut weight (= projection FM 的目標函數) / highlight 根數。
+  | generator        | frac  | cut / hl strand |
+  | chunky (flow)    | 0.267 | 4637 |
+  | chunky_iso       | 0.266 | 4672 |
+  | blobs (baseline) | 0.250 | 5614 |
+  | money_piece v1   | 0.061 | 10206 |
+  | money_piece_iso  | 0.063 | 10213 |
+  | stripe (baseline)| 0.075 | 5881 |
+  - 放射狀扇區 (從頭頂一路到髮際線) 比隨機橢圓少 ~17% 交叉。
+  - 但「沿髮流的 metric」本身幾乎沒差 (flow vs iso -1%)。flow_source=column: chunky 4695 (差不多)。
+  - money piece 天生交叉多: 前額髮根被後方往前/往下披的頭髮蓋住。stripe 是隨機位置，不可直接比。
+
+================================================================================
+[4] 第二版: strand-coupling graph cut (2026-10-22)
+================================================================================
+觀察: 交叉數可以直接由髮絲算，不必透過 2D 髮流間接近似。
+  N[p, c] = 髮根在 p 格、且經過 c 格 column 的髮絲數，W = N N^T (對角設 0)。
+  對任何「以格子為單位」的 mask R:  sum_c n_hl(c) n_base(c) = sum_{p in R, q notin R} W[p, q]
+  => column 規則 (FM clique) 交叉數就是 cell graph 上的 cut，可用 s-t max-flow 精確求全域最小。
+  (projection 版: graphcut.projection_coupling 把 StrandGraph 的交叉權重依兩根髮絲的髮根格加總，
+   cut = projection FM 的目標函數 (cell-level mask)。)
+能量 (Boykov-Jolly 式 prior + graph cut):
+  E(x) = sum W[p,q][x_p != x_q] + sum_p mu*deg_p*min(|d_p|/band, 1)*[x_p != prior_p]
+  deg_p = sum_q W[p,q] (翻一格最多改變的 cut)，d_p = 到風格 prior 邊界的 signed distance (cell)。
+  mu >= 1 => 離 prior 邊界超過 band 格的格子固定 (併入 terminal)，只有邊界帶內可動 => 保留風格外形。
+  問題: min-cut 的 shrinking bias，小的 money piece 整塊都在 band 內 => 縮成空集合 (cut = 0)。
+  => 每個連通塊 (兩種 label 各自) 的核心 (|d| >= 0.5 x 該塊最大 |d|) 固定。
+單一髮型測試 (base_15_idx_1144, column cut): chunky 1.82e9 -> 1.35e9 (-26%, 82 格翻轉)，
+  money piece 1.18e9 -> 0.68e9 (-42%)。每次 graph cut < 0.03 s (只解 band 內 ~100-400 個節點)。
+新 style: chunky_gc / money_piece_gc (refine="graphcut")。
+
+[4.1] flow metric sweep (eval_dev, 8 髮型 x 4 trials, cut / highlight strand；money_piece 在 sweep 中途
+      換成 base_seeds="front"，所以只看 chunky 的數字):
+  | 設定                          | chunky cut/hl |
+  | blend, alpha 6, beta 2 (預設) | 4637 |
+  | column                        | 4695 |
+  | root                          | 4640 |
+  | alpha 12                      | 4723 |
+  | beta 6                        | 4635 |
+  => 全部在 ±1.5% 內，屬雜訊。flow metric 的參數不重要；保留預設。
+     真正有效的是 (a) 從頭頂到髮際線的放射狀分割本身 (vs blobs -17%) 與 (b) coupling graph cut。
+
+[5] 正式測試 (2026-10-22): data/img_n12
+  build: bash run.sh build --out data/img_n12 --from_bench ../contour_algo_test/data/hl_n50_s0 --n_hairstyles 12
+         --generators chunky_gc,chunky,chunky_iso,blobs,money_piece_gc,money_piece,money_piece_iso,stripe
+         => 12 個中長髮 x 8 generator = 96 cases (同一批髮型，graph 已在 contour_algo_test 的磁碟快取)
+         fraction: chunky 類 (含 blobs) 0.20-0.40，money piece 類 (含 stripe) 0.04-0.12
+  run:   bash ../contour_algo_test/bench.sh run data/img_n12 --run_name main
+         --methods mask_only,fm_proj_lam100,fm_proj_lam1000 --no_render --flux_analysis no
+  完成: 96 cases 全部 ok (無 failed / skipped_oom)，約 2.5 h (長髮每 case ~1.5-2 min)。
+  報告: data/img_n12/runs/main/report.html，per-generator 表: data/img_n12/runs/main/per_generator.md (agg.py)
+  平均 (12 髮型):
+  
+  ### mask_only
+  
+  | generator | n | grid score | per black | per white | proj cut | clique cut | hl frac | flip | IoU init | comps | proj cut / hl strand |
+  |---|---|---|---|---|---|---|---|---|---|---|---|
+  | blobs | 12 | 0.3556 | 3.228 | 0.6642 | 8.848e+07 | 5.446e+08 | 0.2575 | 0 | 1 | 2.917 | 3886 |
+  | chunky | 12 | 0.4105 | 2.091 | 0.8491 | 9.599e+07 | 5.634e+08 | 0.306 | 0 | 1 | 3.417 | 3239 |
+  | chunky_gc | 12 | 0.3617 | 1.964 | 0.7358 | 5.398e+07 | 3.414e+08 | 0.3321 | 0 | 1 | 4.167 | 1747 |
+  | chunky_iso | 12 | 0.4019 | 2.158 | 0.824 | 1.03e+08 | 5.778e+08 | 0.2997 | 0 | 1 | 3.917 | 3268 |
+  | money_piece | 12 | 0.1365 | 4.156 | 0.2198 | 3.336e+07 | 1.774e+08 | 0.06788 | 0 | 1 | 1.833 | 4479 |
+  | money_piece_gc | 12 | 0.1241 | 1.578 | 0.203 | 2.88e+07 | 1.599e+08 | 0.06674 | 0 | 1 | 2.5 | 4638 |
+  | money_piece_iso | 12 | 0.162 | 2.271 | 0.2629 | 3.996e+07 | 2.144e+08 | 0.0737 | 0 | 1 | 1.667 | 5210 |
+  | stripe | 12 | 0.1503 | 30.52 | 0.2243 | 2.932e+07 | 1.866e+08 | 0.07237 | 0 | 1 | 1 | 4763 |
+  
+  ### fm_proj_lam100
+  
+  | generator | n | grid score | per black | per white | proj cut | clique cut | hl frac | flip | IoU init | comps | proj cut / hl strand |
+  |---|---|---|---|---|---|---|---|---|---|---|---|
+  | blobs | 12 | 0.08331 | 0.5269 | 0.1558 | 3.038e+06 | 5.004e+07 | 0.2483 | 0.2894 | 0.2537 | 2.917 | 129 |
+  | chunky | 12 | 0.08466 | 0.4217 | 0.1812 | 3.919e+06 | 5.375e+07 | 0.3061 | 0.2749 | 0.399 | 3.167 | 132 |
+  | chunky_gc | 12 | 0.09589 | 0.4758 | 0.1959 | 4.308e+06 | 6.404e+07 | 0.3273 | 0.1719 | 0.5978 | 2.833 | 134 |
+  | chunky_iso | 12 | 0.0794 | 0.4223 | 0.1596 | 3.726e+06 | 5.353e+07 | 0.2917 | 0.2744 | 0.4168 | 3.333 | 134 |
+  | money_piece | 12 | 0.04471 | 1.041 | 0.06957 | 2.305e+06 | 3.271e+07 | 0.05466 | 0.08757 | 0.2399 | 2.333 | 309 |
+  | money_piece_gc | 12 | 0.04218 | 1.292 | 0.0656 | 1.211e+06 | 1.84e+07 | 0.05284 | 0.0544 | 0.4179 | 3.5 | 245 |
+  | money_piece_iso | 12 | 0.04451 | 1.529 | 0.06939 | 1.398e+06 | 2.111e+07 | 0.05725 | 0.08402 | 0.2705 | 3.333 | 258 |
+  | stripe | 12 | 0.04325 | 1.178 | 0.06642 | 1.281e+06 | 2.175e+07 | 0.05272 | 0.09315 | 0.1188 | 3 | 248 |
+  
+  ### fm_proj_lam1000
+  
+  | generator | n | grid score | per black | per white | proj cut | clique cut | hl frac | flip | IoU init | comps | proj cut / hl strand |
+  |---|---|---|---|---|---|---|---|---|---|---|---|
+  | blobs | 12 | 0.1737 | 1.161 | 0.3256 | 8.68e+06 | 9.822e+07 | 0.2456 | 0.1721 | 0.4655 | 2.333 | 367 |
+  | chunky | 12 | 0.176 | 0.8898 | 0.3738 | 9.163e+06 | 9.563e+07 | 0.3066 | 0.1741 | 0.6006 | 3.333 | 317 |
+  | chunky_gc | 12 | 0.1555 | 0.7447 | 0.3242 | 8.28e+06 | 9.26e+07 | 0.3269 | 0.08749 | 0.777 | 2.833 | 257 |
+  | chunky_iso | 12 | 0.1586 | 0.8743 | 0.3167 | 9.101e+06 | 9.398e+07 | 0.2871 | 0.1802 | 0.5969 | 4.083 | 328 |
+  | money_piece | 12 | 0.08176 | 1.586 | 0.1302 | 2.65e+06 | 3.437e+07 | 0.05278 | 0.05919 | 0.475 | 3.75 | 503 |
+  | money_piece_gc | 12 | 0.06102 | 1.31 | 0.09736 | 2.005e+06 | 2.421e+07 | 0.0546 | 0.03424 | 0.6423 | 2.167 | 434 |
+  | money_piece_iso | 12 | 0.07702 | 1.627 | 0.1224 | 2.407e+06 | 3.079e+07 | 0.05791 | 0.06207 | 0.4828 | 3 | 453 |
+  | stripe | 12 | 0.06774 | 2.249 | 0.1029 | 3.245e+06 | 3.769e+07 | 0.05399 | 0.05856 | 0.3646 | 2.083 | 578 |
+
+  配對比較 (paired.py，同一髮型；"x/12" = 前者較低的髮型數):
+  mask_only (初始 mask 本身):
+    proj cut / hl strand: chunky_gc vs chunky  1747 vs 3239, median -47%, 12/12
+                          chunky_gc vs blobs   1747 vs 3886, median -55%, 12/12
+                          chunky vs chunky_iso 3239 vs 3268, median  -3%,  8/12  (flow metric 幾乎無差)
+                          money_piece_gc vs money_piece 4638 vs 4479, median -31%, 8/12 (平均被 1-2 個髮型拉高)
+                          money_piece vs money_piece_iso 4479 vs 5210, median -17%, 9/12 (money piece 上 flow 有用)
+    grid_score.mean_all:  chunky_gc vs chunky 0.362 vs 0.411, median -12%, 9/12
+                          chunky_gc vs blobs  0.362 vs 0.356, median -18%, 7/12 (chunky_gc 的 hl frac 0.33 vs 0.26)
+                          money_piece_gc vs money_piece 0.124 vs 0.137, median -16%, 9/12
+                          money_piece_gc vs stripe      0.124 vs 0.150, median -10%, 8/12
+  fm_proj_lam1000 (之後再跑 FM):
+    grid_score: chunky_gc 0.156 (最低) vs chunky 0.176 (median -22%, 8/12) / blobs 0.174
+                money_piece_gc 0.061 (最低) vs money_piece 0.082 (-26%, 8/12) / stripe 0.068
+    shape.iou_init (FM 後與初始 mask 的 IoU，風格保留): chunky_gc 0.78 vs chunky 0.60 (10/12 較高)；
+                money_piece_gc 0.64 vs money_piece 0.48 (11/12 較高)。flip: chunky_gc 8.7% vs 17%。
+  fm_proj_lam100: FM 改很多，各 generator 收斂到相近分數 (0.08-0.10 / 0.042-0.045)，但 _gc 保留的形狀
+    明顯較多 (IoU 0.60 vs 0.40；0.42 vs 0.24)。
+  => graph cut 是主要貢獻；它讓初始 mask 已接近 FM 的解，FM 改動少、風格保得住。
+
+[5.1] graph cut 參數 sweep (eval_dev, 6 髮型 x 3, column cut / hl strand):
+  | 設定                      | money_piece_gc | chunky_gc |
+  | 無 graph cut              | 11321 | 5280 |
+  | band 2.5 core 0.5 (預設)  |  9871 | 3953 |
+  | band 4                    | 10101 | 3649 |
+  | core 0.3                  | 10711 | 4491 |
+  | projection coupling       |  9756 | 3917 |
+  => column coupling 與 projection coupling 幾乎相同 => 用便宜的 column 版 (0.15 s vs 建 graph 30-45 s)。
+     band 4 對 chunky 再好一點但外形偏離較多；保留 2.5。core 0.3 反而變差 (縮得太多，bisection 要把 size
+     拉大，邊界帶變長)。
+
+[5.2] best-of-M (generate_mask(..., candidates=M): 抽 M 組合法的風格參數，取 normalized coupling cut
+      = cut / (hl roots x base roots) 最小者)。eval_dev 6 x 3:
+  | M | chunky_gc | money_piece_gc |
+  | 1 | 3953 | 9871 |
+  | 4 | 2387 (-40%) | 8162 (-17%) |
+  | 8 | 2282 | 8030 |
+  => CLI / build 預設 M=4；library 預設 1 (要最大多樣性時)。
+  注意: generate_mask 改成每次呼叫只抽一次 target fraction (舊版每次 retry 重抽)，所以用新程式重建
+  data/img_n12 會得到不同的 mask (舊 case 的 mask.npy 仍是當時的結果)。
+
+[5.3] Blender 渲染 (GPU, ~18 s / 張): bench.sh render data/img_n12/runs/main --cases case_0008,case_0012,
+  case_0016,case_0020 --methods mask_only,fm_proj_lam1000
+  - chunky_gc (case_0008, 0016): 從頭頂分線往下的乾淨色塊，正面/背面無混色雜訊；graph cut 會把邊界吸到
+    中分線上 (分線兩側本來就分開)。case_0008 只有 6 扇區，左側整塊變黑 => 扇區偏寬。
+  - money_piece_gc case_0012: 分線兩側框臉的兩束，符合預期。
+  - money_piece_gc case_0020: 前額髮流沿髮際線橫走，highlight 沿髮際線繞到側邊，像髮箍而非框臉。
+    => money piece 加方位角走廊: highlight 限制在區段方位角 +-0.2 rad 內 (corridor_margin)；
+       每束寬度 0.35-0.7 -> 0.25-0.5 rad (~2-3 cm，參考 gt_examples/money_piece.jpeg)。
+  - chunky 扇區數 6-12 -> 8-12 (6 扇區只有 3 條 highlight，西瓜紋不明顯)。
+
+[6] money piece v3 (2026-10-22)
+  money piece 加走廊後 (corridor_margin 0.2, width 0.25-0.5) 在 base_14 / base_15_50537 失敗 3/18
+  (strand frac ~0.003)。原因 (dbg): 前額髮流橫向，旁邊的 base 種子沿髮流 (便宜) 一下就搶走 highlight 段
+  後方的區域，highlight 往後長是橫越髮流 (貴)。另外 graph cut 把 money piece 砍到只剩種子: 前額髮根被後方
+  頭髮蓋住，「少挑一點」永遠是最便宜的 cut。
+  修正:
+   - base_seeds="none": 左右寬度只由方位角走廊限制，不再有 Voronoi 競爭；max_depth 0.25 -> 0.6 (metric 長度)
+   - 前額髮際線上的 highlight 種子設成 graph cut 的硬限制 (info["hard"])
+   - money piece 的 graph cut band 2.5 -> 1 (只有 3-4 格寬，band 大就整塊可動)
+   - pair 的間隙下限 0 -> 0.08 rad (間隙 0 時兩束在分線處接成一條前額帶; 參考照片分線處有深色)
+  eval_dev (6 x 3, M=4, cut / hl strand):
+    | 版本                          | money_piece | money_piece_gc | 失敗 |
+    | v2 (無走廊, front base seeds) |      -      | 8828 (舊設定)  | 0 |
+    | v2 + 走廊                     | 10306       | 10512          | 3/18 |
+    | v3                            | 10203       | 9681           | 0 |
+  => v3 比 v2 多 ~10% 交叉，這是外形正確的代價 (v2 沿髮際線展開到太陽穴，像髮箍)。接受。
+     圖: v3 在 base_14 是沿分線往後的三角形 (center) / 分線兩側兩束 (pair)，base_0 是單側一束。
+
+[7] 最終設定 benchmark: data/img_n12_final (同 12 髮型; chunky_gc + money_piece_gc, candidates=4,
+    chunky 扇區 8-12, money piece v3)。與 data/img_n12/runs/main 的 baseline 逐髮型配對比較。
+  結果 (data/img_n12_final, 72 個結果全 ok)，與 data/img_n12/runs/main 的 baseline 逐髮型配對:
+    mask_only: chunky_gc(M4) vs blobs: grid 0.310 vs 0.356 (10/12 較低), proj/hl -69% (12/12), per_black -34%
+               money_piece_gc(v3,M4) vs stripe: grid 0.142 vs 0.150 (6/12), proj/hl -36% (8/12), per_black -77% (12/12)
+    FM 1000:   chunky_gc vs blobs: grid 0.124 vs 0.174 (11/12), IoU 0.84
+               money_piece_gc vs stripe: grid 0.084 vs 0.068 (較差, 5/12)，per_black -30% (9/12)；
+               vs money_piece (同形狀無 gc): per_black -16% (8/12), IoU 0.59 vs 0.48
+  渲染 (bench.sh render data/img_n12_final/runs/main --cases case_0002..0005 --methods mask_only):
+    money_piece_gc: case_0005 是分線兩側框臉的兩束 (理想)，case_0003 是單側一大束。
+    chunky_gc: 只看得到 1-2 條粗條紋，「西瓜」感不足。
+  => 統計: 最終版 chunky_gc 平均只剩 3.25 個 highlight 連通塊，預期 K/2 = 5.3。
+     best-of-4 選到的正是扇區被吃掉最多的候選 (邊界越少交叉越少)。
+
+[8] chunky 的風格保真 (2026-10-22)
+  - 加 Style.accept(field, params, mask, info)：generate_mask 對不合格的候選重抽。chunky: 至少 75% 的
+    highlight 扇區要存活。結果幾乎全部失敗 => 診斷:
+  (a) prior 本身不穩: size 0.3/0.5/0.7 -> frac 0.09/0.47/0.82，甚至不單調。原因: 細扇區的牆沒完全封住時
+      BFS flood fill 把多個扇區連成一塊、整塊取平均方位角的 label。
+      => 改成極座標標記: 每條路徑寫成 (到 crown 的距離 r) -> (相對 b_k 的方位角偏移)，走廊內的格子看自己在
+         路徑哪一側，走廊外看方位角。走廊互不重疊 => 一定封閉。之後 size 0.2..0.5 -> frac 0.21..0.53 單調，
+         prior 的扇區全部存活。(拿掉 _fill_sectors)
+  (b) graph cut band 2.5 格比很多扇區還寬: frac 0.35 -> 0.16、扇區死一半。=> sweep band (sweep6)。
+  存活標準改為「該扇區 prior 的有髮根格子至少 35% 仍是 highlight」(條紋變細但仍可見)。
+  sweep6 (eval_dev 6 x 3, M=4, accept 開啟; cut / hl strand; 全部 18/18 成功):
+    | chunky (極座標 prior, 無 gc) | 6126 |   blobs 6160
+    | chunky_gc band 1.0           | 4994 |
+    | chunky_gc band 1.5           | 4299 |
+    | chunky_gc band 2.5 (預設)    | 3876 (-37%) |
+  => 保住所有條紋後 prior 的邊界變多，交叉與 blobs 相當；graph cut 仍 -37%。保留 band 2.5。
+  重跑 chunky 最終 benchmark: data/img_n12_final_chunky (chunky_gc, M=4, accept, polar)。
+  結果 (data/img_n12_final_chunky, 36 個結果全 ok)，與 data/img_n12/runs/main 配對:
+    highlight 連通塊 vs 預期扇區: [4,5,6,4,2,7,3,4,3,4,4,4] vs [4,4,5,4,4,6,4,4,4,4,4,6] (條紋保住了)
+    mask_only: vs blobs  grid 0.355 vs 0.356 (7/12), per_black 2.05 vs 3.23 (-30%, 10/12), proj/hl 2099 vs 3886 (-54%, 12/12)
+               vs chunky grid 0.355 vs 0.411 (8/12), proj/hl -54% (11/12)
+    FM 1000:   vs blobs  grid 0.161 vs 0.174 (6/12), per_black -19% (8/12), IoU 0.81 vs 0.47, flip 7% vs 17%
+    => 比「條紋被吃掉」的版本 (proj/hl 1102) 交叉多，但這是保住西瓜紋的代價。
+  渲染 (case_0001/0002/0006): 從頭頂分線放射出去的多條粗色塊，俯視圖可見放射紋。
+  CLI 在短髮 (base_67_idx_36358) 上 chunky_gc / money_piece_gc 都正常。
+
+================================================================================
+[9] 最終演算法 (詳見 ALGORITHM.md)
+================================================================================
+  chunky_gc / money_piece_gc, candidates=4 (CLI / build 預設):
+   HairField (flux + structure-tensor 髮流 + coupling W=N N^T)
+   -> 風格 prior (chunky: 走廊內 live-wire 邊界 + 極座標標記; money piece: 前額髮際線種子 + 走廊內 geodesic 深度)
+   -> BFS 清理 -> band 內 s-t min-cut (W 的 cut = FM column 交叉數; 核心 / 硬限制防縮)
+   -> accept 風格檢查 -> best-of-4 (normalized cut 最小)
+  主要結論:
+   1. 2D 髮流度量對交叉數幫助很小 (chunky ±3%; money piece -17%)；真正有效的是直接用髮絲耦合 W 的
+      graph cut (它就是 FM 的目標函數) 與 best-of-M。
+   2. 走廊 (方位角限制) 是外形正確的關鍵: 前額頭髮常沿髮際線橫走，純跟髮流的邊界 / 區域會沿髮際線繞走。
+   3. 最小化交叉會侵蝕風格 (條紋被吃、money piece 被削)，所以需要 accept / 硬限制 / 小 band，並用渲染與條紋
+      數檢查，不能只看交叉數。
+  開發期的 eval_dev.py / sweep*.sh 是 scratchpad 腳本 (projection graph cut / hl strand)，不在 repo；可重現的
+  測試是 run.sh build + contour_algo_test/bench.sh run (+ agg.py / paired.py)。
+
+================================================================================
+[10] money piece v4: 窄化 (2026-10-23)
+================================================================================
+  起因: 渲染 data/img_n12_final 的 6 個 money_piece_gc (case_0001/07/09/11/13/15，mask_only + fm_proj_lam1000)，
+  位置都在前額/分線兩側，但多數太寬太厚 (base_18 長髮 frac 0.11 幾乎整個正面都黑；base_0 從前額長到頭頂)。
+  前額髮絲在正面最顯眼，10% 的髮絲就蓋住大半個正面；FM 1000 又會把 money piece 削薄。
+  修改:
+   - money piece 比例範圍 (cli / build_bench 預設) 0.04-0.12 -> 0.03-0.07 (stripe baseline 同步)
+   - 每束寬度 0.25-0.5 -> 0.15-0.35 rad (~1.5-3 cm)
+   - max_reach = 0.06 m: highlight 到最近前額髮際線種子的 3D 距離上限 (避免一路長到頭頂)
+  2D 檢查 (6 髮型 x 3, M=4): 全部一次成功，frac 0.034-0.059，區塊明顯變小、貼近髮際線。
+  benchmark data/img_mp_v4 (同 6 髮型, money_piece_gc, M=4; mask_only + fm_proj_lam1000, 已渲染):
+    mask_only: grid 0.112, per_black 1.50, proj/hl 1872, frac 0.049
+    fm 1000:   grid 0.067, per_black 1.21, IoU 0.67, flip 1.8%
+    (舊版同 12 髮型平均: mask_only grid 0.142 / proj/hl 3764；fm grid 0.084；比例範圍不同，僅供參考)
+  渲染觀察:
+    base_18 (長髮 pair 0.030): 分線兩側兩條細的框臉色帶，中間留深色分線 => 最接近參考照片 (舊版整片黑)
+    base_2 (pair 0.047): 沿前額髮際線一圈加右側往下，框臉
+    base_15_94832 (center 0.042): 分線兩側前額，OK
+    base_1 (pair 0.063): 看起來偏單側，仍略寬
+    base_26 (鮑伯頭 side 0.056): 左前方仍是一大塊 => 鮑伯頭前額頭髮大量蓋在臉上，比例再小也顯眼
+    base_0 (短髮 pair 0.057): 俯視仍看到黑色延伸到頭頂 => 短髮往後梳，前額髮根的髮絲本身就躺在頭頂上，
+      這是髮型的幾何，mask 限制不了 (要改就只能對短髮再降比例或不用 money piece)
+
+================================================================================
+[11] chunky 改為平行條紋 + 壓低 grid score (2026-10-23)
+================================================================================
+使用者修正: chunky 比較接近「平行紋路」而不是西瓜紋；band 要更窄；average grid score 目標 < 0.1 (理想 < 0.05)。
+資料: Wella "Chunky Highlights Are Back" (高對比、比底色亮數個色階的粗段)、Behind the Chair "Express Chunky
+  Highlights Technique" (前方少數幾個粗 section)、Madison-Reed (間隔開、集中在臉周圍與最上層、髮尾可保留原色)。
+  => chunky = 幾束從髮根到髮尾的粗色塊，彼此間隔，從外面看是平行的直條。沒找到明確「平行於分線」的施作說明。
+  原本的放射狀改名 watermelon / watermelon_gc / watermelon_iso 保留。
+
+grid score 的性質 (scalp_grid_volume_sample.evaluation.single_grid_score2):
+  每格 = (A_hl + A_base - A_union) / A_union，凸包取該格 column 內兩色髮絲的投影點；兩色都需 > 2 根，否則 0。
+  新增 scores.py: 只算兩色都 > 2 根的格子，與 benchmark 的 grid_score.mean_all 逐位相同
+  (img_mp_v4 case_0000: 0.12536 vs benchmark 0.125)，0.9 s (原本 ~10 s)。
+  HairField 新增 strands (positions / smg / root cells，by reference) 與 flow_dir (有方向的髮流:
+  structure tensor 主方向依髮根平均生長方向定正負)。
+
+chunky v2 (streamline.py + styles.Chunky): 每束 = 有向髮流的 streamline (從髮際線 anchor 往上游追到分線/頭頂/
+  反向/離開頭髮) 周圍寬 w 的 band。
+  - 第一版 (anchor 平均分布 360 度，best-of-4 by grid score): base_15/14/0 grid 0.16-0.32 (frac 0.10-0.15)。
+    graph cut 幾乎無效 (它最小化交叉數，不是凸包重疊)。
+  - 診斷 (base_14, frac 0.10, grid 0.40): 411 分裡 361 來自 mask 外的格子，集中在後腦 (下半部整片 ~1)。長髮
+    從後方 band 垂下，穿過後腦大量格子的 column；只要 hl 在格內佔 2% 以上，重疊就 ~0.6-1。
+  - 只放前方 +-2.4 rad: 0.20 (略好)。另發現 BFS 清理把 < 0.2% 髮根的連通塊當雜訊刪掉，細 band 被刪 =>
+    chunky 的 min_root_frac 0、min_cells 1。
+  - 單束分析 (32 個 anchor 各自算): 同樣 5-7% 的髮絲，grid / frac 從 1.1 到 4.2 不等。
+    寬度幾乎不影響 (只染中心線格子也有 0.11-0.20；越寬每單位髮絲越省)；
+    髮根靠髮際線的那半段幾乎不扣分 (0.01-0.05)，扣分來自分線附近長出的上層髮絲 —— 也就是從外面看得到的部分。
+    => grid score 與「看得見的挑染」本質上互相拉扯: 任何蓋在 base 上的 highlight 都會被扣分。
+  - 改為逐束評分選擇 (lock_table: 32 個候選束各自的 grid / frac，抽樣權重 exp(-(ratio-best)/0.5)，彼此至少
+    0.45 rad)；束數由目標比例決定 (中心線比例累加到不超過目標，再用寬度微調)。
+    eval (6 髮型, best-of-4, 初始 mask grid score):
+      | 目標比例 | mean  | max   |
+      | 0.05     | 0.077 | 0.083 |  (base_0 兩條中心線就 0.11 => 允許 1 束)
+      | 0.08     | 0.120 | 0.146 |
+      | 0.12     | 0.199 | 0.282 |
+      graph cut (f08): 0.118 vs 0.120 => chunky 預設不用 graph cut。
+  預設: chunky 比例 0.04-0.08 (cli / build_bench)，watermelon 0.20-0.40，money piece 0.03-0.07。
+  正式測試: data/img_chunky_v2 (12 髮型 x chunky / blobs, best-of-4; mask_only / fm_proj_lam1000 / fm_proj_lam100)。
+  結果 data/img_chunky_v2 (12 髮型, 72 結果全 ok; chunky vs blobs 同比例 0.04-0.08, best-of-4):
+    | variant         | chunky grid (mean) | blobs | chunky <0.1 | chunky <0.05 | chunky IoU |
+    | mask_only       | 0.094 | 0.131 | 8/12  | 0/12 | 1    |
+    | fm_proj_lam1000 | 0.061 | 0.070 | 12/12 | 3/12 | 0.52 |
+    | fm_proj_lam100  | 0.043 | 0.041 | 12/12 | 9/12 | 0.20 |
+    chunky 每 case (mask_only): 0.054 0.060 0.069 0.082 0.087 0.092 0.093 0.099 0.117 0.120 0.127 0.127
+  渲染 (data/overview/chunky_v2_{0,1}.png): grid 目標達到了，但外觀不像 chunky:
+    - 12 個裡 6 個只有 1 束，其餘 2 束；條紋集中在後腦，正面幾乎看不到。
+    - 有些束被上層頭髮蓋住 (case_0008 幾乎看不見)：逐束評分偏好「蓋得少」的束，而那些多半是被蓋住的下層。
+    - FM 1000 在 case_0016 把整片臉前的頭髮翻成 highlight (0.127 -> 0.018)，形狀完全改變。
+  => 結論: 在這個 grid score 定義下，「低分」與「看得見的平行條紋」互相衝突；需要使用者決定取捨。
+
+[12] chunky v3: 看得見優先 (使用者選擇 2026-10-23；並表示不必所有 case 都達標，自行取捨)
+  改為從分線 (無分線: 頭頂中線) 旁的格子沿有向髮流往「下游」追 streamline 到髮際線 => 上層髮絲 (看得見)。
+  候選束全部單獨評分 (lock_table)，終點不在前方/兩側 (|az| > 1.9 rad) 的權重 x e^-2 (往後梳的髮型幾乎只有
+  流向後腦的束，硬排除會沒有候選: base_0 35/43、base_14 17/46 流向後腦)；短於 6 格的殘段丟掉；
+  種子間距 >= 2 cm、終點間距 >= 3 cm；temperature 1.0；比例 0.08-0.12；best-of-4 by grid score。
+  data/img_chunky_v3 (12 髮型, 72 結果全 ok, 渲染 24 張):
+    | variant         | chunky | blobs | chunky <0.1 | <0.05 | chunky IoU | blobs IoU |
+    | mask_only       | 0.201  | 0.189 | 0/12  | 0/12 | 1    | 1    |
+    | fm_proj_lam1000 | 0.098  | 0.088 | 7/12  | 0/12 | 0.49 | 0.38 |
+    | fm_proj_lam100  | 0.057  | 0.065 | 12/12 | 5/12 | 0.25 | 0.11 |
+    proj cut / hl strand (mask_only): chunky 4158 vs blobs 6420 (-35%)。
+  渲染 (data/overview/chunky_v3_{0,1}.png): 0006/0008/0010/0012/0014/0018/0020 正面看得到平行直條
+    (0008 臉兩側多條細直條最像參考照片)；0000/0002/0004 (往後梳) 條紋在後腦；FM 1000 有時把條紋加粗合併，
+    0016 把臉前整片翻成 highlight。
+  取捨 (最終): chunky 維持 v3 (比例 0.08-0.12，看得見)。grid score 交給後續 FM:
+    lam 1000 平均 0.098 (7/12 < 0.1)，lam 100 平均 0.057 (12/12 < 0.1, 5/12 < 0.05) 但形狀改動大 (IoU 0.25)。
+    若要初始 mask 本身 < 0.1，用 v2 的設定 (比例 0.04-0.08、不偏好上層): 平均 0.094，但常只有 1-2 束、多在後腦。
+
+[13] chunky v4: 渲染「看起來只有一條線」(使用者回報, 2026-10-23)
+  診斷 (data/overview/chunky_v3_masks2d.png): 每個 case 確實有 2-6 束，但
+   1. 從分線同一側相鄰起點出發的 streamline 往下游 (後腦) 匯合，兩束疊成一條 (只檢查了起點 2 cm / 終點 3 cm)；
+   2. band 只有 1 格寬 (~1.2 cm)，斜走處斷成很多段 (case_0012 18 塊)，渲染成細線、常被周圍頭髮蓋住；
+   3. 一束從分線到髮際線 ~20 格、佔 4-5% 髮絲 => 比例 0.10 只放得下 2 束。
+  修正:
+   - 間距檢查整條: 候選束中心線若 > 25% 的點在已選束 3.5 cm 內就排除 (min_band_dist / max_overlap)；
+   - 寬度 0.012-0.03 m (原 0-0.025)；band 柵格化補對角，4-連通不斷；
+   - 每束只取分線往下 10 格 (~12 cm, max_len): 看得見的上層頭髮長在那裡，再往下的髮根反正被蓋住；
+     每束 ~2% => 比例 0.10 可放 3-4 束 (與沙龍在分線附近取 section 一致)。
+  dev (3 髮型 x 3, frac 0.10): 2-4 段彼此分開的條紋，多在頭頂/兩側上方；初始 grid 0.14-0.31 (平均 ~0.22)。
+  正式: data/img_chunky_v4 (12 髮型, mask_only / fm_proj_lam1000 / fm_proj_lam100, 渲染)。
+  v4 結果 data/img_chunky_v4 (12 髮型; 束數 [3,2,2,3,3,3,5,4,3,5,3,5]):
+    mask_only 0.203 (0/12 <0.1) | FM1000 0.099 (6/12 <0.1, IoU 0.48) | FM100 0.053 (12/12 <0.1, 4/12 <0.05, IoU 0.25)
+    渲染 data/overview/chunky_v4_{0,1}.png: 0000/0007/0009/0010/0011 看得到多條；0001/0002/0003 背面、0004 正面仍像一條。
+  原因: 間距只在頭皮上量，頭髮垂下後會再聚攏 (長髮匯到後腦)。
+  修正 (v5):
+   - 每個候選束算「頭髮垂在哪」: 髮絲 50%-100% 長度的取樣點，繞頭部垂直軸的圓形中位方位角 (vis_azimuth)；
+     已選束的 vis_azimuth 至少相差 0.3 rad；偏好前方/兩側改用 vis_azimuth。
+   - 發現 base_14 / base_15 從分線出發的 19 / 43 個候選束全部垂在後面或兩側後方 (|az| >= 60 度，多數 >= 120)：
+     長髮從頭頂往後流，垂在臉旁的頭髮長在前額髮際線與兩側。=> 候選起點加上整個頭皮每 3 格的格點 (lattice)，
+     每束往下游最多 10 格。base_14: 63 個候選，36 個垂在兩側 (+-60-100 度，從正面看得到)；base_15 (往後梳)
+     97 個候選全部 >= 90 度。lock_table 每個髮型 1.5-3 分鐘。
+  正式: data/img_chunky_v5。
+  v5 結果 data/img_chunky_v5 (12 髮型; 束數 3-6): mask_only 0.176 | FM1000 0.100 (6/12 <0.1) | FM100 0.052 (12/12, 5/12 <0.05)
+    渲染 data/overview/chunky_v5_{0,1}.png: 比 v4 差 —— 格點起點多在頭皮中下段，長出來的是被上層蓋住的底層，
+    初始 mask 幾乎看不到 highlight (0002/0004/0008/0009)；FM 之後反而出現清楚條紋 (FM 把交叉少的上層翻成 highlight)。
+  => 改為直接量「看得到」(v6): strand_visibility —— 從頭部中心依方位角 x 仰角 (72 x 36) 分格，每格最外層的
+     取樣點半徑 = 頭髮表面；髮絲取樣點在表面 8 mm 內算看得到。每根髮絲的可見比例 (長髮只有 35-41% 的髮絲有任何
+     一點在最外層)；每個候選束 = 其髮絲的平均可見比例。抽樣只取可見度前 25% 的候選，權重再乘 exp(3 * vis / max)。
+  v6 dev (data/img_chunky_v6_dev, 4 髮型, 渲染 data/overview/chunky_v6_dev.png):
+    初始 mask 從外面看得到多條條紋 (base_18 正面與頭頂多條、base_15/base_14 背面 2-3 條、base_43 捲髮兩側)；
+    初始 grid 0.24-0.42，FM1000 後 0.06-0.14。FM 會把多條條紋合併成一條 (FM 後背面又只剩一條)。
+  正式: data/img_chunky_v6 (12 髮型)。
+  v6 結果 data/img_chunky_v6 (12 髮型, 36 結果全 ok, 渲染 24 張; 束數 [4,3,2,4,4,3,3,3,3,4,3,5]):
+    mask_only 0.271 (0/12 <0.1) | FM1000 0.113 (5/12 <0.1, 2/12 <0.05, IoU 0.42) | FM100 0.054 (12/12 <0.1, 3/12 <0.05, IoU 0.23)
+    渲染 data/overview/chunky_v6_{0,1}.png: 初始 mask 10/12 看得到多條條紋 (0001 正面+背面、0003 正面瀏海+背面、
+      0004 頭頂多條、0006/0008 正面多條、0009 正面+頭頂、0010 捲髮兩條、0011)；0000 (短髮) 與 0007 條紋較少/細。
+    FM 1000 仍會把多條合併成一條 (0001/0003/0004 背面)，0008 把臉前整片翻成 highlight。
+  取捨 (目前採用 v6): 外觀最接近「平行多條」；代價是初始 grid 0.27，需 FM 才 ~0.1 (lam 100: 0.054, 12/12 < 0.1)。
+
+================================================================================
+[14] 「每條條紋不能被吃掉」的 FM 限制 (使用者要求實驗, 2026-10-23)
+================================================================================
+不修改 update_contour / contour_algo_test (各自的 CLAUDE.md 規定)；新增 protected_fm.py 與 run_protected.py
+(bash run.sh protect <run_dir>)：在既有 run 上補跑 variant fm_proj_lam<lam>_keep，輸出格式同 benchmark
+(result.json / maps.npz)，所以 bench.sh render / agg.py / paired.py 直接可用；每個 case 另寫 stripes.json
+(每條條紋的存活比例 = 該條初始 highlight 髮絲仍為 highlight 的比例；< 0.35 算被吃掉)。
+條紋由 case.json 的參數重建 (Chunky.build 現在也回傳每條的 cores)；case_0001 重建結果與 mask.npy 完全相同。
+
+做法 1: 錨點 (anchor)。每根受保護髮絲接一個專屬錨點節點，邊權 W = 最大加權度數 + lam + 1，FM 不改程式。
+  小圖驗證: CSR 對稱、原邊保留、受保護的不被翻。
+  實際 (v6 case_0001, 核心 6206 根): FM 翻了 3981 根受保護髮絲 (事後改回)。原因: FM 先翻髮絲、再翻它的錨點，
+  兩步合計只付 2 lam => 錨點只是把 lam 加倍，不是固定。事後改回後鄰居是照錯的標籤最佳化的: grid 0.28
+  (普通 FM 0.053)。update_contour 的 FM 每個節點都能動，用加邊的方式做不出真正的固定節點。=> 不用。
+做法 2: 子圖 (subgraph, 採用)。受保護髮絲固定為 highlight、從圖中拿掉
+  (update_contour.two_stage.subset_incidence 的 induced subgraph)，FM 只在其餘髮絲上跑。核心一定保住；
+  鄰居看不到它們，所以條紋可能在核心周圍變細。
+  case_0001 保護全部核心: 被吃 0/3 (普通 FM 2/3)，但 grid 0.34 (初始 0.378) —— 核心正是最扣分的上層髮絲。
+保護比例掃描 (每條條紋保護交叉度數最低的 q 比例):
+  | case_0001 lam100 | grid  | 存活          |    | case_0004 lam100 | grid  | 存活                    |
+  | 普通 FM          | 0.050 | [0, .58, 0]   |    | 普通 FM          | 0.053 | [1, 0, .46, .16]        |
+  | q = 0.1          | 0.141 | [.1, .5, .1]  |    | q = 0.1          | 0.103 | [1, .1, .5, .19]        |
+  | q = 0.2          | 0.206 | [.2, .5, .2]  |    | q = 0.2          | 0.117 | [1, .2, .2, .26]        |
+  | q = 0.35         | 0.254 | [.35,.53,.35] |    | q = 0.35         | 0.158 | [1, .35, .35, .37]      |
+  (lam 1000 幾乎相同)。FM 會把受保護以外的髮絲全部移走，存活比例 ~= q：FM 想吃的條紋本質上就是扣分的條紋，
+  保住多少，grid 就付多少 (case_0001 約 +0.6 x q)。
+  交叉度數最低的多半是看不到的底層 => 正式實驗改保護每條條紋「最外層可見」的 20% (strand_visibility)。
+  正式: bash run.sh protect data/img_chunky_v6/runs/main --lams 100,1000 --protect visible --share 0.2，
+  並渲染 fm_proj_lam100 vs fm_proj_lam100_keep。
+  正式結果 (data/img_chunky_v6/runs/main, 12 髮型, 共 41 條條紋; 「消失」= 剩 < 10%):
+    | variant              | grid 平均 | grid <0.1 | 條紋消失 | 平均存活 | IoU  |
+    | mask_only            | 0.271     | 0/12      | 0/41     | 1.00     | 1.00 |
+    | fm_proj_lam1000      | 0.113     | 5/12      | 10/41    | 0.54     | 0.42 |
+    | fm_proj_lam1000_keep | 0.230     | 0/12      | 0/41     | 0.62     | 0.50 |
+    | fm_proj_lam100       | 0.054     | 12/12     | 17/41    | 0.37     | 0.23 |
+    | fm_proj_lam100_keep  | 0.221     | 0/12      | 0/41     | 0.47     | 0.31 |
+  渲染 data/overview/chunky_v6_keep_{0,1}.png (初始 | FM100 | FM100_keep；正面 + 背面):
+    keep 版在 0001 (正面條紋保住)、0003 (正面瀏海條紋)、0006、0008、0011 明顯保留更多條；其他 case 差異小。
+  結論: 硬保護 => 條紋一條都不會消失，但 grid 回到 ~0.22 (普通 FM 0.054)。限制本身成立，代價和 [11]-[13]
+    的衝突一致：被保護的上層可見髮絲正是扣分的那些。保護比例 (--share) 是 grid 與條紋數之間的旋鈕。
+
+================================================================================
+[15] trimming (update_contour.trim) 放在 FM 前 / 後 (使用者建議, 2026-10-23)
+================================================================================
+之前沒用過 (contour_algo_test 只有 fm_proj_lam1000_trim100)。trim = 一次挑出對異色交叉加權最大的 N 根髮絲，
+隱藏 (不渲染、不計分)。新增 run_trim.py (bash run.sh trim <run_dir>)，不改 update_contour / contour_algo_test。
+組合: trim only / FM -> trim / trim -> FM (FM 在 subset_incidence 子圖上) / 保護條紋 FM -> trim (不 trim 受保護的)，
+N = 500 / 2000 (~0.5% / 2% 的髮絲)，lam 100 / 1000。data/img_chunky_v6 (12 髮型, 41 條條紋)，結果 <case>/trim.json:
+  | variant                       | grid  | <0.1  | <0.05 | 條紋消失 | IoU  |
+  | mask_only                     | 0.271 | 0/12  | 0/12  | 0/41     | 1.00 |
+  | trim500 / trim2000            | 0.255 / 0.229 | 0/12 | 0/12 | 0/41 | 1.00 |
+  | fm_proj_lam1000               | 0.113 | 5/12  | 2/12  | 10/41    | 0.42 |
+  | fm_proj_lam1000_trim500       | 0.101 | 6/12  | 4/12  | 11/41    | 0.41 |
+  | fm_proj_lam1000_trim2000      | 0.069 | 8/12  | 5/12  | 12/41    | 0.39 |
+  | trim500 / trim2000 -> FM1000  | 0.115 / 0.107 | 6/12 | 2/12 | 10-11/41 | 0.44-0.47 |
+  | fm_proj_lam1000_keep(_trim2000)| 0.230 -> 0.214 | 0-1/12 | 0/12 | 0/41 | 0.47-0.50 |
+  | fm_proj_lam100                | 0.054 | 12/12 | 3/12  | 17/41    | 0.23 |
+  | fm_proj_lam100_trim500        | 0.042 | 12/12 | 9/12  | 17/41    | 0.23 |
+  | fm_proj_lam100_trim2000       | 0.026 | 12/12 | 12/12 | 18/41    | 0.23 |
+  | trim500 / trim2000 -> FM100   | 0.053 / 0.058 | 12/12, 11/12 | 4/12 | 19/41 | 0.22-0.23 |
+  | fm_proj_lam100_keep(_trim2000)| 0.221 -> 0.210 | 0-1/12 | 0/12 | 0/41 | 0.31-0.32 |
+  結論:
+   - FM -> trim 最有效: FM1000 0.113 -> 0.069 (trim 2000)；FM100 0.054 -> 0.026，12/12 < 0.05 (首次全部達標)。
+     條紋消失數幾乎不變 (trim 只拿掉 2%)。
+   - trim -> FM 沒幫助 (FM 會把衝突重新分配；FM 前衝突最大的髮絲不是 FM 後的)。
+   - 只 trim 幫助小；保護條紋 + trim 也小 (衝突最大的就是受保護髮絲，不能 trim)。
+  渲染 (data/overview/chunky_v6_trim_{0,1}.png, FM100 | FM100+trim2000 | FM1000 | FM1000+trim2000):
+   trim 2000 在外觀上幾乎看不出來；拿掉的是夾在異色中的散落髮絲，色塊邊緣更乾淨，無明顯空洞。
+
+================================================================================
+[16] 每條條紋各自做局部 FM，再 trim (使用者要求, 2026-10-23)
+================================================================================
+為何 FM 後看起來是單條 (data/img_chunky_v6, 存活 = 剩 >= 30%):
+  初始 41/41 條 | FM1000 28/41 (3/12 case 只剩 <= 1 條) | FM100 20/41 (7/12) | FM100+trim2000 20/41 (7/12)。
+  FM 最小化交叉，交叉集中在色塊邊界，K 條細條紋的邊界是一條粗條紋的 K 倍 => FM 偏好一大塊；balance_tol 0.02
+  讓 highlight 總數只能 -2% (每個 case 剛好少 ~0.02，例 0.107 -> 0.087)，所以被吃掉的條紋的髮絲被「搬」到
+  剩下那條旁邊 => 背面一條粗條。trim 是事後才做，改變不了。
+local_fm.py:
+  update_contour 的 FM 不能固定節點 ([14])。複製 update_contour.fm._fm_pass_graph 並只改一處: movable 以外的
+  髮絲一開始就 locked (不進 bucket、不會動)，可動髮絲的 gain 仍計入所有邊 (含與固定髮絲的)。bucket helper
+  (_b_insert/_b_remove/_bump) 從 update_contour.fm import (joint_contour 也這樣用)，update_contour 不改。
+  驗證 (隨機 400 節點圖 x 5): 全部可動時與 fm_refine 逐位相同；部分可動時固定髮絲完全不變。
+  local_stripe_fm: 每條條紋依序一次 FM；可動 = 該條 band 擴 2 格 (扣掉別條的格子) 內的髮絲；可動範圍內
+  highlight 數只能變 +-5% => 條紋可修形/移動，不會消失也不會合併。
+run_local.py (bash run.sh local <run_dir>): local_fm_lam<L>、+ trim<N>、+ trimcap<N> (每條條紋最多被 trim 30%)。
+  case_0001: 初始 0.378 -> local FM 0.241 (0/3 消失) -> + trim2000 0.111 (1/3 消失: trim 挑的衝突最大的多是
+  條紋髮絲) => 加 trimcap。lam 100 / 1000 幾乎相同，正式只跑 lam 100。
+  正式結果 (data/img_chunky_v6/runs/main, 12 髮型, 41 條; 存活 = 剩 >= 30%):
+    | variant                      | grid  | <0.1  | <0.05 | 存活  | 只剩<=1條 | IoU  |
+    | mask_only                    | 0.271 | 0/12  | 0/12  | 41/41 | 0/12      | 1.00 |
+    | fm_proj_lam1000              | 0.113 | 5/12  | 2/12  | 28/41 | 3/12      | 0.42 |
+    | fm_proj_lam1000_trim2000     | 0.069 | 8/12  | 5/12  | 25/41 | 5/12      | 0.39 |
+    | fm_proj_lam100               | 0.054 | 12/12 | 3/12  | 20/41 | 7/12      | 0.23 |
+    | fm_proj_lam100_trim2000      | 0.026 | 12/12 | 12/12 | 20/41 | 7/12      | 0.23 |
+    | fm_proj_lam100_keep          | 0.221 | 0/12  | 0/12  | 22/41 | 6/12      | 0.31 |
+    | local_fm_lam100              | 0.176 | 3/12  | 0/12  | 30/41 | 1/12      | 0.30 |
+    | local_fm_lam100_trim2000     | 0.131 | 4/12  | 0/12  | 27/41 | 2/12      | 0.29 |
+    | local_fm_lam100_trimcap2000  | 0.136 | 3/12  | 0/12  | 27/41 | 2/12      | 0.30 |
+    (存活以「初始的條紋髮絲」計: 局部 FM 允許條紋在擴 2 格範圍內移動/換髮絲，移走的不算存活，所以 < 41)
+  渲染 data/overview/chunky_v6_local_{0,1}.png (初始 | FM100 | local | local+trimcap):
+    局部 FM 明顯保留多條: 0000 背面兩條、0004 正面多條、0006 正背面、0008 正面+背面、0009、0010 兩條、0011 多條；
+    FM100 在同 case 多半剩一條粗條。
+  結論: 局部 FM 是「條紋數」與 grid 之間的中間點: grid 0.176 (+trimcap 0.136, 3/12 < 0.1)，只剩 <= 1 條的 case
+    由 7/12 降到 1-2/12。比保護版 (0.221) 好、比全域 FM (0.054) 差 —— 條紋本身就是交叉，留著就要付分數。
+
+================================================================================
+[17] 2-stage FM (update_contour 2_stage) 用較激進參數 (使用者建議, 2026-10-23)
+================================================================================
+沒寫新程式: contour_algo_test 的 method two_stage + --variants_json (data/variants_2stage.json)，用原本的
+bench.sh run 加到 data/img_chunky_v6/runs/main。stage 1: 移除 |div| > threshold (或 div 最高的 top_pct%) 的
+髮絲，在其餘髮絲上跑 FM；stage 2: 移除的髮絲依交叉權重取鄰居多數決。
+新增 stripe_report.py (bash run.sh stripes <run_dir> --variants ... [--trim N --trim_of ...])：每個 case 的
+strand_band 只算一次 (cache 在 <case>/strand_band.npy)，任何 variant 的條紋存活 + 可補 trim。
+  | variant (12 髮型, 41 條)       | grid  | <0.1  | <0.05 | 存活  | <=1 條 | IoU  |
+  | fm_proj_lam100                 | 0.054 | 12/12 | 3/12  | 20/41 | 7/12   | 0.23 |
+  | fm2s_lam100_t030 (預設門檻)    | 0.059 | 12/12 | 3/12  | 19/41 | 8/12   | 0.21 |
+  | fm2s_lam100_t015               | 0.064 | 11/12 | 3/12  | 18/41 | 8/12   | 0.20 |
+  | fm2s_lam100_top20              | 0.074 | 9/12  | 2/12  | 19/41 | 7/12   | 0.24 |
+  | fm2s_lam100_top35              | 0.083 | 9/12  | 2/12  | 18/41 | 7/12   | 0.24 |
+  | fm2s_lam100_top50              | 0.083 | 9/12  | 1/12  | 19/41 | 7/12   | 0.22 |
+  | fm2s_lam1000_top35             | 0.119 | 4/12  | 0/12  | 27/41 | 5/12   | 0.41 |
+  | fm2s_lam100_t030 + trim2000    | 0.030 | 12/12 | 11/12 | 18/41 | 8/12   | 0.22 |
+  | fm2s_lam100_top20 + trim2000   | 0.043 | 12/12 | 8/12  | 18/41 | 7/12   | 0.24 |
+  | fm_proj_lam100 + trim2000      | 0.026 | 12/12 | 12/12 | 20/41 | 7/12   | 0.23 |
+  | local_fm_lam100                | 0.176 | 3/12  | 0/12  | 30/41 | 1/12   | 0.30 |
+  => 2-stage 對 chunky 沒幫助: grid 不比一般 FM 好 (越激進越差)，條紋一樣被吃 (仍 7-8/12 只剩 <= 1 條)。
+  原因 (case_0001 / 0004 / 0009): chunky 的條紋從分線旁出發，分線正是 div 最高的區域 =>
+    top20 移除 20% 的髮絲，但條紋髮絲被移除 26-41%；top35 移除 35%，條紋髮絲 44-57%。
+    stage 2 的多數決中鄰居大多是 base (highlight 只佔 ~10%)，被移除的條紋髮絲只有 16-41% 投回 highlight
+    => 2-stage 反而從分線處把條紋削掉。
+
+================================================================================
+[18] 密集 chunky：每側 5-10+ 條 (使用者要求, 2026-10-27)
+================================================================================
+使用者：實際的 chunky 單側就有 5-10 條以上的紋路。原 chunky 只有 2-6 條，且 n = 32 時一格約 1.2 cm，以格子
+為單位的條紋 (1 格寬 + 1 格間隔) 單側最多 5-6 條。
+新增 dense_chunky.py (不是 Style registry 的一員，因為輸出是每根髮絲的標籤):
+  條紋 = 髮根到髮流線 (格子中心間雙線性內插) 3D 距離 <= w/2 的髮絲，w ~ U(6, 9) mm。
+  候選線 = Chunky.lock_table (lattice 2、min_len 4、max_len 12，另存在 field.info["_locks_dense"])。
+  每側 (垂掛方位角的正負) 目標 ~ U(5, 10) 條；可見 / 單獨 grid 低者優先 (+ Gumbel)；與已選線距 < 1.4 cm 的比例
+  <= 0.3；垂掛方位角差 >= 0.05 rad；髮絲不重複；挑染比例 <= 0.35。
+  輸出 labels / band (每根髮絲) + mask (髮根格多數決，給 grid mask 使用者，會失去次格條紋)。
+試產 (解碼髮型、20k 髮絲): base_14_idx_1307 左 5 / 右 8、base_36_idx_42564 6 / 8、base_2_idx_25819 6 / 9，
+  挑染比例 0.15-0.19；候選 132-175 條，field + 候選 19-47 s。渲染: 背面與兩側許多平行細條紋。
+highlight_vae/gen_style_masks.py --dense_per 產生訓練 / 驗證 / 測試 mask (style "chunky_dense")。

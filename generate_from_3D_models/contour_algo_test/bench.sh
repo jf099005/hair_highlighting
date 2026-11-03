@@ -4,6 +4,7 @@
 #   bash bench.sh run <benchmark_dir> [run_benchmark.py options]
 #   bash bench.sh summarize <run_dir> [summarize.py options]
 #   bash bench.sh render <run_dir> --cases <ids|all> [render_results.py options]
+#   bash bench.sh compare <run_dir> --algos A,B [compare.py options]   (3 reports: A, B, A vs B)
 # CPU only: CUDA devices are hidden from python and Blender (set CONTOUR_BENCH_ALLOW_GPU=1 to allow the GPU).
 # Set PYTHON=/path/to/python to pick the interpreter (default: the hair_exp conda env).
 set -e
@@ -21,5 +22,6 @@ case "${cmd}" in
     run)       exec "${PYTHON}" -m "${PKG}.run_benchmark" "$@" ;;
     summarize) exec "${PYTHON}" -m "${PKG}.summarize" "$@" ;;
     render)    exec "${PYTHON}" -m "${PKG}.render_results" "$@" ;;
-    *) echo "Usage: $0 build <n> [...] | run <benchmark_dir> [...] | summarize <run_dir> [...] | render <run_dir> --cases ..."; exit 1 ;;
+    compare)   exec "${PYTHON}" -m "${PKG}.compare" "$@" ;;
+    *) echo "Usage: $0 build <n> [...] | run <benchmark_dir> [...] | summarize <run_dir> [...] | render <run_dir> --cases ... | compare <run_dir> --algos A,B"; exit 1 ;;
 esac

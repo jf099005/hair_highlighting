@@ -11,7 +11,7 @@ the conventions and pitfalls. The repo-wide rules in `highlighting/CLAUDE.md` st
 
 A library that refines an n×n scalp highlight mask for one DiffLocks hairstyle so that highlight and base strands
 cross each other as little as possible in 3D. The entry point is `core.update_mask(positions, root_uv, mask,
-method=...)` with methods `majority | majority_bool | fm | active_contour`. `cli.py` and `run_update_contour.sh`
+method=...)` with methods `majority | majority_bool | fm | active_contour | 2_stage`. `cli.py` and `run_update_contour.sh`
 wrap it.
 
 Pipeline: `ScalpGrid` (grid + tangent frames) → `strand_mask_grid` (N, N, S) membership → per-strand bool state
@@ -30,7 +30,10 @@ strands rooted in it; cells with no roots keep the input value).
 - `contour_algo_test/` (benchmark) calls `fm_refine`, `build_cell_incidence`, `build_projection_graph` and `trim`
   directly, and has its own numba membership kernel (`common.strand_mask_grid_cpu`) that must match
   `grid.compute_strand_mask_grid`. If you change `H_MIN`/`H_MAX` or the column test, update that kernel too.
-- `mask_analysis/` imports `masks`, `flux.cell_points_tangents_3d` and `grid.uv_to_rc`.
+- `mask_analysis/` imports `masks` and `grid.uv_to_rc`.
+- `flow_field/` (flux, vector field, |flux| edges; formerly `flux.py` here) reads `grid.H_MIN/H_MAX` and
+  `uv_to_rc` lazily at call time, because this package imports `flow_field`. `update_contour.flux` and the
+  `uc.cal_grid_flux_3d` / `uc.strand_divergence` names are re-exports and must keep working.
 - `../../../NCKU_3D_hair_reconstruction/inference/img2hair_tsai_1.py` imports this package as `uc` for analysis.
 - Notebooks in `scalp_grid_volume_sample/` (`FM_test_3D`, `active_contour_test_3D`) import it too.
 
@@ -74,6 +77,18 @@ strands rooted in it; cells with no roots keep the input value).
   weight is about the same as the binary one (initial masks, 10 full-strand benchmark cases: depth cut ≈ 0.94x the
   binary cut). Use `lam` on the same scale as binary projection, not 8x (lam x8 nearly froze FM). Strand
   subsampling makes hair look thinner and weights higher.
+
+## 2_stage (`two_stage.py`)
+
+- Stage 1: strands whose root cell has |flux| > `threshold` (default 0.3; or the top `top_pct` %) are left out and
+  `fm_refine` runs on `subset_incidence(incidence, keep)` (induced StrandGraph subgraph / cell incidence without
+  them, renumbered in order). Stage 2: each left-out strand takes the label with more crossing weight among the
+  kept strands it overlaps (`neighbor_vote`); ties / no kept neighbor keep the initial label. Nothing is hidden.
+- With nothing removed it must stay bit-identical to `fm_refine` (checked for both overlap kinds). It reproduces
+  the notebook `contour_algo_test/divergence_clip_test.ipynb` ("clip2" + add back) exactly.
+- Memory: the subgraph is a second copy of most of the projection graph (~4–5 GB for long hair) while stage 1
+  runs; it is freed before stage 2.
+- The benchmark method is `two_stage` (`contour_algo_test/methods.py`, variants `fm2s_*`).
 
 ## Performance notes
 

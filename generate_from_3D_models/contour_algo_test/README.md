@@ -6,7 +6,9 @@
 原本的單一 model 深入測試 `run_test.py` 保留在[最後一節](#單一-model-深入測試-run_testpy)。
 
 **Python 只用 CPU**：`common.py` 一被 import 就設 `CUDA_VISIBLE_DEVICES=""` (要用 GPU 時先設
-`CONTOUR_BENCH_ALLOW_GPU=1`)。**Blender 渲染預設用 GPU** (OptiX)：Blender 不理會 `CUDA_VISIBLE_DEVICES`；
+`CONTOUR_BENCH_ALLOW_GPU=1`)。**Blender 渲染預設用 GPU** (OptiX)：在 `CUDA_VISIBLE_DEVICES=""` 下 Blender 雖然列得出 GPU、也印
+`Cycles device: GPU (OPTIX)`，實際上卻默默用 CPU 渲染，所以 `--render_device gpu` 只在每次 Blender 執行時把空的
+`CUDA_VISIBLE_DEVICES` 拿掉 (Python 仍只用 CPU)；
 其他 GPU 工作在跑時用 `--render_device cpu` (run / summarize / render 都有) 改用 CPU 渲染 (較慢)，
 render_info.json 與 report 會記錄用的是哪個 device。髮絲/格子 membership 改用 numba 版本
 (`common.strand_mask_grid_cpu`，~10 萬根髮絲在 32×32 grid 上 < 1 s，結果跟 `update_contour` 的版本逐一相同；
@@ -27,9 +29,25 @@ bash bench.sh run data/hl_n50 --run_name full --methods fm_proj_lam300 --variant
 bash bench.sh summarize data/hl_n50/runs/full [--no_render] [--render_methods all] [--select_method fm_proj_lam1000]
 # 另外從每個分類 (length:*、mask:*) 隨機抽 k 個 case (預設 3) 一起渲染；run 也有同樣的參數
 bash bench.sh summarize data/hl_n50/runs/full --random_samples yes [--samples_per_group 3] [--sample_seed 0]
-# 事後渲染任意 case (每張數分鐘；--render_device gpu|cpu)
+# 事後渲染任意 case (每張 GPU 約 20 秒、CPU 約 4 分鐘；--render_device gpu|cpu)
 bash bench.sh render data/hl_n50/runs/full --cases case_0000,case_0003 [--methods mask_only,fm_proj_lam1000]
+# 比較兩個演算法 (run 裡要已經有兩者的結果)：產生 3 份報告 (A、B 各自一份 + A vs B 比較)，入口 <run>/reports/index.html
+bash bench.sh compare data/hl_n50/runs/full --algos fm_proj_lam1000,fm2s_proj_lam1000 [--no_render] [--top_k 3]
+# 一行跑完「原本 FM vs 2-stage FM」：run (mask_only + 兩個演算法) → compare (3 份報告，含渲染)；可續跑，不會刪任何結果
+bash compare_2stage.sh [data/hl_n50_s0] [run_name=cmp_2stage] [bench.sh run 的其他參數，例如 --max_strands 30000]
 ```
+
+### 兩個演算法的比較 (`compare.py`、`compare_2stage.sh`)
+
+- `fm2s_proj_lam*` = update_contour 的 `2_stage`（methods.py 的 `two_stage`）：先把髮根所在格 |flux|（散度）> 0.3 的髮絲
+  拿掉跑 FM（其餘設定與 `fm_proj_lam*` 相同），再讓這些髮絲取「與它相交的保留髮絲」交點權重較多的那一色；沒有髮絲被隱藏。
+  flux 的計算 (~6 s) 算在 `method_seconds` 裡。
+- `<run>/reports/<A>/report.html`、`<run>/reports/<B>/report.html`：各自的一般報告（只含 mask_only + 該演算法，極端 case 由該演算法
+  挑選，flux 分析放在 `cases/<case>/analysis_<variant>/`，兩份報告互不覆蓋）。
+- `<run>/reports/compare/report.html`：同一批 case 上 A vs B：最上面三個主要指標的平均變化與 B 較好的比例、逐 case 散佈圖與變化量、
+  每組一張表、其他指標，以及 case 卡片（整體進步 / 退步最多的 case、每組最好 / 最差的 case），每張卡片並排「初始 mask | A | B」的
+  渲染與 roots 圖。逐 case 數字在 `compare.csv` / `compare.json`。
+- 先寫出不含渲染的三份報告，再補 flux 分析與渲染，頁面邊跑邊更新。
 
 ## Benchmark data (`build_benchmark.py`)
 
@@ -144,8 +162,9 @@ roots.png、(有的話) 渲染圖，以及 flux / 向量場分析 (`analysis.py`
 約 10–30 s)。`--flux_analysis yes|no` (預設 yes；`--no_analysis` = no) 控制是否計算並在 report 顯示 flux 分析
 (極端 case 與隨機樣本都算；no 時即使有舊的圖也不顯示)。report 分成多頁：`report.html` 是索引 (variants、各組總覽、全部 case)，每組一頁
 `report_<group>.html` (例如 `report_length-short.html`、`report_mask-stripe.html`)；failed 欄 (含 `skipped_oom`) 與
-degenerate 欄滑鼠移上去會列出 case。渲染預設開啟 (`run` 與 `summarize`；`--no_render` 關掉)，每張約 3.5 分鐘 (GPU 與 CPU 差不多：同一個 case 實測 GPU 216 s、CPU 204 s)；
-極端 case 通常 15–20 個，預設 2 個 variant 約 2 小時，`--render_methods all` (6 個) 約 6 小時。
+degenerate 欄滑鼠移上去會列出 case。渲染預設開啟 (`run` 與 `summarize`；`--no_render` 關掉)，每張 GPU 約 20 秒、CPU 約 4–4.5 分鐘
+(以前記錄的「GPU 216 s、CPU 204 s」其實兩次都是 CPU 渲染)；
+極端 case 通常 15–20 個，預設 2 個 variant GPU 約 15 分鐘 (CPU 約 2.5 小時)，`--render_methods all` (6 個) GPU 約 40 分鐘 (CPU 約 7 小時)。
 `--random_samples yes` (預設 `no`)：從每個分類組 (`length:*`、`mask:*`，不含 `all`) 隨機抽 `--samples_per_group` 個
 case (預設 3，該組不足時全取；只抽 `select_method` 有結果的 case)，跟極端 case 一起渲染 (同樣的 `--render_methods`) 並做 flux 分析，
 在每組頁面的 "Random samples" 區顯示，也列在 summary.md / summary.json (`groups[*].samples`)。抽樣由 `--sample_seed`

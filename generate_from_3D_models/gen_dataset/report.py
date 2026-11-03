@@ -15,6 +15,29 @@ from highlighting.generate_from_3D_models.contour_algo_test import common
 from highlighting.generate_from_3D_models.gen_dataset import dataset as ds
 from highlighting.generate_from_3D_models.gen_dataset import filters as filters_mod
 
+CSS = """
+:root{--bg:#fcfcfb;--fg:#0b0b0b;--fg2:#52514e;--line:#e6e5e0;--card:#ffffff}
+@media (prefers-color-scheme:dark){:root{--bg:#161615;--fg:#f0efea;--fg2:#b0afa9;--line:#34332f;--card:#1f1f1d}}
+body{background:var(--bg);color:var(--fg);font:14px/1.5 system-ui,sans-serif;margin:0 auto;max-width:1200px;padding:24px 16px}
+h1{font-size:22px}h2{font-size:17px;margin-top:32px;border-bottom:1px solid var(--line);padding-bottom:4px}
+table{border-collapse:collapse;margin:8px 0;font-size:13px}td,th{border-bottom:1px solid var(--line);padding:4px 10px;text-align:left}
+th{color:var(--fg2);font-weight:600}.lead{font-size:16px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
+figure{margin:0;background:var(--card);border:1px solid var(--line);border-radius:6px;padding:8px}
+figure img{width:100%;border-radius:4px;display:block}figcaption{font-size:12px;color:var(--fg2);margin-top:6px}
+.noimg{height:160px;display:flex;align-items:center;justify-content:center;color:var(--fg2)}
+img.wide{max-width:100%;background:#fcfcfb}
+.badge{display:inline-block;font-size:11px;padding:0 6px;border-radius:8px;border:1px solid var(--line);margin-left:4px}
+.st-failed{color:#d03030;border-color:#d03030}.st-rendering{color:#2a78d6;border-color:#2a78d6}
+.filters a{margin-right:10px}
+a.lb{cursor:zoom-in}
+#lb{position:fixed;inset:0;z-index:10;background:rgba(0,0,0,.82);display:flex;align-items:center;
+justify-content:center;padding:16px;cursor:zoom-out}
+#lb[hidden]{display:none}
+#lb figure{background:none;border:0;padding:0;max-width:100%;max-height:100%;text-align:center}
+#lb img{max-width:100%;max-height:calc(100vh - 64px);width:auto;border-radius:4px;cursor:default}
+#lb figcaption{color:#e8e7e2;font-size:13px;margin-top:8px}"""
+
 CLASS_COLORS = {"short": "#2a78d6", "mid": "#eb6834", "long": "#1baf7a"}
 INK, INK_2, MUTED, GRID, SURFACE = "#0b0b0b", "#52514e", "#8a8984", "#e6e5e0", "#fcfcfb"
 
@@ -239,19 +262,9 @@ def write_report(out, cfg):
                                f"{r['case']} · {r['length_class']} · {r['variant']}",
                                [f"{r['hairstyle']} · {r['mask_generator']}"] +
                                [f"✗ {c['label']} (got {_fmt(c['value'])})" for c in r["checks"] if not c["ok"]]))
-    css = """
-:root{--bg:#fcfcfb;--fg:#0b0b0b;--fg2:#52514e;--line:#e6e5e0;--card:#ffffff}
-@media (prefers-color-scheme:dark){:root{--bg:#161615;--fg:#f0efea;--fg2:#b0afa9;--line:#34332f;--card:#1f1f1d}}
-body{background:var(--bg);color:var(--fg);font:14px/1.5 system-ui,sans-serif;margin:0 auto;max-width:1200px;padding:24px 16px}
-h1{font-size:22px}h2{font-size:17px;margin-top:32px;border-bottom:1px solid var(--line);padding-bottom:4px}
-table{border-collapse:collapse;margin:8px 0;font-size:13px}td,th{border-bottom:1px solid var(--line);padding:4px 10px;text-align:left}
-th{color:var(--fg2);font-weight:600}.lead{font-size:16px}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
-figure{margin:0;background:var(--card);border:1px solid var(--line);border-radius:6px;padding:8px}
-figure img{width:100%;border-radius:4px;display:block}figcaption{font-size:12px;color:var(--fg2);margin-top:6px}
-.noimg{height:160px;display:flex;align-items:center;justify-content:center;color:var(--fg2)}
-img.wide{max-width:100%;background:#fcfcfb}"""
+    css = CSS
     body = [f"<h1>Highlighting dataset: {html.escape(os.path.basename(out))}</h1>",
+            '<p><a href="overview.html">Live overview</a> (all accepted samples, updated during generation)</p>',
             f'<p class="lead"><b>{T["n_sel"]} / {cfg["n_samples"]} samples kept</b> from {len(rows)} candidates '
             f"({html.escape(status_line)}).</p>",
             _html_table([["setting", "value"]] + settings),
@@ -270,3 +283,250 @@ img.wide{max-width:100%;background:#fcfcfb}"""
                 f"<style>{css}</style></head><body>{''.join(body)}</body></html>")
     print(f"report: {os.path.join(out, 'report.html')} (+ report.md)")
     return T
+
+
+# ---------------------------------------------------------------- live overview (during generation)
+
+import threading  # noqa: E402
+
+_OVERVIEW_LOCK = threading.Lock()
+
+
+def _write_atomic(path, text):
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write(text)
+    os.replace(tmp, path)
+
+
+def _sample_state(out, s, status):
+    """(state, meta): rendered | rendering | queued | failed | not rendered"""
+    sdir = os.path.join(out, "samples", s["case"])
+    meta_p = os.path.join(sdir, "meta.json")
+    info_p = os.path.join(sdir, "render", "render_info.json")
+    meta = common.read_json(meta_p) if os.path.exists(meta_p) else {}
+    if status.get("rendering") == s["case"]:
+        return "rendering", meta
+    if os.path.exists(info_p) and meta.get("variant") == s["variant"]:
+        return ("rendered" if common.read_json(info_p).get("ok") else "failed"), meta
+    if s["case"] in status.get("queued", ()):
+        return "queued", meta
+    return "not rendered", meta
+
+
+from highlighting.generate_from_3D_models.gen_dataset.mean_only import SUFFIX as MEAN_ONLY_SUFFIX  # noqa: E402
+KIND_LABEL = {"all_pass": "all pass", "mean_only": "mean only"}
+PAGES = (("overview", None, "all samples"), ("overview_all_pass", "all_pass", "all pass"),
+         ("overview_mean_only", "mean_only", "mean only"))
+
+
+def _companion(out):
+    """(dataset dir, its mean-only dir); works from either one"""
+    out = os.path.abspath(out).rstrip("/")
+    if out.endswith(MEAN_ONLY_SUFFIX):
+        return out[:-len(MEAN_ONLY_SUFFIX)], out
+    return out, out + MEAN_ONLY_SUFFIX
+
+
+def _read_set(d):
+    """(evaluation.json, selected samples) of a dataset folder, None before its first refilter"""
+    ev_p, sel_p = os.path.join(d, "evaluation.json"), os.path.join(d, "selection.json")
+    if not (os.path.exists(ev_p) and os.path.exists(sel_p)):
+        return None
+    return common.read_json(ev_p), common.read_json(sel_p)["samples"]
+
+
+def write_overview(out, cfg, status=None, refresh_s=30, companion_status=None):
+    """Live overview pages (cheap: no plots, no recomputation; safe to call from the render thread).
+
+    overview.html / .md: progress per length class and every accepted sample so far (newest first), with its
+    render (click: 6-view composite) or its render state; the html reloads itself every refresh_s seconds.
+    status: {"rendering": case, "queued": [cases]} of `out` from the BackgroundRenderer; companion_status: the
+    same for the other folder of the pair (the mean-only one, or the dataset when `out` is the mean-only one).
+    If the mean-only folder <out>_mean_only (render_mean_only.sh) exists, its samples that are not accepted
+    here are shown too, marked "mean only" (accepted ones: "all pass"), and overview_all_pass.* /
+    overview_mean_only.* show each kind alone. Called on a mean-only folder, it writes that folder's own
+    pages and then refreshes the dataset's pages."""
+    main, mo = _companion(out)
+    if os.path.abspath(out).rstrip("/") == mo and os.path.exists(ds.config_path(main)):
+        path = _write_pages(out, cfg, status, refresh_s, own_kind="mean_only", extra=None)
+        mcfg = ds.load_config(main)
+        _write_pages(main, mcfg, companion_status, refresh_s, own_kind="all_pass",
+                     extra=mo if mcfg.get("mean_only", True) else None, extra_status=status)
+        return path
+    show = os.path.isdir(mo) and cfg.get("mean_only", True)          # config switch (default on)
+    return _write_pages(out, cfg, status, refresh_s, own_kind="all_pass", extra=mo if show else None,
+                        extra_status=companion_status)
+
+
+def _write_pages(out, cfg, status, refresh_s, own_kind, extra, extra_status=None):
+    status, extra_status = status or {}, extra_status or {}
+    with _OVERVIEW_LOCK:
+        r = _read_set(out)
+        if r is None:
+            return None
+        ev, sel = r
+        rows = ev["rows"]
+        T = build_tables(cfg, rows)
+        by_case = {x["case"]: x for x in rows}
+        items = [dict(s=s, kind=own_kind, dir=out, row=by_case.get(s["case"], {})) for s in sel]
+        extra_line = None
+        r2 = _read_set(extra) if extra else None
+        if r2:
+            ev2, sel2 = r2
+            by2 = {x["case"]: x for x in ev2["rows"]}
+            accepted = {x["case"] for x in rows if x["status"] == "pass"}
+            add = [s for s in sel2 if s["case"] not in accepted]
+            items += [dict(s=s, kind="mean_only", dir=extra, row=by2.get(s["case"], {})) for s in add]
+            extra_line = (f"mean only: {len(add)} samples from {os.path.basename(extra)}/ (filter "
+                          f"{filters_mod.spec_str(ev2['filter'])}; {len(sel2) - len(add)} more are accepted "
+                          f"here and shown as all pass)")
+        for it in items:
+            it["state"], it["meta"] = _sample_state(it["dir"], it["s"], status if it["dir"] == out else extra_status)
+        items.sort(key=lambda it: it["s"]["case"], reverse=True)       # newest first
+
+        done = sum(x["status"] in ("pass", "reject", "failed") for x in rows)
+        n_state = collections.Counter(it["state"] for it in items if it["dir"] == out)
+        state_line = ", ".join(f"{k} {v}" for k, v in sorted(n_state.items()))
+        head = (f"{T['n_sel']} / {cfg['n_samples']} accepted from {done} refined candidates "
+                f"({len(rows)} drawn) · renders: {state_line or '-'}")
+        filt = filters_mod.spec_str(ev["filter"])
+        kinds = [k for k in KIND_LABEL if any(it["kind"] == k for it in items)] if r2 else [own_kind]
+        t_kind = [["class"] + [f"{KIND_LABEL[k]} ({x})" for k in kinds for x in ("samples", "rendered")]]
+        for c in ds.CLASSES + ["total"]:
+            cell = []
+            for k in kinds:
+                kk = [it for it in items if it["kind"] == k and c in ("total", it["s"]["length_class"])]
+                cell += [len(kk), sum(it["state"] == "rendered" for it in kk)]
+            t_kind.append([c] + cell)
+        n_kind = collections.Counter(it["kind"] for it in items)
+
+        pages = PAGES if r2 else PAGES[:1]
+        stamp = common.now_str()
+        path = None
+        for name, only, title in pages:
+            sub = [it for it in items if only is None or it["kind"] == only]
+            path_i = _write_page(out, name, only, title, sub, pages, n_kind, kinds, T, t_kind, head, extra_line,
+                                 filt, stamp, refresh_s, show_kind=bool(r2))
+            path = path or path_i
+        return path
+
+
+def _card(out, it):
+    s, st, meta, row = it["s"], it["state"], it["meta"], it["row"]
+    sc = meta.get("scores") or row.get("metrics", {})
+    rel = lambda p: os.path.relpath(p, out)  # noqa: E731
+    sdir = os.path.join(it["dir"], "samples", s["case"])
+    front = os.path.join(sdir, "render", "front.png")
+    mv = os.path.join(sdir, "render", "front_multiview.png")
+    img = rel(front) if st == "rendered" and os.path.exists(front) else None
+    link = rel(mv) if img and os.path.exists(mv) else img
+    sec = meta.get("render_seconds")
+    kind = it["kind"]
+    badges = (f'<span class="badge k-{kind}">{KIND_LABEL[kind]}</span>'
+              f'<span class="badge st-{st.replace(" ", "-")}">{html.escape(st)}</span>')
+    title = f"{s['case']} · {s['length_class']} · {KIND_LABEL[kind]} · {s['hairstyle']}"
+    im = (f'<a class="lb" href="{html.escape(link)}" data-title="{html.escape(title)}">'
+          f'<img loading="lazy" src="{html.escape(img)}"></a>' if img
+          else f'<div class="noimg">{html.escape(st)}</div>')
+    cap = [f"{s['hairstyle']} · {s['mask_generator']} · {s['variant']}",
+           f"mean {_fmt(sc.get('grid_score.mean_all'))} · black {_fmt(sc.get('grid_score.per_black_area'))}"
+           f" · white {_fmt(sc.get('grid_score.per_white_area'))}"]
+    if sec is not None:
+        cap.append(f"render {sec:.0f} s")
+    card = (f'<figure class="k-{kind}" data-cls="{s["length_class"]}" data-kind="{kind}">{im}<figcaption>'
+            f'<b>{html.escape(s["case"])} · {html.escape(s["length_class"])}</b>{badges}<br>'
+            + "<br>".join(html.escape(x) for x in cap) + "</figcaption></figure>")
+    md = [s["case"], s["length_class"], KIND_LABEL[kind], s["hairstyle"], s["mask_generator"], s["variant"],
+          _fmt(sc.get("grid_score.mean_all")), _fmt(sc.get("grid_score.per_black_area")),
+          _fmt(sc.get("grid_score.per_white_area")), f"![{s['case']}]({img})" if img else st]
+    return card, md
+
+
+_OVERVIEW_JS = """<div id="lb" hidden><figure><img alt=""><figcaption></figcaption></figure></div>
+<script>
+const lb = document.getElementById('lb'), lbImg = lb.querySelector('img'), lbCap = lb.querySelector('figcaption');
+let reloadDue = false, cls = 'all', kind = 'all';
+function apply(){
+  document.querySelectorAll('.grid figure').forEach(e => {
+    e.style.display = ((cls === 'all' || e.dataset.cls === cls) && (kind === 'all' || e.dataset.kind === kind)) ? '' : 'none';
+  });
+  document.querySelectorAll('.filters a').forEach(a => a.classList.toggle('on', a.dataset.v === (a.dataset.k === 'kind' ? kind : cls)));
+  history.replaceState(null, '', cls === 'all' && kind === 'all' ? location.pathname : '#' + cls + (kind === 'all' ? '' : '/' + kind));
+}
+document.querySelectorAll('.filters a').forEach(a => a.addEventListener('click', e => {
+  e.preventDefault(); if (a.dataset.k === 'kind') kind = a.dataset.v; else cls = a.dataset.v; apply();
+}));
+function openLb(a){ lbImg.src = a.getAttribute('href'); lbCap.textContent = a.dataset.title || ''; lb.hidden = false; }
+function closeLb(){ lb.hidden = true; lbImg.removeAttribute('src'); if (reloadDue) location.reload(); }
+document.querySelectorAll('a.lb').forEach(a => a.addEventListener('click', e => { e.preventDefault(); openLb(a); }));
+lb.addEventListener('click', e => { if (e.target !== lbImg) closeLb(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !lb.hidden) closeLb(); });
+setTimeout(() => { if (lb.hidden) location.reload(); else reloadDue = true; }, REFRESH_MS);
+if (location.hash.length > 1) { const p = location.hash.slice(1).split('/'); cls = p[0] || 'all'; kind = p[1] || 'all'; }
+apply();
+</script>"""
+
+_KIND_CSS = """
+.k-all_pass{border-top:3px solid #1baf7a}.k-mean_only{border-top:3px solid #d99a00}
+.badge.k-all_pass{border:1px solid #1baf7a;color:#1baf7a}.badge.k-mean_only{border:1px solid #d99a00;color:#b07c00}
+@media (prefers-color-scheme:dark){.badge.k-mean_only{color:#e8b23a}}
+.filters a.on{font-weight:700;text-decoration:none}.nav a{margin-right:4px}.nav b{margin-right:4px}"""
+
+
+def _write_page(out, name, only, title, items, pages, n_kind, kinds, T, t_kind, head, extra_line, filt, stamp,
+                refresh_s, show_kind):
+    cards, md_rows = [], []
+    for it in items:
+        c, m = _card(out, it)
+        cards.append(c)
+        md_rows.append(m)
+    nav = ""
+    if len(pages) > 1:
+        def label(o, t):
+            return f"{t} ({len(items) if o == only else (sum(n_kind.values()) if o is None else n_kind[o])})"
+        nav = '<p class="nav">pages: ' + " · ".join(
+            f"<b>{html.escape(label(o, t))}</b>" if n == name else f'<a href="{n}.html">{html.escape(label(o, t))}</a>'
+            for n, o, t in pages) + "</p>"
+    filters = '<p class="filters">class: ' + "".join(
+        f'<a href="#" data-k="cls" data-v="{c}">{c}</a>' for c in ["all", *ds.CLASSES]) + "</p>"
+    if show_kind and only is None:
+        filters += '<p class="filters">pass: ' + "".join(
+            f'<a href="#" data-k="kind" data-v="{k}">{"all" if k == "all" else KIND_LABEL[k]}</a>'
+            for k in ["all", *kinds]) + "</p>"
+    heading = "Accepted samples" if not show_kind else ("Samples" if only is None else f"{title.capitalize()} samples")
+    page_title = "Live overview" + ("" if only is None else f" · {title}")
+    body = [f"<h1>{html.escape(page_title)}: {html.escape(os.path.basename(out))}</h1>", nav,
+            f'<p class="lead"><b>{html.escape(head)}</b></p>']
+    if extra_line:
+        body.append(f"<p>{html.escape(extra_line)}</p>")
+    body += [f"<p>filter {html.escape(filt)} · updated {stamp} · reloads every {refresh_s} s (paused while a "
+             f"render is open; click a render to enlarge, Esc to close) · "
+             f'full report: <a href="report.html">report.html</a> (written when generation ends)</p>']
+    if only != "mean_only":
+        body.append(_html_table(T["classes"]))
+    if show_kind:
+        body.append(_html_table(t_kind))
+    body += [f"<h2>{heading} ({len(items)}, newest first)</h2>", filters,
+             '<div class="grid">' + "".join(cards) + "</div>",
+             _OVERVIEW_JS.replace("REFRESH_MS", str(int(refresh_s * 1000)))]
+    path = os.path.join(out, name + ".html")
+    _write_atomic(path, f'<!doctype html><html><head><meta charset="utf-8">'
+                        f'<meta name="viewport" content="width=device-width,initial-scale=1">'
+                        f"<title>{html.escape(page_title)}</title><style>{CSS}{_KIND_CSS}</style></head>"
+                        f"<body>{''.join(body)}</body></html>")
+    md = [f"# {page_title}: {os.path.basename(out)}", "", f"**{head}**", ""]
+    if extra_line:
+        md += [extra_line, ""]
+    if len(pages) > 1:
+        md += ["pages: " + " · ".join(f"[{t}]({n}.md)" for n, _, t in pages), ""]
+    md += [f"filter {filt} · updated {stamp}", ""]
+    if only != "mean_only":
+        md += [_md_table(T["classes"]), ""]
+    if show_kind:
+        md += [_md_table(t_kind), ""]
+    md += [f"## {heading} ({len(items)}, newest first)", "",
+           _md_table([["case", "class", "pass", "hairstyle", "mask", "variant", "mean_all", "per_black", "per_white",
+                       "render"]] + md_rows)]
+    _write_atomic(os.path.join(out, name + ".md"), "\n".join(md) + "\n")
+    return path

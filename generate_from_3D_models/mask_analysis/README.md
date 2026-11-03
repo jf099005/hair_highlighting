@@ -5,7 +5,7 @@
 
 | 模組 | 函式 | 對應 notebook |
 |---|---|---|
-| `scores.py` | `cal_grid_score`（每格 convex hull overlap）、`edge_score_from_flux`（\|flux\|）、`detect_flux_edges`（Canny + Sobel）、`compute_strand_vectors_2d`、`compute_grid_vector_field`、`rasterize_flow_field`、`subsample`、`mask_change_ratios` | grid score、勾邊測試、流向向量 |
+| `scores.py` | `cal_grid_score`（每格 convex hull overlap）、`edge_score_from_flux`、`detect_flux_edges`、`compute_strand_vectors_2d`、`compute_grid_vector_field`、`rasterize_flow_field`（這五個已搬到 [`flow_field/`](../flow_field/README.md)，此處 re-export）、`subsample`、`mask_change_ratios` | grid score、勾邊測試、流向向量 |
 | `plots.py` | `plot_grid_normals_3d`、`plot_score_map`、`plot_flux_edges`、`plot_score_with_flow`、`plot_strand_uv_iterations`、`plot_grid_score_iterations`、`plot_grid_mask_iterations`、`plot_active_contour_2d`、`plot_active_contour_3d`、`setup_cjk_font` | 各畫圖 cell |
 | `render.py` | `render_strand_mask`、`render_iterations`（存 per-strand template 並呼叫 Blender） | 第 6 節 |
 

@@ -23,6 +23,7 @@ import sys
 from highlighting.generate_from_3D_models.contour_algo_test import common
 from highlighting.generate_from_3D_models.gen_dataset import dataset as ds
 from highlighting.generate_from_3D_models.gen_dataset import filters as filters_mod
+from highlighting.generate_from_3D_models.gen_dataset import mean_only as mo_mod
 from highlighting.generate_from_3D_models.gen_dataset import render_samples as rs
 
 # settings that define which candidates exist: fixed once a dataset has candidates
@@ -44,6 +45,9 @@ def add_selection_args(p):
                    help="flat metric; among passing variants the lowest wins (default grid_score.mean_all)")
     g.add_argument("--keep_surplus", action=argparse.BooleanOptionalAction, default=None,
                    help="keep every passing candidate, not just up to the quota")
+    g.add_argument("--mean_only", action=argparse.BooleanOptionalAction, default=None,
+                   help="also collect the mean-only samples (mean_all < a passes, the area checks fail) in "
+                        "<dataset>_mean_only/ and show them on the overview pages (default on)")
 
 
 def add_render_args(p):
@@ -54,6 +58,9 @@ def add_render_args(p):
     g.add_argument("--base_color", type=float, nargs=3, default=None)
     g.add_argument("--highlight_color", type=float, nargs=3, default=None)
     g.add_argument("--min_contrast", type=float, default=None, help="random colors: min HLS lightness gap (0.25)")
+    g.add_argument("--min_delta_e", type=float, default=None,
+                   help="random colors: min color difference of base and highlight as rendered (CIELAB ΔE, 20; "
+                        "0 = off). About 20+ clearly visible, 7-11 weak, below 7 invisible")
     g.add_argument("--samples", type=int, default=None, help="Cycles samples (128)")
     g.add_argument("--resolution", type=int, default=None, help="render size in px (512)")
     g.add_argument("--strands_subsample", type=float, default=None, help="share of strands rendered (0.5)")
@@ -61,6 +68,8 @@ def add_render_args(p):
     g.add_argument("--multiview", action=argparse.BooleanOptionalAction, default=None,
                    help="also the 6-view composite (default on)")
     g.add_argument("--render_device", choices=("gpu", "cpu"), default=None, help="gpu (default) or cpu")
+    g.add_argument("--mean_only_render", action=argparse.BooleanOptionalAction, default=None,
+                   help="also render the mean-only samples, after the accepted ones (default on)")
     g.add_argument("--blender_path", default=None)
     g.add_argument("--save_positions", action=argparse.BooleanOptionalAction, default=None,
                    help="also copy strand positions into hair_highlight.npz (~100 MB per sample)")
@@ -110,7 +119,8 @@ def defaults():
                 max_frac=0.40, min_hair_length=0.0, max_hair_length=None, max_masks_per_hairstyle=3,
                 max_strands=None, boundary_fm=False, methods=",".join(ds.DEFAULT_METHODS), variants_json=None,
                 max_candidates=None, max_mem_gb=round(0.7 * total, 1) if total == total else 40.0,
-                min_free_gb=4.0, refine_threads=None, graph_cache=None, overlap=True)
+                min_free_gb=4.0, refine_threads=None, graph_cache=None, overlap=True,
+                mean_only=True, mean_only_render=True)
 
 
 def merge_config(cfg, args, has_candidates):
@@ -190,23 +200,58 @@ def cmd_generate(args):
 
     render = not args.no_render
     overlap = render and cfg.get("overlap", True)
-    renderer = rs.BackgroundRenderer(out, cfg) if overlap else None
+    from highlighting.generate_from_3D_models.gen_dataset import report
+    renderer = None
+
+    mo_dir = mo_mod.out_dir(out)
+
+    def live():
+        """rewrite the overview pages (accepted and mean-only samples so far and their renders)"""
+        st = (lambda d: renderer.status(d)) if renderer else (lambda d: None)  # noqa: E731
+        try:
+            if mo_mod.enabled(cfg) and os.path.exists(ds.config_path(mo_dir)):   # writes both folders' pages
+                report.write_overview(mo_dir, ds.load_config(mo_dir), st(mo_dir), companion_status=st(out))
+            else:
+                report.write_overview(out, cfg, st(out))
+        except Exception as e:      # never let the overview stop the generation
+            print(f"  overview update failed: {type(e).__name__}: {e}")
+
+    renderer = rs.BackgroundRenderer(out, cfg, on_change=live) if overlap else None
     if overlap:
-        print("kept samples are rendered in the background (GPU) while the next candidates are refined (CPU)")
+        print("kept samples are rendered in the background (GPU) while the next candidates are refined (CPU)"
+              + ("; mean-only samples too, when no accepted one is waiting" if mo_mod.render_enabled(cfg) else ""))
+    print(f"live overview of the accepted samples: {os.path.join(out, 'overview.html')}")
 
     def queue_renders(rows, sel):
-        if renderer is None:
+        """queue the new accepted samples, then refresh the mean-only folder and queue its new samples
+        (priority 1: rendered only when no accepted sample is waiting)"""
+        if renderer is not None:
+            by_case = {r["case"]: r for r in rows}
+            for s in sel:
+                if not renderer.is_submitted(s["case"]) and not rs.is_rendered(out, s):
+                    renderer.submit(by_case[s["case"]], s)
+                    print(f"  -> {s['case']} passed ({s['length_class']}, {s['variant']}): queued for rendering "
+                          f"({renderer.pending()} in the render queue)")
+        try:
+            mo = mo_mod.refilter(out, cfg, rows)
+        except Exception as e:      # never let the mean-only view stop the generation
+            print(f"  mean-only update failed: {type(e).__name__}: {e}")
             return
-        by_case = {r["case"]: r for r in rows}
-        for s in sel:
-            if s["case"] not in renderer.submitted and not rs.is_rendered(out, s):
-                renderer.submit(by_case[s["case"]], s)
-                print(f"  -> {s['case']} passed ({s['length_class']}, {s['variant']}): queued for rendering "
-                      f"({renderer.pending()} in the render queue)")
+        if mo is None or renderer is None or not mo_mod.render_enabled(cfg):
+            return
+        d, mcfg, mrows, msel = mo
+        by_case = {r["case"]: r for r in mrows}
+        new = [s for s in msel if not renderer.is_submitted(s["case"], d) and not rs.is_rendered(d, s)]
+        for s in new:
+            renderer.submit(by_case[s["case"]], s, out=d, cfg=mcfg, priority=1)
+        if new:
+            print(f"  -> {len(new)} mean-only sample(s) queued for rendering ({', '.join(s['case'] for s in new[:5])}"
+                  f"{' ...' if len(new) > 5 else ''}; {renderer.pending(d)} mean-only in the render queue)")
 
     try:
         rows, sel = ds.refilter(out, cfg)
         queue_renders(rows, sel)                     # kept earlier but not rendered yet (resume)
+        live()
         pending = [r["case"] for r in rows if r["status"] == "pending"]
         if pending:
             print(f"resuming: refining {len(pending)} unfinished candidates")
@@ -214,6 +259,7 @@ def cmd_generate(args):
                 ds.run_candidates(out, cfg, [cid])
                 rows, sel = ds.refilter(out, cfg)
                 queue_renders(rows, sel)
+                live()
         while True:
             prog = ds.class_progress(cfg, rows)
             deficit = {c: max(p["quota"] - p["selected"], 0) for c, p in prog.items()}
@@ -224,21 +270,23 @@ def cmd_generate(args):
             if n_have >= cfg["max_candidates"]:
                 reason = f"stopped at --max_candidates {cfg['max_candidates']}"
                 break
-            # one candidate at a time, from the class that needs the most candidates: deficit / pass rate
-            # (Laplace estimate), so no class is over-generated and every kept sample can render right away
-            need = {c: k * (prog[c]["done"] + 2) / (prog[c]["passed"] + 1) for c, k in deficit.items()
-                    if k and not ds.class_exhausted(cfg, members, c)}
-            if not need:
+            # one candidate at a time, from the class furthest behind its quota (lowest kept / quota; ties: the
+            # class with fewer refined candidates, so classes take turns until they pass), so the kept samples
+            # follow the ratio at any point of the run and every kept sample can render right away
+            open_ = [c for c, k in deficit.items() if k and not ds.class_exhausted(cfg, members, c)]
+            if not open_:
                 reason = "hairstyles exhausted for " + ", ".join(c for c, k in deficit.items() if k)
                 break
-            c = max(need, key=need.get)
+            c = min(open_, key=lambda c: (prog[c]["selected"] / prog[c]["quota"], prog[c]["candidates"]))
             print(f"\n=== candidate {n_have + 1} ({c}) | {_progress_line(cfg, rows)}"
-                  + (f" | render queue {renderer.pending()}" if renderer else ""))
+                  + (f" | render queue {renderer.pending(out)}" if renderer else "")
+                  + (f" (+{renderer.pending(mo_dir)} mean-only)" if renderer and renderer.pending(mo_dir) else ""))
             new = ds.add_candidates(out, cfg, bench, lengths, members, {c: 1})
             ds.save_config(out, cfg)
             ds.run_candidates(out, cfg, new)
             rows, sel = ds.refilter(out, cfg)
             queue_renders(rows, sel)
+            live()
     except BaseException:
         if renderer:
             print("interrupted: stopping the background render")
@@ -252,12 +300,34 @@ def cmd_generate(args):
     _finish(out, cfg, render=render)
 
 
-def _finish(out, cfg, render, overwrite=False, limit=None):
+def _finish(out, cfg, render, overwrite=False, limit=None, wait_for_blender=False):
     rows, sel = ds.refilter(out, cfg)
-    if sel:
-        rs.render_selected(out, cfg, rows, sel, overwrite=overwrite, render=render, limit=limit)
     from highlighting.generate_from_3D_models.gen_dataset import report
+    report.write_overview(out, cfg)
+    if sel:
+        rs.render_selected(out, cfg, rows, sel, overwrite=overwrite, render=render, limit=limit,
+                           on_change=lambda: report.write_overview(out, cfg), wait_for_blender=wait_for_blender)
+    mo = _refilter_mean_only(out, cfg, rows)
+    if mo and mo[3] and render and mo_mod.render_enabled(cfg):
+        d, mcfg, mrows, msel = mo
+        print(f"mean-only samples ({os.path.basename(d)}/):")
+        rs.render_selected(d, mcfg, mrows, msel, overwrite=overwrite, render=True, limit=limit,
+                           on_change=lambda: report.write_overview(d, mcfg), wait_for_blender=wait_for_blender)
     report.write_report(out, cfg)
+    report.write_overview(out, cfg)
+    print(f"overview: {os.path.join(out, 'overview.html')} (+ overview.md)")
+
+
+def _refilter_mean_only(out, cfg, rows):
+    """mean_only.refilter + a summary line; None when off (or failed: the mean-only view never stops a command)"""
+    try:
+        mo = mo_mod.refilter(out, cfg, rows)
+    except Exception as e:
+        print(f"mean-only update failed: {type(e).__name__}: {e}")
+        return None
+    if mo:
+        print(f"mean-only: {len(mo[3])} samples in {mo[0]} (accepted samples left out)")
+    return mo
 
 
 def cmd_import_run(args):
@@ -284,7 +354,7 @@ def cmd_import_run(args):
     ds.save_config(out, cfg)
     rows, _ = ds.refilter(out, cfg)
     print(f"imported {run_dir}: {_progress_line(cfg, rows)}")
-    _finish(out, cfg, render=not args.no_render)
+    _finish(out, cfg, render=not args.no_render, wait_for_blender=args.wait_for_blender)
 
 
 def cmd_filter(args):
@@ -296,8 +366,10 @@ def cmd_filter(args):
     prog = ds.class_progress(cfg, rows)
     if any(p["selected"] < p["quota"] for p in prog.values()) and not cfg.get("candidates_run"):
         print("some quotas are not met: run `gen.sh generate` on this folder to draw more candidates")
+    _refilter_mean_only(out, cfg, rows)
     from highlighting.generate_from_3D_models.gen_dataset import report
     report.write_report(out, cfg)
+    report.write_overview(out, cfg)
     print("renders of newly kept samples are made by `gen.sh render`")
 
 
@@ -305,15 +377,18 @@ def cmd_render(args):
     out = os.path.abspath(args.dataset_dir)
     cfg = merge_config(ds.load_config(out), args, True)
     ds.save_config(out, cfg)
-    _finish(out, cfg, render=not args.no_render, overwrite=args.overwrite, limit=args.limit)
+    _finish(out, cfg, render=not args.no_render, overwrite=args.overwrite, limit=args.limit,
+            wait_for_blender=args.wait_for_blender)
 
 
 def cmd_report(args):
     out = os.path.abspath(args.dataset_dir)
     cfg = ds.load_config(out)
-    ds.refilter(out, cfg)
+    rows, _ = ds.refilter(out, cfg)
+    _refilter_mean_only(out, cfg, rows)
     from highlighting.generate_from_3D_models.gen_dataset import report
     report.write_report(out, cfg)
+    print(f"overview: {report.write_overview(out, cfg)} (+ overview.md)")
 
 
 def main():
@@ -335,6 +410,9 @@ def main():
     r.add_argument("--overwrite", action="store_true")
     r.add_argument("--limit", type=int, default=None, help="render only the first K kept samples")
     add_render_args(r)
+    for sp in (im, r):     # not a saved setting: only for this command
+        sp.add_argument("--wait_for_blender", action="store_true",
+                        help="before each render, wait until no other Blender runs (e.g. a generate run's renders)")
     rp = sub.add_parser("report", help="rewrite the report")
     rp.add_argument("dataset_dir")
     args = p.parse_args()

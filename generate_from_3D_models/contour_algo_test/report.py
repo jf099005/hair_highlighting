@@ -11,6 +11,10 @@ vector-field figures of analysis.py (|flux| map, flow vectors, grid score / grid
 
 Images are linked by relative path, not embedded: keep the report pages inside the run folder (and the
 benchmark data folder where it is), or copy them together.
+
+summary["out_dir"] (summarize(..., out_dir=...), used by compare.py for the per-algorithm reports) writes the pages
+into that folder instead of the run folder; summary["title"] / summary["links"] ([(label, href)]) set the page title
+and add links to sibling reports; summary["analysis_subdir"] is the per-case analysis folder (analysis.analysis_dir).
 """
 import html
 import os
@@ -36,6 +40,7 @@ nav { margin:14px 0 0; display:flex; flex-wrap:wrap; gap:6px; }
 nav a { background:var(--chip); color:var(--fg); text-decoration:none; padding:3px 10px; border-radius:99px;
         font-size:13px; }
 nav a.on { background:var(--chip-on); color:var(--chip-on-fg); }
+nav.links a { background:transparent; border:1px solid var(--line); }
 .tablewrap { overflow-x:auto; }
 table { border-collapse:collapse; font-variant-numeric:tabular-nums; }
 th, td { border-bottom:1px solid var(--line); padding:5px 10px; text-align:right; white-space:nowrap; }
@@ -92,7 +97,14 @@ def _img(run_dir, path, alt):
     return f"<div class='norender'>no {e(alt)}</div>"
 
 
+def _base(run_dir, summary):
+    """folder the pages are written to (image links are relative to it)"""
+    return summary.get("out_dir") or run_dir
+
+
 def _page(run_dir, group, title, body, groups, cfg, summary):
+    links = "".join(f"<a href='{e(href)}'>{e(label)}</a>" for label, href in summary.get("links") or [])
+    links = f"<nav class='links'>{links}</nav>" if links else ""
     nav = "".join(f"<a class='{'on' if g == group else ''}' href='{page_name(g)}'>"
                   f"{'all (index)' if g == 'all' else e(g)} · {groups[g]['n_cases']}</a>" for g in groups)
     html_ = (f"<!doctype html><html lang='en'><head><meta charset='utf-8'>"
@@ -102,23 +114,25 @@ def _page(run_dir, group, title, body, groups, cfg, summary):
              f"</code> · max_strands {e(str(cfg.get('max_strands')))}"
              + (" · boundary_fm" if cfg.get("boundary_fm") else "")
              + f" · reference <code>{e(summary['reference'])}</code> · extremes by "
-             f"<code>{e(summary['select_method'])}</code> · generated {common.now_str()}</div><nav>{nav}</nav>{body}"
+             f"<code>{e(summary['select_method'])}</code> · generated {common.now_str()}</div>{links}<nav>{nav}</nav>{body}"
              "<p class='note' style='margin-top:32px'>Roots: highlight dark, base light, flipped to highlight "
              "orange, flipped to base blue, hidden red; the yellow line is the initial mask. Renders: base white, "
              "highlight black. Analysis maps are in the scalp-grid (row, col) layout.</p>"
              f"</main><div id='lightbox'><img alt=''></div><script>{JS}</script></body></html>")
-    path = os.path.join(run_dir, page_name(group))
+    os.makedirs(_base(run_dir, summary), exist_ok=True)
+    path = os.path.join(_base(run_dir, summary), page_name(group))
     with open(path, "w", encoding="utf-8") as f:
         f.write(html_)
     return path
 
 
-def _analysis_html(run_dir, cid, reference, sel):
-    fig = os.path.join(analysis_dir(run_dir, cid), "figures")
+def _analysis_html(run_dir, cid, reference, sel, base=None, subdir="analysis"):
+    fig = os.path.join(analysis_dir(run_dir, cid, subdir), "figures")
+    base = base or run_dir
     if not os.path.isdir(fig):
         return ("<div class='note' style='margin-top:10px'>no flux / vector field analysis "
                 "(summarize with --flux_analysis yes)</div>")
-    im = lambda name, alt: _img(run_dir, os.path.join(fig, name), alt)  # noqa: E731
+    im = lambda name, alt: _img(base, os.path.join(fig, name), alt)  # noqa: E731
     return ("<details><summary>Flux map &amp; vector field</summary>"
             "<p class='note'>The hairstyle's 3D |flux| (divergence of the hair flow field; it does not depend on the "
             f"mask) and the flow of every control point. Before = <code>{e(reference)}</code>, after = "
@@ -131,7 +145,9 @@ def _analysis_html(run_dir, cid, reference, sel):
             f"<div>{im('flux_edges.png', 'flux edges')}</div></div></details>")
 
 
-def _extreme_card(run_dir, cid, x, titles, variants, reference, sel, bench_dir, analysis=True):
+def _extreme_card(run_dir, cid, x, titles, variants, reference, sel, bench_dir, analysis=True, base=None,
+                  subdir="analysis"):
+    base = base or run_dir
     from highlighting.generate_from_3D_models.contour_algo_test.render_results import render_path
     main = x.get("main_scores") or {GS: x["scores"]}
     fmt = lambda s: f"{s:.4f}" if isinstance(s, (int, float)) else "-"  # noqa: E731
@@ -145,7 +161,7 @@ def _extreme_card(run_dir, cid, x, titles, variants, reference, sel, bench_dir, 
     out = [f"<div class='card'><div><b>{e(' · '.join(titles))}</b> · {e(cid)}</div>{warn}"
            f"<div class='muted' style='font-size:12.5px'>{e(x['hairstyle'])} · {e(x['length_class'])} · "
            f"mask {e(x['mask_generator'])}</div><div class='head' style='margin-top:8px'>"
-           + _img(run_dir, os.path.join(bench_dir or "", "cases", cid, "mask.png"), "mask preview")
+           + _img(base, os.path.join(bench_dir or "", "cases", cid, "mask.png"), "mask preview")
            + f"<table class='kv'>{scores}</table></div>"]
     from highlighting.generate_from_3D_models.contour_algo_test.render_results import render_seconds
     for v in variants:
@@ -155,10 +171,10 @@ def _extreme_card(run_dir, cid, x, titles, variants, reference, sel, bench_dir, 
         rt = (f" <span class='muted' style='font-weight:400'>· render {sec:.1f} s"
               + (f" ({e(dev.upper())})" if dev else "") + "</span>") if sec is not None else ""
         out.append(f"<div class='label'>{e(v)}{rt}</div><div class='pair'>"
-                   + _img(run_dir, os.path.join(vd, "roots.png"), "roots figure")
-                   + _img(run_dir, render_path(run_dir, cid, v), f"render: bench.sh render {run_dir} --cases {cid} "
+                   + _img(base, os.path.join(vd, "roots.png"), "roots figure")
+                   + _img(base, render_path(run_dir, cid, v), f"render: bench.sh render {run_dir} --cases {cid} "
                                                                   f"--methods {v}") + "</div>")
-    out.append((_analysis_html(run_dir, cid, reference, sel) if analysis else "") + "</div>")
+    out.append((_analysis_html(run_dir, cid, reference, sel, base, subdir) if analysis else "") + "</div>")
     return "".join(out)
 
 
@@ -214,7 +230,8 @@ def _group_body(run_dir, name, g, summary, key_metrics, bench_dir):
             seen.add(cid)
             titles = [EXTREME_TITLES.get(k, k) for k, y in g["extremes"].items() if y["case"] == cid]
             out.append(_extreme_card(run_dir, cid, x, titles, variants, reference, sel, bench_dir,
-                                     summary.get("flux_analysis", True)))
+                                     summary.get("flux_analysis", True), _base(run_dir, summary),
+                                     summary.get("analysis_subdir", "analysis")))
         out.append("</div>")
 
     if g.get("samples"):
@@ -225,7 +242,8 @@ def _group_body(run_dir, name, g, summary, key_metrics, bench_dir):
             titles = ["random sample"] + [EXTREME_TITLES.get(k, k) for k, y in g["extremes"].items()
                                           if y["case"] == x["case"]]
             out.append(_extreme_card(run_dir, x["case"], x, titles, variants, reference, sel, bench_dir,
-                                     summary.get("flux_analysis", True)))
+                                     summary.get("flux_analysis", True), _base(run_dir, summary),
+                                     summary.get("analysis_subdir", "analysis")))
         out.append("</div>")
     return "".join(out)
 
@@ -241,7 +259,7 @@ def make_report(run_dir, summary, key_metrics):
     # ---- group pages
     for name, g in groups.items():
         if name != "all":
-            _page(run_dir, name, f"Highlighting benchmark · {name}",
+            _page(run_dir, name, f"{summary.get('title') or 'Highlighting benchmark'} · {name}",
                   _group_body(run_dir, name, g, summary, key_metrics, bench_dir), groups, cfg, summary)
 
     # ---- index: variants, overview, all cases
@@ -295,4 +313,5 @@ def make_report(run_dir, summary, key_metrics):
             body.append(f"<tr><td>{label}</td><td>{g['n_cases']}</td>{''.join(cells)}</tr>")
         body.append("</table></div>")
     body.append(_group_body(run_dir, "all", groups["all"], summary, key_metrics, bench_dir))
-    return _page(run_dir, "all", "Highlighting benchmark report", "".join(body), groups, cfg, summary)
+    return _page(run_dir, "all", summary.get("title") or "Highlighting benchmark report", "".join(body), groups, cfg,
+                 summary)

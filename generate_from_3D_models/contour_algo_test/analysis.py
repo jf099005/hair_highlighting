@@ -26,11 +26,13 @@ from highlighting.generate_from_3D_models.contour_algo_test import common
 CANNY_LOW, CANNY_HIGH = 40, 120     # = config.py
 
 
-def analysis_dir(run_dir, cid):
-    return os.path.join(run_dir, "cases", cid, "analysis")
+def analysis_dir(run_dir, cid, subdir="analysis"):
+    """<run_dir>/cases/<cid>/<subdir>; summarize uses "analysis", and "analysis_<method>" for a per-algorithm
+    report (compare.py), so reports with different select methods do not overwrite each other's figures"""
+    return os.path.join(run_dir, "cases", cid, subdir)
 
 
-def analyze_case(run_dir, cid, reference="mask_only", method=None, overwrite=False):
+def analyze_case(run_dir, cid, reference="mask_only", method=None, overwrite=False, subdir="analysis"):
     """Run the analysis of one case (skipped if done). Returns the analysis dir or None."""
     import matplotlib
     matplotlib.use("Agg")
@@ -39,7 +41,7 @@ def analyze_case(run_dir, cid, reference="mask_only", method=None, overwrite=Fal
     import highlighting.generate_from_3D_models.update_contour as uc
     from highlighting.generate_from_3D_models.mask_analysis import plots
 
-    out = analysis_dir(run_dir, cid)
+    out = analysis_dir(run_dir, cid, subdir)
     stats_path = os.path.join(out, "stats.json")
     if os.path.exists(stats_path) and not overwrite and common.read_json(stats_path).get("method") == method:
         return out

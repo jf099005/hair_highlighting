@@ -17,8 +17,17 @@ Per sample (= candidate case id) <out>/samples/<case_id>/:
                            filter checks, colors, render settings
 
 Colors (render.color_mode): "random" (default; natural base hair color + a highlight color that differs in
-lightness by >= min_contrast, drawn per sample from a seeded rng), "bw" (base white / highlight black, as the
-benchmark renders), "fixed" (render.base_color / render.highlight_color).
+HLS lightness by >= min_contrast and in rendered color by >= min_delta_e, drawn per sample from a seeded rng),
+"bw" (base white / highlight black, as the benchmark renders), "fixed" (render.base_color /
+render.highlight_color).
+
+Contrast (render_delta_e): the CIELAB difference (CIE76 ΔE) of the two colors as they come out of the render.
+The hair BSDF and the lighting squeeze the input range a lot (every input above ~0.3 renders about equally
+bright), so a difference in the input numbers says little. RENDER_CURVE maps an input channel value to the mean
+displayed (sRGB) value of the rendered hair; it was measured by rendering one hairstyle (hl_1000 case_0507) in
+13 gray levels (env_light_strength 2.0, the default) and averaging the hair pixels. Mapping each channel through
+it predicts colored renders within ~0.04. Judged by eye on 150 renders: ΔE >= 20 the two colors are clearly
+apart, 7-11 weak, below 7 not visible.
 """
 import colorsys
 import os
@@ -40,9 +49,29 @@ DEFAULT_BLENDER = "/home/kyh/blender/blender"
 NATURAL_BASES = [(0.03, 0.025, 0.02), (0.09, 0.06, 0.04), (0.18, 0.11, 0.06), (0.25, 0.13, 0.07),
                  (0.36, 0.25, 0.16), (0.50, 0.38, 0.24), (0.72, 0.60, 0.40), (0.35, 0.12, 0.06)]
 
-DEFAULT_RENDER = dict(color_mode="random", base_color=None, highlight_color=None, min_contrast=0.25,
+# input channel value -> mean displayed sRGB value of the rendered hair (see the module docstring)
+RENDER_CURVE = ((0.01, 0.02, 0.04, 0.07, 0.10, 0.15, 0.20, 0.30, 0.40, 0.50, 0.65, 0.80, 0.95),
+                (0.334, 0.385, 0.460, 0.533, 0.586, 0.643, 0.681, 0.726, 0.751, 0.767, 0.779, 0.785, 0.788))
+
+DEFAULT_RENDER = dict(color_mode="random", base_color=None, highlight_color=None, min_contrast=0.25, min_delta_e=20.0,
                       samples=128, resolution=512, strands_subsample=0.5, env_light_strength=2.0,
                       multiview=True, device="gpu", blender_path=DEFAULT_BLENDER, save_positions=False)
+
+
+def _lab(srgb):
+    """display sRGB (0-1) -> CIELAB (D65)"""
+    c = np.asarray(srgb, np.float64)
+    lin = np.where(c <= 0.04045, c / 12.92, ((c + 0.055) / 1.055) ** 2.4)
+    xyz = np.array([[0.4124, 0.3576, 0.1805], [0.2126, 0.7152, 0.0722], [0.0193, 0.1192, 0.9505]]) @ lin
+    xyz /= (0.9505, 1.0, 1.089)
+    f = np.where(xyz > 0.008856, np.cbrt(xyz), 7.787 * xyz + 16 / 116)
+    return np.array([116 * f[1] - 16, 500 * (f[0] - f[1]), 200 * (f[1] - f[2])])
+
+
+def render_delta_e(base, highlight):
+    """ΔE (CIE76) between two render input colors as they look in the render (RENDER_CURVE per channel)"""
+    shown = lambda c: _lab(np.interp(np.asarray(c, np.float64), *RENDER_CURVE))  # noqa: E731
+    return float(np.linalg.norm(shown(base) - shown(highlight)))
 
 
 def pick_colors(rcfg, rng):
@@ -58,17 +87,24 @@ def pick_colors(rcfg, rng):
     base = np.array(NATURAL_BASES[int(rng.integers(len(NATURAL_BASES)))], np.float64)
     base = np.clip(base * rng.uniform(0.85, 1.15), 0, 1)
     _, bl, _ = colorsys.rgb_to_hls(*base)
-    for _ in range(100):
-        light = rng.uniform(0.08, 0.85)
-        if abs(light - bl) >= rcfg["min_contrast"]:
+    min_de = float(rcfg.get("min_delta_e") or 0)
+    best = None
+    for _ in range(500):            # draw highlights until both contrast checks pass; else the best ΔE seen
+        light = rng.uniform(0.02, 0.85)
+        if abs(light - bl) < rcfg["min_contrast"]:
+            continue
+        hue, sat = rng.uniform(0, 1), rng.uniform(0.3, 0.95)
+        if rng.random() < 0.3:                              # blonde / ash / platinum highlights
+            hue, sat = rng.uniform(0.08, 0.15), rng.uniform(0.1, 0.5)
+        hl = np.array(colorsys.hls_to_rgb(hue, light, sat))
+        de = render_delta_e(base, hl)
+        if best is None or de > best[0]:
+            best = (de, hl)
+        if de >= min_de:
             break
-    else:
-        light = 0.85 if bl < 0.5 else 0.05
-    hue, sat = rng.uniform(0, 1), rng.uniform(0.3, 0.95)
-    if rng.random() < 0.3:                                  # blonde / ash / platinum highlights
-        hue, sat = rng.uniform(0.08, 0.15), rng.uniform(0.1, 0.5)
-    hl = np.array(colorsys.hls_to_rgb(hue, light, sat))
-    return base.astype(np.float32), hl.astype(np.float32)
+    if best is None:                # no lightness draw passed min_contrast
+        best = (None, np.array(colorsys.hls_to_rgb(rng.uniform(0, 1), 0.85 if bl < 0.5 else 0.05, 0.6)))
+    return base.astype(np.float32), best[1].astype(np.float32)
 
 
 def _case_index(cid):
@@ -118,7 +154,8 @@ def export_sample(out, cfg, row, sel):
                 case_seed=case["seed"], variant=v, method=res.get("method"), kwargs=res.get("kwargs"),
                 max_strands=res.get("max_strands"), scores=row["metrics"], checks=row["checks"],
                 filter=cfg["filter"], base_color=base.tolist(), highlight_color=hl.tolist(),
-                color_mode=rcfg["color_mode"], exported=common.now_str())
+                color_mode=rcfg["color_mode"], render_delta_e=round(render_delta_e(base, hl), 1),
+                exported=common.now_str())
     common.write_json(dict(sample_name=case["hairstyle"]["name"], strands_source="full", nr_strands=S,
                            grid_size=case["grid_n"], pattern=f"gen_dataset:{case['mask_generator']}",
                            color_source=rcfg["color_mode"], source="gen_dataset/render_samples.py"),
@@ -176,9 +213,24 @@ def is_rendered(out, s):
     return common.read_json(meta_p).get("variant") == s["variant"] and bool(common.read_json(info_p).get("ok"))
 
 
-def process_sample(out, cfg, row, s, overwrite=False, render=True, tag="", on_start=None):
+def wait_for_other_blender(tag="", poll=5.0):
+    """Block while another Blender process runs (e.g. the background render of a `generate` run), so this
+    render does not share the GPU with it. Called before our own Blender starts, so any Blender is someone
+    else's. A render the other process starts while ours runs is not prevented."""
+    t0, said = time.time(), False
+    while subprocess.run(["pgrep", "-x", "blender"], stdout=subprocess.DEVNULL).returncode == 0:
+        if not said:
+            print(f"{tag}waiting for another Blender to finish ...", flush=True)
+            said = True
+        time.sleep(poll)
+    if said:
+        print(f"{tag}GPU free after {time.time() - t0:.0f} s", flush=True)
+
+
+def process_sample(out, cfg, row, s, overwrite=False, render=True, tag="", on_start=None, wait_for_blender=False):
     """export one kept sample and (unless render=False) render it; an ok render of the same variant is kept
-    unless overwrite. Returns "rendered" | "exported" | "ok" (just rendered) | "failed"."""
+    unless overwrite. Returns "rendered" | "exported" | "ok" (just rendered) | "failed".
+    wait_for_blender: before rendering, wait until no other Blender process is running."""
     sdir = os.path.join(out, "samples", s["case"])
     parked = os.path.join(out, "unselected_samples", s["case"])
     if os.path.isdir(parked) and not os.path.exists(sdir):          # kept again after a re-filter
@@ -193,6 +245,8 @@ def process_sample(out, cfg, row, s, overwrite=False, render=True, tag="", on_st
         common.write_json(meta, meta_p)
         print(f"{tag}{s['case']}: exported (no render)")
         return "exported"
+    if wait_for_blender:
+        wait_for_other_blender(tag=tag)
     print(f"{tag}{s['case']}: {s['hairstyle']} ({s['length_class']}, {s['variant']}) rendering ...", flush=True)
     ok, sec = render_one(out, cfg, sdir, meta, hidden, on_start=on_start)
     meta.update(render_seconds=sec, rendered=ok)
@@ -202,66 +256,104 @@ def process_sample(out, cfg, row, s, overwrite=False, render=True, tag="", on_st
 
 
 class BackgroundRenderer:
-    """Renders kept samples one at a time in a background thread (Blender on the GPU), so the next candidates
-    can be refined (CPU) meanwhile. submit() queues a sample; close() waits for the queue to drain;
-    abort() kills the running Blender and drops the queue."""
+    """Renders samples one at a time in a background thread (Blender on the GPU), so the next candidates can be
+    refined (CPU) meanwhile. submit() queues a sample (of the dataset `out`, or of another folder such as the
+    mean-only one); lower `priority` renders first, ties in submit order. close() waits for the queue to drain;
+    abort() kills the running Blender and drops the queue. on_change(), if given, is called (from the render
+    thread) when a render starts and when it ends, e.g. to rewrite the live overview."""
 
-    def __init__(self, out, cfg):
+    def __init__(self, out, cfg, on_change=None):
+        import itertools
         import queue
         import threading
-        self.out, self.cfg = out, cfg
-        self.q = queue.Queue()
-        self.submitted = set()
-        self.done = {}                      # case -> status
+        self.out, self.cfg = os.path.abspath(out), cfg
+        self.on_change = on_change
+        self.q = queue.PriorityQueue()
+        self._seq = itertools.count()
+        self.submitted = set()              # (folder, case)
+        self.queued = []                    # (folder, case) waiting, in submit order
+        self.done = {}                      # (folder, case) -> status
         self.proc = None
-        self.busy = None                    # case being rendered
+        self.busy = None                    # (folder, case) being rendered
         self._stop = False
         self.thread = threading.Thread(target=self._loop, name="renderer", daemon=True)
         self.thread.start()
 
-    def submit(self, row, s):
-        if s["case"] in self.submitted:
+    def _key(self, out, case):
+        return (os.path.abspath(out or self.out), case)
+
+    def is_submitted(self, case, out=None):
+        return self._key(out, case) in self.submitted
+
+    def submit(self, row, s, out=None, cfg=None, priority=0):
+        key = self._key(out, s["case"])
+        if key in self.submitted:
             return False
-        self.submitted.add(s["case"])
-        self.q.put((row, dict(s)))
+        self.submitted.add(key)
+        self.queued.append(key)
+        self.q.put((priority, next(self._seq), (key[0], cfg or self.cfg, row, dict(s))))
         return True
 
-    def pending(self):
-        return self.q.qsize() + (self.busy is not None)
+    def pending(self, out=None):
+        """queued + running renders (of one folder when out is given)"""
+        keys = self.queued + ([self.busy] if self.busy else [])
+        return len(keys) if out is None else sum(k[0] == os.path.abspath(out) for k in keys)
+
+    def status(self, out=None):
+        """{"rendering": case, "queued": [cases]} of the folder out (default: the dataset)"""
+        d = os.path.abspath(out or self.out)
+        busy = self.busy
+        return dict(rendering=busy[1] if busy and busy[0] == d else None,
+                    queued=[c for o, c in list(self.queued) if o == d])
+
+    def _changed(self):
+        if self.on_change:
+            try:
+                self.on_change()
+            except Exception as e:          # the overview must never stop the renders
+                print(f"  [render] overview update failed: {type(e).__name__}: {e}", flush=True)
 
     def _loop(self):
         while True:
-            job = self.q.get()
+            _, _, job = self.q.get()
             if job is None or self._stop:
                 return
-            row, s = job
-            self.busy = s["case"]
+            out, cfg, row, s = job
+            key = (out, s["case"])
+            self.busy = key
+            if key in self.queued:
+                self.queued.remove(key)
+            self._changed()
+            tag = "  [render] " if out == self.out else f"  [render {os.path.basename(out)}] "
             try:
-                self.done[s["case"]] = process_sample(self.out, self.cfg, row, s, tag="  [render] ",
-                                                      on_start=lambda p: setattr(self, "proc", p))
+                self.done[key] = process_sample(out, cfg, row, s, tag=tag,
+                                                on_start=lambda p: setattr(self, "proc", p))
             except Exception as e:          # one bad sample must not stop the others
-                self.done[s["case"]] = "failed"
-                print(f"  [render] {s['case']}: FAILED {type(e).__name__}: {e}", flush=True)
+                self.done[key] = "failed"
+                print(f"{tag}{s['case']}: FAILED {type(e).__name__}: {e}", flush=True)
             finally:
                 self.proc, self.busy = None, None
+            self._changed()
 
     def close(self):
         n = self.pending()
         if n:
             print(f"waiting for {n} background render(s) ...", flush=True)
-        self.q.put(None)
+        self.q.put((float("inf"), next(self._seq), None))     # after every queued render
         self.thread.join()
 
     def abort(self):
         self._stop = True
         if self.proc is not None and self.proc.poll() is None:
             self.proc.kill()
-        self.q.put(None)
+        self.q.put((float("-inf"), next(self._seq), None))    # before the queued renders
         self.thread.join(timeout=10)
 
 
-def render_selected(out, cfg, rows=None, sel=None, overwrite=False, render=True, limit=None):
-    """export (and unless render=False, render) every selected sample; existing ok renders are kept"""
+def render_selected(out, cfg, rows=None, sel=None, overwrite=False, render=True, limit=None, on_change=None,
+                    wait_for_blender=False):
+    """export (and unless render=False, render) every selected sample; existing ok renders are kept;
+    on_change() after every newly rendered sample (live overview); wait_for_blender: see process_sample"""
     if rows is None:
         rows, sel = ds.refilter(out, cfg)
     by_case = {r["case"]: r for r in rows}
@@ -269,8 +361,10 @@ def render_selected(out, cfg, rows=None, sel=None, overwrite=False, render=True,
     n_ok, t_all = 0, time.time()
     for i, s in enumerate(todo):
         st = process_sample(out, cfg, by_case[s["case"]], s, overwrite=overwrite, render=render,
-                            tag=f"[{i + 1}/{len(todo)}] ")
+                            tag=f"[{i + 1}/{len(todo)}] ", wait_for_blender=wait_for_blender)
         n_ok += st in ("rendered", "ok")
+        if on_change and st in ("ok", "failed"):
+            on_change()
     # samples no longer selected (e.g. after a stricter re-filter) are moved aside, not deleted
     keep = {s["case"] for s in sel}
     sroot = os.path.join(out, "samples")

@@ -20,6 +20,8 @@ bash bench.sh run data/hl_n50 --run_name full [--no_render] [--boundary_fm] [--m
 bash bench.sh summarize data/hl_n50/runs/full [--no_render] [--render_methods all|v1,v2] [--flux_analysis yes|no] \
     [--random_samples yes|no] [--samples_per_group 3] [--sample_seed 0]      # (same four flags on run)
 bash bench.sh render data/hl_n50/runs/full --cases case_0003[,...|all] [--methods v1,v2]
+bash bench.sh compare data/hl_n50/runs/full --algos fm_proj_lam1000,fm2s_proj_lam1000 [--no_render] [--top_k 3]
+bash compare_2stage.sh [benchmark_dir] [run_name] [run options]   # run + compare, FM vs 2-stage FM, one line
 ```
 
 Always go through `bench.sh`. It sets `PYTHONPATH` to the project root (namespace-package imports), uses the
@@ -45,11 +47,16 @@ Always go through `bench.sh`. It sets `PYTHONPATH` to the project root (namespac
 - **No GPU in Python.** The user runs other GPU jobs on this machine. `common.py` sets `CUDA_VISIBLE_DEVICES=""`
   on import (and `bench.sh` sets it too). Don't add torch/CUDA code paths here, and don't remove the guard.
   `CONTOUR_BENCH_ALLOW_GPU=1` is the only opt-out.
-- **Blender ignores that guard** (checked: with `CUDA_VISIBLE_DEVICES=""` or `-1` Cycles still lists the RTX 4060
-  Ti for OptiX and CUDA). The shared render script (`coloring_by_strand/..._trimmed.py`, `use_gpu`) takes OptiX
-  (or `$CYCLES_DEVICE`), so renders run on the **GPU by default**; the user chose to keep it that way.
+- **Blender does NOT ignore that guard.** With `CUDA_VISIBLE_DEVICES=""` Cycles still *lists* the RTX 4060 Ti
+  and the render script prints `Cycles device: GPU (OPTIX)`, but it silently renders on the CPU (checked
+  2026-10-20 with `--debug-cycles`: 128 samples in 45.6 s vs 1.9 s; a full front + multiview render 267 s vs
+  20 s). So for `--render_device gpu` (default; the user wants GPU renders) `render_results._render_device`
+  clears the empty `CUDA_VISIBLE_DEVICES` around each Blender run only (python stays CPU only; a non-empty value
+  the user set is kept), and the script (`use_gpu`) takes OptiX (or `$CYCLES_DEVICE`).
   `--render_device cpu` (on `run`, `summarize` and `render`) sets `CYCLES_DEVICE=NONE` around each Blender run
-  (`render_results._render_device`), so the script finds no GPU and uses the CPU. The device is recorded in
+  and keeps CUDA hidden, so the script finds no GPU and uses the CPU. The shared wrapper
+  `coloring_by_strand/run_highlight_render.sh` also drops an empty `CUDA_VISIBLE_DEVICES` (see the repo-wide
+  CLAUDE.md), so any Blender run that goes through it uses the GPU unless `CYCLES_DEVICE=NONE`. The device is recorded in
   `render_info.json` (`device`) and shown next to the render time in the report.
 - **Membership:** use `common.strand_mask_grid_cpu`, never `grid.strand_mask_grid(...)`. With CUDA hidden, the
   library falls back to numpy, which takes about 170 s per hairstyle; the numba kernel takes under 1 s. On a
@@ -104,6 +111,22 @@ Always go through `bench.sh`. It sets `PYTHONPATH` to the project root (namespac
   expensive shared state, put it on `cc` so the timing stays fair.
 - `mask_only` is the reference. It must stay a no-op, because all paired deltas and win rates are relative to it.
 
+## Comparing two algorithms (`compare.py`, `compare_2stage.sh`)
+
+- `two_stage` (methods.py) = update_contour `2_stage`; variants `fm2s_proj_lam{100,1000,10000}` match the
+  `fm_proj_lam*` settings plus `threshold=0.3`. Not in `DEFAULT_VARIANTS`. Its flux map is counted in
+  `method_seconds`. `--boundary_fm` applies to it too.
+- `compare.py <run_dir> --algos A,B` writes `<run_dir>/reports/{index.html, A/, B/, compare/}`. The per-algorithm
+  reports are plain `summarize(..., variants=[reference, X], out_dir=reports/X, title=, links=)`; with `out_dir` the
+  flux analysis goes to `cases/<case>/analysis_<select_method>/` (`analysis.analysis_dir(..., subdir)`), and the report
+  pages and image links are relative to `out_dir` (`report._base`). Without `variants` / `out_dir`, `summarize` and the
+  report are unchanged.
+- The comparison page pairs the cases where both A and B are ok; card picks are `compare.pick_cases` (top_k gains /
+  losses on `grid_score.mean_all`, best / worst per group). Charts use the dataviz reference palette (length class:
+  slots 1-3; better / worse: blue / red).
+- `compare_2stage.sh` = `bench.sh run --methods mask_only,A,B --no_render --flux_analysis no` then `bench.sh compare`;
+  it logs to `<run_dir>/compare_2stage.log`. The full 50-case run of 2026-10-20 is `data/hl_n50_s0/runs/cmp_2stage`.
+
 ## Outputs and resuming
 
 - `data/` is gitignored. `data/smoke*` are throwaway test runs, and some of their rows are stale.
@@ -140,10 +163,10 @@ Always go through `bench.sh`. It sets `PYTHONPATH` to the project root (namespac
 ## Rendering
 
 - Rendering is **on by default** in `run` (after the cases) and `summarize`; `--no_render` turns it off (the old
-  `--render` flag is still accepted and does nothing). A render takes about 3.5 min on either device (measured on
-  the same smoke case: 216 s GPU, 204 s CPU, so the GPU gives no speedup here). A typical run
-  has 15–20 extreme cases, so the default (`mask_only` plus the selected variant) takes about 2 h;
-  `--render_methods all` takes about 6 h. Run long runs with `nohup`, and existing renders are reused. Use
+  `--render` flag is still accepted and does nothing). A render takes about 20 s on the GPU and 4–4.5 min on the CPU
+  (measured on a long-hair case, 2026-10-20; the older "216 s GPU vs 204 s CPU" were both CPU renders, see the
+  guard above). A typical run has 15–20 extreme cases, so the default (`mask_only` plus the selected variant)
+  takes about 15 min on the GPU (about 2.5 h on the CPU); `--render_methods all` takes about 40 min (7 h). Run long runs with `nohup`, and existing renders are reused. Use
   `--no_render` for smoke tests and quick reruns of `summarize`.
 - Each render is timed (wall clock of the one Blender run that makes both `front.png` and
   `front_multiview.png`, Blender startup included). The time is printed, written to
@@ -156,8 +179,8 @@ Always go through `bench.sh`. It sets `PYTHONPATH` to the project root (namespac
   crc32(group name))`, so a rerun picks the same cases and reuses their renders. The picks go to
   `summary.json` `groups[*].samples` / `samples_of` and to `summary.md`. They are rendered together with the
   extremes (same `--render_methods`), get the flux analysis like the extremes (unless `--flux_analysis no`),
-  and are shown under "Random samples" on each group page. With the default `no`, nothing changes. Expect up to 6 groups × k extra cases, about 2 h more at
-  k = 3 with the default two variants.
+  and are shown under "Random samples" on each group page. With the default `no`, nothing changes. Expect up to 6 groups × k extra cases, about 12 min more
+  on the GPU (about 2.5 h on the CPU) at k = 3 with the default two variants.
 - `summarize` writes `report.html` first and rewrites it after each rendered case, so the report fills
   in as rendering progresses.
 - Renders go through `mask_analysis.render.render_strand_mask` (coloring_by_strand templates; base white,

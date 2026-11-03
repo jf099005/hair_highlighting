@@ -28,6 +28,10 @@ every render's time is printed and recorded (render_results.py). By default only
 category group (length:*, mask:*; seed --sample_seed, so a rerun picks the same cases and reuses their renders),
 renders them all and shows them in the report next to the extremes. A failing render /
 analysis only loses that case's figures, not the report.
+
+--variants v1,v2 summarizes only those variants (keep the reference in the list) and --out_dir writes summary.* and
+the report pages into that folder instead of the run folder (compare.py makes one such report per algorithm); the
+flux analysis then goes to cases/<case>/analysis_<select_method>/ so the reports do not overwrite each other.
 """
 import argparse
 import csv
@@ -228,14 +232,21 @@ def _md_tables(g, variants, key_cols, reference):
 
 
 def summarize(run_dir, reference="mask_only", select_method=None, render=True, render_methods=None, analyze=True,
-              random_samples=False, samples_per_group=3, sample_seed=0, render_device="gpu"):
+              random_samples=False, samples_per_group=3, sample_seed=0, render_device="gpu", variants=None,
+              out_dir=None, title=None, links=None):
+    """variants: only these variants (default: all in the run); out_dir: write summary.* and the report there
+    (default: the run folder); title / links ([(label, href)]): page title and links to sibling reports"""
     rows = load_rows(run_dir)
+    if variants:
+        rows = [r for r in rows if r["variant"] in variants]
     if not rows:
-        print(f"no results in {run_dir}")
+        print(f"no results in {run_dir}" + (f" for {variants}" if variants else ""))
         return None
+    out = out_dir or run_dir
+    os.makedirs(out, exist_ok=True)
     add_retention(rows, reference)
     cols = list(dict.fromkeys(k for r in rows for k in r))
-    with open(os.path.join(run_dir, "summary.csv"), "w", newline="", encoding="utf-8") as f:
+    with open(os.path.join(out, "summary.csv"), "w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=cols)
         w.writeheader()
         w.writerows(rows)
@@ -243,7 +254,8 @@ def summarize(run_dir, reference="mask_only", select_method=None, render=True, r
     cfg_path = os.path.join(run_dir, "run_config.json")
     cfg_variants = list(common.read_json(cfg_path).get("variants", {})) if os.path.exists(cfg_path) else []
     present = set(r["variant"] for r in rows)
-    variants = [v for v in cfg_variants if v in present] + sorted(present - set(cfg_variants))
+    order = list(variants) if variants else cfg_variants
+    variants = [v for v in order if v in present] + sorted(present - set(order))
     if reference in variants:   # reference first
         variants = [reference] + [v for v in variants if v != reference]
     if select_method not in variants:
@@ -267,8 +279,12 @@ def summarize(run_dir, reference="mask_only", select_method=None, render=True, r
                    random_samples=dict(k=samples_per_group, seed=sample_seed) if random_samples else None,
                    flux_analysis=bool(analyze),   # report.py shows the analysis figures only then
                    degenerate_retention=DEGENERATE_RETENTION, length_standard=common.length_standard(), variants=variants, groups=groups)
+    analysis_subdir = "analysis" if out_dir is None else f"analysis_{select_method}"
+    summary.update(analysis_subdir=analysis_subdir, title=title, links=[list(x) for x in links or []])
+    if out_dir is not None:
+        summary["out_dir"] = os.path.abspath(out_dir)
 
-    common.write_json(summary, os.path.join(run_dir, "summary.json"))
+    common.write_json(summary, os.path.join(out, "summary.json"))
 
     key_cols = [c for c, _ in KEY_METRICS if any(c in groups["all"]["variants"][v]["stats"] for v in variants)]
     lines = [f"# Highlighting benchmark summary: {run_dir}", "",
@@ -282,7 +298,7 @@ def summarize(run_dir, reference="mask_only", select_method=None, render=True, r
             lines.append(f"\nrandom samples ({len(g['samples'])} of {g['samples_of']}): "
                          + ", ".join(f"{x['case']} ({x['hairstyle']}, {x['length_class']}, {x['mask_generator']})"
                                      for x in g["samples"]))
-    with open(os.path.join(run_dir, "summary.md"), "w", encoding="utf-8") as f:
+    with open(os.path.join(out, "summary.md"), "w", encoding="utf-8") as f:
         f.write("\n".join(lines) + "\n")
     print("\n".join(_md_tables(groups["all"], variants, key_cols, reference)))
     path = report.make_report(run_dir, summary, KEY_METRICS)
@@ -294,7 +310,7 @@ def summarize(run_dir, reference="mask_only", select_method=None, render=True, r
               + (f" + random samples ({len(samples)} more): {samples}" if samples else ""))
         for cid in cases + samples:
             try:
-                analyze_case(run_dir, cid, reference, select_method)
+                analyze_case(run_dir, cid, reference, select_method, subdir=analysis_subdir)
             except Exception as e:
                 print(f"  {cid}: field analysis FAILED {type(e).__name__}: {e}")
         report.make_report(run_dir, summary, KEY_METRICS)
@@ -322,7 +338,7 @@ def summarize(run_dir, reference="mask_only", select_method=None, render=True, r
             print(f"  {cid}: {time.time() - t0:.1f} s", flush=True)
             report.make_report(run_dir, summary, KEY_METRICS)
         print(f"rendering done: {n_new} new renders in {(time.time() - t_all) / 60:.1f} min")
-    print(f"summary: {os.path.join(run_dir, 'summary.md')}\nreport: {path}")
+    print(f"summary: {os.path.join(out, 'summary.md')}\nreport: {path}")
     return summary
 
 
@@ -351,10 +367,15 @@ if __name__ == "__main__":
     p.add_argument("--render", action="store_true", help=argparse.SUPPRESS)   # the default now; kept for old commands
     p.add_argument("--render_methods", default=None,
                    help="variants to render: comma list or 'all' (default: reference + select_method)")
+    p.add_argument("--variants", default=None, help="comma list: summarize only these variants (keep the reference)")
+    p.add_argument("--out_dir", default=None, help="write summary.* and the report here (default: the run folder)")
+    p.add_argument("--title", default=None, help="report title")
     add_sample_args(p)
     a = p.parse_args()
     if a.samples_per_group < 1:
         p.error("--samples_per_group must be >= 1")
     summarize(os.path.abspath(a.run_dir), a.reference, a.select_method, a.render, a.render_methods,
               a.analyze and a.flux_analysis == "yes",
-              a.random_samples == "yes", a.samples_per_group, a.sample_seed, a.render_device)
+              a.random_samples == "yes", a.samples_per_group, a.sample_seed, a.render_device,
+              [v.strip() for v in a.variants.split(",")] if a.variants else None,
+              os.path.abspath(a.out_dir) if a.out_dir else None, a.title)

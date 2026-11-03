@@ -23,7 +23,7 @@ Per case: load the hairstyle and the initial mask, compute the strand/column mem
 Finished (case, variant) pairs are skipped on a rerun unless --overwrite, so a run can be resumed and new
 variants can be added to an existing run. Everything runs on the CPU (see common.py).
 
---boundary_fm runs every selected variant of method "fm" with Boundary FM (fm kwargs boundary=True; the
+--boundary_fm runs every selected variant of method "fm" or "two_stage" with Boundary FM (fm kwargs boundary=True; the
 variant names stay the same and run_config.json / result.json record the kwargs). A run keeps one setting:
 use a separate --run_name to compare with plain FM. Without the flag nothing changes.
 
@@ -317,7 +317,7 @@ def main():
 
     if args.boundary_fm:   # only then: fm variants get boundary=True (otherwise VARIANTS stay as they are)
         for v in args.methods:
-            if methods_mod.VARIANTS[v]["method"] == "fm":
+            if methods_mod.VARIANTS[v]["method"] in ("fm", "two_stage"):
                 spec = methods_mod.VARIANTS[v]
                 methods_mod.VARIANTS[v] = dict(spec, kwargs=dict(spec["kwargs"], boundary=True))
 

@@ -18,13 +18,14 @@
 |---|---|
 | `grid.py` | `ScalpGrid`（頭皮 n×n grid、法向量、切線基底 `t1`/`t2`、`half_size`、UV bin）、`compute_strand_mask_grid`（髮絲 ↔ 格子歸屬，柱體高度 `H_MIN`～`H_MAX`）、`uv_to_rc` |
 | `masks.py` | `mask_to_rgb`、`grid_mask_to_strand_mask`、`strand_mask_to_grid_mask`、`strand_colors_to_root_grid`、`load_mask`、`normalize_mask` |
-| `flux.py` | `cell_points_tangents_3d`、`edge_detect_flux_3d`、`cal_grid_flux_3d`（每格的 3D 淨向外通量） |
+| `flux.py` | 已搬到 [`flow_field/`](../flow_field/README.md)；此處只保留 re-export（`cal_grid_flux_3d` 等） |
 | `majority.py` | `update_contour_mask`（bool 版，notebook `update_color`）、`update_contour`（RGB 多色版） |
 | `fm.py` | `build_cell_incidence`、`fm_refine`、`fm_objectives`：Fiduccia-Mattheyses，`clique`（Σ n_true·n_false）/ `cutnet`（混色格數）兩種目標，`lam` 偏移懲罰，`balance_tol` 面積限制 |
 | `boundary_fm.py` | Boundary FM 的 pass（`fm_refine(..., boundary=True)`；預設關閉 = 原本的 FM）：每個 pass 只從邊界髮絲開始（經過混色格子 / 有異色鄰居；`lam > 0` 時再加上已偏離初始標籤的），有同格 / 相鄰的髮絲移動時才加進候選。目標、gain bucket、平衡、`patience`、`lam` 都跟 `fm.py` 相同 |
 | `overlap.py` | `build_projection_graph` → `StrandGraph`（對稱 CSR）：兩根髮絲在某格的 2D 投影（切平面 t1/t2）有相交才算重疊，邊權重 = 相交的格數。可取代 `build_cell_incidence` 傳給 `fm_refine` / `fm_objectives` / `trim`。`depth_weight=True` 時每個交點依深度給權重（見下方「深度加權」）。`project_segments` 回傳 `(sx, sy, ex, ey, owner, sz, ez)`，`sz`/`ez` = 沿法向的深度 |
 | `active_contour.py` | `prepare_natural_boundary`、`update_contour_active`，以及底層的 `ScalpSurface`、`boundary_snake_3d`、`active_contour_mask_3d` |
 | `trim.py` | `trim`、`strand_conflict_counts`：挑出衝突最嚴重的髮絲（渲染時整根丟掉） |
+| `two_stage.py` | `two_stage_refine`（`method="2_stage"`）：第一階段把髮根所在格 \|flux\|（散度）> `threshold`（預設 0.3）的髮絲拿掉後跑 FM；第二階段讓這些髮絲取「與它相交的保留髮絲」中交點權重較多的那一色（平手 / 沒有相交的保留髮絲 → 維持原本標籤）。另有 `strand_divergence`、`removed_mask`、`subset_incidence`（只留部分髮絲的 incidence / 子圖）、`neighbor_vote`。沒有髮絲被拿掉時結果與 `fm_refine` 完全相同 |
 | `core.py` | `update_mask(..., method=...)` 高階入口 |
 | `cli.py` / `run_update_contour.sh` | 命令列入口 |
 
@@ -87,6 +88,7 @@ out["strand_colors"]  # (S, 3)
 | `"majority"`（預設） | RGB 版 majority vote，支援多色 (N,N,3) mask | `n_iter`、`threshold` |
 | `"majority_bool"` | bool 版 majority vote | `n_iter`、`threshold` |
 | `"fm"` | Fiduccia-Mattheyses | `method_kwargs`: `mode`（`"clique"`（`update_mask` 的預設）/ `"cutnet"`）、`max_passes`（20）、`lam`（0）、`balance_tol`（0.02）、`patience`、`boundary`（`False`）、`overlap`（`"cell"` / `"projection"` / `"projection_depth"`）、`overlap_kwargs`（`n_bins`、`n_threads`；`projection_depth` 另有 `hair_width`、`hair_opacity`、`weight_levels`） |
+| `"2_stage"` | 兩階段 FM（`two_stage.py`）：先不含高散度髮絲跑 FM，再讓它們依相交髮絲投票 | `method_kwargs`: `"fm"` 的全部參數，加上 `threshold`（0.3）、`top_pct`（改用「散度前 N% 的髮絲」）、`flux`（傳給 `cal_grid_flux_3d`） |
 | `"active_contour"` | 3D snake 吸附到 \|flux\| 山脊 | `n_iter`（輪數）；`method_kwargs`: `snap_radius`、`edge_smooth`、`erode`、`ridge`、`flux`、snake 的 `alpha/beta/gamma/kappa/anchor/n_iter` |
 
 注意：直接呼叫 `fm_refine` 時 `mode` 的預設是 `"cutnet"`，經過 `update_mask` / CLI 則是 `"clique"`。
@@ -146,6 +148,7 @@ PYTHON=~/anaconda3/envs/hair_exp/bin/python ./run_update_contour.sh \
 - 通用：`--method {majority,majority_bool,fm,active_contour}`（預設 `majority`）、`--n_iter`、`--threshold`、
   `--dataset_path`、`--base_color R G B`、`--highlight_color R G B`、`--device auto|cuda|cpu`。
 - FM：`--fm_mode {clique,cutnet}`、`--max_passes`、`--lam`、`--balance_tol`、`--overlap {cell,projection,projection_depth}`、`--hair_opacity`、`--hair_width`、`--weight_levels`（後三者只用於 `projection_depth`）、`--boundary_fm`。
+- 2_stage（`--method 2_stage`，同時使用上面的 FM 參數）：`--div_threshold`（預設 0.3）、`--div_top_pct`（改用散度前 N% 的髮絲）。
 - Active contour：`--snap_radius`、`--edge_smooth`、`--snake_iter`。
 - `--mask` 可為 `.npy` / `.npz`（key `mask`）/ `.png`，(N,N) 或 (N,N,3)；輸出 `.npz`（預設 `<mask>_updated.npz`）
   含 `mask`、`binary_mask`、`strand_colors`、`strand_mask`。

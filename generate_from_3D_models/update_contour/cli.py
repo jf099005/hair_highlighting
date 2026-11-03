@@ -49,18 +49,25 @@ def main(argv=None):
                    help="projection_depth: crossing weights are integers 0..weight_levels")
     g.add_argument("--boundary_fm", action="store_true",
                    help="Boundary FM: each pass starts from the boundary strands only (default off = plain FM)")
+    g = p.add_argument_group("2_stage (also takes the fm options)")
+    g.add_argument("--div_threshold", type=float, default=0.3,
+                   help="stage 1 leaves out strands whose root cell has |flux| (divergence) above this")
+    g.add_argument("--div_top_pct", type=float, default=None,
+                   help="instead of --div_threshold: leave out the top N%% of strands by divergence")
     g = p.add_argument_group("active_contour")
     g.add_argument("--snap_radius", type=float, default=8, help="in cells")
     g.add_argument("--edge_smooth", type=float, default=1.5)
     g.add_argument("--snake_iter", type=int, default=100)
     args = p.parse_args(argv)
 
+    fm_kwargs = dict(mode=args.fm_mode, max_passes=args.max_passes, lam=args.lam, balance_tol=args.balance_tol,
+                     overlap=args.overlap, boundary=args.boundary_fm,
+                     **(dict(overlap_kwargs=dict(hair_opacity=args.hair_opacity, hair_width=args.hair_width,
+                                                 weight_levels=args.weight_levels))
+                        if args.overlap == "projection_depth" else {}))
     method_kwargs = {
-        "fm": dict(mode=args.fm_mode, max_passes=args.max_passes, lam=args.lam, balance_tol=args.balance_tol,
-                   overlap=args.overlap, boundary=args.boundary_fm,
-                   **(dict(overlap_kwargs=dict(hair_opacity=args.hair_opacity, hair_width=args.hair_width,
-                                               weight_levels=args.weight_levels))
-                      if args.overlap == "projection_depth" else {})),
+        "fm": fm_kwargs,
+        "2_stage": dict(fm_kwargs, threshold=args.div_threshold, top_pct=args.div_top_pct),
         "active_contour": dict(snap_radius=args.snap_radius, edge_smooth=args.edge_smooth, n_iter=args.snake_iter),
     }.get(args.method)
 

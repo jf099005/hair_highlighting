@@ -4,12 +4,13 @@
 Modules:
     grid            ScalpGrid (scalp n x n grid + tangent frames), strand <-> cell membership
     masks           grid mask <-> per-strand mask <-> RGB conversions
-    flux            3D net outward flux of the hair flow field per cell (edge energy)
+    flux            moved to ../flow_field (re-exported here: cal_grid_flux_3d, ...)
     majority        majority-vote update (notebook `update_color`)
     fm              Fiduccia-Mattheyses refinement of the per-strand mask
     overlap         strand <-> strand overlap by 2D projection intersection (StrandGraph for fm / trim)
     active_contour  3D snake that snaps the mask contour onto |flux| ridges
     trim            strands that conflict most with their neighbors (render ignore mask)
+    two_stage       "2_stage": FM without the high-divergence strands, then a crossing-weighted vote for them
     core            update_mask(): np arrays + n x n mask in, updated mask out
 
 Analysis / plotting / rendering tools live in the sibling package `mask_analysis`.
@@ -31,7 +32,7 @@ from highlighting.generate_from_3D_models.update_contour.masks import (  # noqa:
     DEFAULT_BASE_COLOR, DEFAULT_HIGHLIGHT_COLOR, grid_mask_to_strand_mask, load_mask, mask_to_rgb,
     strand_mask_to_grid_mask,
 )
-from highlighting.generate_from_3D_models.update_contour.flux import (  # noqa: E402
+from highlighting.generate_from_3D_models.flow_field.flux import (  # noqa: E402
     cal_grid_flux_3d, cell_points_tangents_3d, edge_detect_flux_3d,
 )
 from highlighting.generate_from_3D_models.update_contour.majority import (  # noqa: E402
@@ -47,6 +48,9 @@ from highlighting.generate_from_3D_models.update_contour.active_contour import (
     NaturalBoundary, ScalpSurface, active_contour_mask_3d, prepare_natural_boundary, update_contour_active,
 )
 from highlighting.generate_from_3D_models.update_contour.trim import strand_conflict_counts, trim  # noqa: E402
+from highlighting.generate_from_3D_models.update_contour.two_stage import (  # noqa: E402
+    neighbor_vote, removed_mask, strand_divergence, subset_incidence, two_stage_refine,
+)
 from highlighting.generate_from_3D_models.update_contour.core import METHODS, update_mask  # noqa: E402
 
 __all__ = [
@@ -59,5 +63,6 @@ __all__ = [
     "StrandGraph", "build_projection_graph",
     "NaturalBoundary", "ScalpSurface", "active_contour_mask_3d", "prepare_natural_boundary", "update_contour_active",
     "strand_conflict_counts", "trim",
+    "neighbor_vote", "removed_mask", "strand_divergence", "subset_incidence", "two_stage_refine",
     "METHODS", "update_mask",
 ]

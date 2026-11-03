@@ -83,6 +83,30 @@ def fm(cc, overlap="projection", mode="clique", lam=1000, max_passes=3, balance_
                         history=hist, info=info)
 
 
+@register_method("two_stage")
+def two_stage(cc, overlap="projection", mode="clique", lam=1000, max_passes=3, balance_tol=0.02, patience=None,
+              threshold=0.3, top_pct=None, boundary=False):
+    """update_contour "2_stage" (two_stage.two_stage_refine): FM (same settings as method "fm") without the strands
+    whose root cell has |flux| > threshold (or the top top_pct %), then each of them takes the majority label, by
+    crossing weight, of the kept strands it crosses. No strand is hidden. The flux map (~6 s) is part of the method
+    and counted in method_seconds."""
+    g = cc.g
+    inc = cc.incidence(overlap)
+    flux, _ = cc.uc.cal_grid_flux_3d(cc.positions, g["grid_pos"], g["grid_normal"], g["grid_valid"], g["half_size"],
+                                     cc.smg, grid_t1=g["grid_t1"], grid_t2=g["grid_t2"], show_progress=False)
+    div = cc.uc.strand_divergence(flux, cc.row_idx, cc.col_idx)
+    r = cc.uc.two_stage_refine(inc, cc.init_state, div, threshold=threshold, top_pct=top_pct, verbose=cc.verbose,
+                               return_history=True, mode=mode, lam=lam, max_passes=max_passes,
+                               balance_tol=balance_tol, patience=patience, boundary=boundary)
+    state = r["state"]
+    info = dict(r["info"], n_passes=r["info"]["stage1_passes"],
+                objective_names=["cut pairs", "cut weight"] if overlap.startswith("projection")
+                else ["mixed cells", "clique cut"],
+                objectives_before=list(cc.uc.fm_objectives(inc, cc.init_state)),
+                objectives_after=list(cc.uc.fm_objectives(inc, state)))
+    return MethodResult(strand_mask=state, history=r["history"], info=info)
+
+
 @register_method("trim_only")
 def trim_only(cc, trim=100, overlap="projection"):
     """No relabeling, only hide the `trim` most conflicting strands of the initial mask."""
@@ -122,6 +146,11 @@ VARIANTS = {
     "fm_projd_lam1000": dict(method="fm", kwargs=dict(overlap="projection_depth", lam=1000)),
     "fm_projd_lam10000": dict(method="fm", kwargs=dict(overlap="projection_depth", lam=10000)),
     "majority_bool": dict(method="majority_bool", kwargs=dict(n_iter=3, threshold=0.1)),
+    # 2-stage FM (update_contour "2_stage"): the fm_proj_lam* settings + leave out |flux| > 0.3 in stage 1;
+    # not in DEFAULT_VARIANTS (compare.py / compare_2stage.sh run it next to fm_proj_lam1000)
+    "fm2s_proj_lam100": dict(method="two_stage", kwargs=dict(overlap="projection", lam=100, threshold=0.3)),
+    "fm2s_proj_lam1000": dict(method="two_stage", kwargs=dict(overlap="projection", lam=1000, threshold=0.3)),
+    "fm2s_proj_lam10000": dict(method="two_stage", kwargs=dict(overlap="projection", lam=10000, threshold=0.3)),
 }
 DEFAULT_VARIANTS = ("mask_only", "fm_proj_lam100", "fm_proj_lam1000", "fm_proj_lam10000",
                     "fm_proj_lam1000_trim100", "fm_cell_lam1000")
