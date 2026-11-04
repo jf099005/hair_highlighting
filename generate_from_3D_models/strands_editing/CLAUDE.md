@@ -9,8 +9,9 @@ highlight and base strands cross less, scored by the benchmark's convex-hull `gr
 original strand-brushing spec the deformations follow (Gaussian displacement, fixed roots, length / curvature
 preservation). `README.md` (Traditional Chinese) is the user-facing summary of designs, results and recommendations.
 The repo-wide rules in `../../CLAUDE.md` and the map in `../CLAUDE.md` still apply (env, `PYTHONPATH`, UV/grid layout,
-GPU render pitfall). Outside this folder it only added the default-off `--hair_radius` / `--max_bounces` options
-to `coloring_by_strand/generate_highlight_render_by_strand_trimmed.py` (used by `--render physical`).
+GPU render pitfall). Outside this folder it only added the default-off `--hair_radius` / `--max_bounces` / `--views` options
+to `coloring_by_strand/generate_highlight_render_by_strand_trimmed.py` (`--views`: which multiview views, 2 per
+row; `pipeline.RENDER_VIEWS` = front, top, left, back).
 
 ## Commands
 
@@ -46,6 +47,12 @@ Variant names are parsed, not looked up:
 - dense: `init`, `fm`, `edit`, `clump`, `clump_push`, `clump_grow<q×100>`, `<preset>` / `<preset>_fm<lam>[k]` /
   `<preset>_sfm<lam>[k]_t<shrink%>` for `preset` in `CLUMP_PRESETS` (`clumpK0..K4`), `iter<r>` (`ITER`, rounds of
   gentle clump + per-stripe trim, cumulative). `_fm` = standard two-way FM, `_sfm` = per-stripe trimming FM.
+- stripe shaping (dense, opt-in; `stripe_shape.py`): `[<preset>_](ribbon|lift|rlift)[_x][_bf][_r<rounds>]`: each stripe
+  becomes a band of the design width (`ribbon`, neighbours kept 2 x width apart) lifted onto the base hair (`lift`)
+  from the part to its tips; labels unchanged, nothing trimmed. `_x` = larger moves toward the tips
+  (`stripe_shape.LOOSE`), `_bf` = backfill: each moved stripe strand's base partner (lying where it went) moves back
+  to where it came from, so the density per 5 mm voxel stays about the same (`dens_l1` / `dens_p95` in every dense
+  variant's metrics).
 - visibility-weighted (opt-in, only when named; `visibility.py`): chunky `vfm`, `vedit_<m>`, `vfm_edit[_K]`,
   `vfm_vedit[_K]`; dense `vfm`, `viter<r>`, `<preset>_vfm<lam>` / `<preset>_vsfm<lam>_t<%>`. Any variant +
   `_soft` = that variant, then a narrow soft boundary (`SOFT_BAND` / `SOFT_INNER`); its base is computed and dropped
@@ -60,6 +67,8 @@ Variant names are parsed, not looked up:
 | `deform.py` | `Footprints`, violation depth, `edit` (handle drag: `gauss` / `tail` / `smooth`, FTL), `clump` (coherent sideways clumping), `stripe_cover`, deformation / violation metrics |
 | `grow_fm.py` | one-way FM (base → highlight only) on a reweighted projection graph |
 | `visibility.py` | per-point visibility (Beer–Lambert voxel transmittance, radial + toward the front camera, `overlap.py`'s hair constants), visibility-weighted projection graph for FM, weighted grid score (`vis_grid_score`, soft-label aware), soft boundary (`soften`), log-color blending for renders |
+| `stripe_profile.py` | stripe continuity / width metric (`sp_*` in every dense variant's metrics, `stripe_profile.json`): per stripe and station along it (sigma = root position along the stripe + arc length), the visible width where highlight is >= 50 % of the visible hair; reach / fill / width CV / merged. CLI: `python -m ...stripe_profile <run dir>` re-scores a finished run |
+| `stripe_shape.py` | `ribbon` (per-station quantile map of the stripe's lateral offsets onto a band of width w0, `separate` keeps centerlines apart) and `lift` (radial lift onto the base-only optical depth), then FTL |
 | `pipeline.py` | render presets (`RENDER_PRESETS`, `--render`), variants, FM wrappers (`fm_labels`, `fm_region`, `stripe_fm`, `iter_trim`), presets, metrics, figures, render |
 | `report.py` | the single report `data/runs/report.html`; `EXPERIMENTS` lists run folders in order with what/result text |
 
@@ -116,5 +125,19 @@ Variant names are parsed, not looked up:
   (`SOFT_INNER` 0.25), or a 2 mm band on both sides faded 4–8 mm stripes.
 - `soften`'s distance is to the nearest root of the other label (≈ distance to the boundary, not twice it).
 - `Region.parts` has a class default (`None`) so masks pickled before per-stripe parts still load.
+- Stripes break before the tips because they SINK under the base hair (stripe points' T 0.00-0.05 below 30-40 % of
+  the length on long hair; the strands are still there), and the per-stripe trim (`_sfm`, `_vsfm`) removes half of
+  each stripe (about as visible and as long as the kept ones: base_15 mean T 0.045 vs 0.064, 24.9 vs 25.3 cm), so
+  what is left is 2-4 mm wide and patchy: `sp_reach` / `sp_fill` drop below `init`. grid_score cannot see
+  this (it flattens columns). Station by sigma, not by arc length: a stripe is 10-15 cm long on the scalp.
+- Density (`dens_l1` / `dens_p95`, `stripe_shape.density_change`): lifting a stripe onto the base relocates all of
+  its hair at 5 mm (dens_l1 0.165 on base_36, = the stripe's share); the pairwise `backfill` brings it to 0.151
+  (0.069 at 2 cm, SOTA 0.056). A voxel counterflow field made it worse (0.22) and tail swaps at junctions find a
+  partner for only 11 % of the stripe strands; both were removed.
+- Stripe shaping (`stripe_shape.ribbon`): the strict `one_way_bend` accumulates lateral drift along long hair (a stripe
+  shifted 12.6 cm, others hit the 8 cm move cap and piled into a blob); the default is `one_way="smooth"` (Gaussian
+  smoothing of the centre line, bend_sigma 3) with the total shift clipped to `shift_max` and `max_move` 0.05.
+  `rlift_bf` runs unchanged on chunky (width = lock width; `lift` does nothing there, chunky locks are not covered):
+  it keeps every lock and reaches the tips, but grid_score is higher than `vfm_edit_A_soft` (0.103 vs 0.069 base_36).
 - Results to beat / current recommendations are in `README.md` and the report's top box; append new run folders to
   `report.EXPERIMENTS` (and new variant names to `CHUNKY` / `DENSE`) or they will not appear in the report.

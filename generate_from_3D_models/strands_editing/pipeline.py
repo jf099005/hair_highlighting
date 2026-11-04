@@ -55,6 +55,7 @@ RENDER_PRESETS = {
     "physical": dict(subsample=1.0, radius=3.5e-5, bounces=32, samples=256),
     "optical": dict(subsample=1.0, radius="metadata", bounces=32, samples=256, melanin=True),
 }
+RENDER_VIEWS = "front,top,left,back"          # multiview composite (2 x 2); None = the renderer's 6 views
 RENDER_OUT = dict(optical=True, raw=False)        # which renders each variant gets (--render_optical / --render_raw)
 # (melanin, redness): dark brown base, golden blonde highlight (the usual real highlight: lighter locks on dark hair)
 OPTICAL_COLORS = dict(base=(0.8, 0.3), highlight=(0.15, 0.45))
@@ -281,7 +282,7 @@ def plot_footprints(path, region, fp0, fp1, labels, edited, title, k=160, seed=0
 # ---------------------------------------------------------------- render
 
 def render(out_dir, npz_path, positions, labels, root_uv, root_normal, preset="optical", meta=None):
-    """Blender render (front + 6-view composite) of the given geometry and per-strand labels (bool, or soft colors
+    """Blender render (front + RENDER_VIEWS composite) of the given geometry and per-strand labels (bool, or soft colors
     in [0, 1]) through the coloring_by_strand trimmed renderer (GPU, see run_highlight_render.sh), RENDER_PRESETS"""
     from highlighting.generate_from_3D_models.update_contour.masks import (DEFAULT_BASE_COLOR,
                                                                            DEFAULT_HIGHLIGHT_COLOR, mask_to_rgb)
@@ -304,6 +305,8 @@ def render(out_dir, npz_path, positions, labels, root_uv, root_normal, preset="o
            "--template_npz", tmpl, "--seed", "0", "--transition_softness", "0.04", "--highlight_start", "0.0",
            "--samples", str(cfg["samples"]), "--resolution", "512", "--strands_subsample", str(cfg["subsample"]),
            "--env_light_strength", "2.0", "--scalp_grid_size", "128", "--no_save_scalp_grid"]
+    if RENDER_VIEWS:
+        cmd += ["--views", RENDER_VIEWS]
     radius = cfg.get("radius")
     if radius == "metadata":
         radius = meta["hair_profile_radius"]
@@ -365,6 +368,67 @@ def rerender(run_dir, samples=None):
 
 
 # ---------------------------------------------------------------- main
+
+# ---------------------------------------------------------------- stripe shaping (stripe_shape.py), chunky and dense
+
+SHAPE_RE = r"(?:(clumpK\d+)_)?(ribbon|lift|rlift)(_x)?(_bf)?(?:_r(\d+))?"
+
+
+def stripe_shape_variants(variants, P0, ids0, locks, rxy, grid, center, width):
+    """[<preset>_](ribbon|lift|rlift)[_x][_bf][_r<rounds>]: every stripe / lock (ids0 = 1 + its index) as a band of
+    the design width `width` (m) (ribbon, neighbours kept 2 x width apart, center line smoothed) lifted onto the
+    base hair (lift) from the part to its tips; labels unchanged, nothing trimmed. <preset> = a CLUMP_PRESETS
+    clumping first (dense), _x = larger moves toward the tips, _bf = base strands take the places the stripe strands
+    left (stripe_shape.backfill). -> {name: dict(P, info)}"""
+    import re
+    from highlighting.generate_from_3D_models.strands_editing import stripe_profile as sprof
+    from highlighting.generate_from_3D_models.strands_editing import stripe_shape as sshape
+    shapes = {}
+    for v in variants or ():
+        m = re.fullmatch(SHAPE_RE, v)
+        if m and (m.group(1) is None or m.group(1) in CLUMP_PRESETS):
+            shapes[v] = m.groups()
+    out = {}
+    if not shapes:
+        return out
+    sig0 = sprof.root_sigma(locks, *rxy, ids0, grid.cell_spacing)
+    clumped = {}
+    for vname, (preset, op, loose, bf, rounds) in shapes.items():
+        t = time.time()
+        if preset and preset not in clumped:
+            clumped[preset] = _clump_preset(P0, ids0, center, preset)
+        Pb, eb = clumped[preset] if preset else (P0, np.zeros(len(P0), bool))
+        wkw = dict(gap=2 * width, **(sshape.LOOSE["width_kw"] if loose else {}))
+        Ps, es, info = sshape.shape_stripes(Pb, ids0, sig0, center, width, do_width=op != "lift",
+                                            do_lift=op != "ribbon", rounds=int(rounds or 1), width_kw=wkw,
+                                            lift_kw=sshape.LOOSE["lift_kw"] if loose else None)
+        if bf:
+            Ps, partner, bi = sshape.backfill(Pb, Ps, ids0)
+            es = es | (partner >= 0)
+            info.update(bi)
+        info.update(edited=eb | es, n_edited=int((eb | es).sum()), edit_seconds=round(time.time() - t, 1))
+        out[vname] = dict(P=Ps, info=info)
+    return out
+
+
+def stripe_metrics(vd, P0, P, hard, ids_hint, ids0, locks, rxy, grid, center, width):
+    """stripe_profile (reach / width / wiggle ...) and density change of one variant; writes stripe_profile.json.
+    hard: (S,) bool highlight; ids_hint: stripe ids of the variant if known (dense), else None (nearest lock)"""
+    from highlighting.generate_from_3D_models.strands_editing import stripe_profile as sprof
+    from highlighting.generate_from_3D_models.strands_editing.stripe_shape import density_change
+    if ids_hint is None:
+        lab = sprof.assign_ids(locks, *rxy, hard)
+    else:
+        lab = np.where(hard, ids_hint, 0)
+        extra = hard & (lab == 0)
+        if extra.any():
+            lab = np.where(extra, sprof.assign_ids(locks, *rxy, extra), lab)
+    summ, rows, prof = sprof.evaluate(P, lab, ids0, center, width * 1e3,
+                                      sprof.root_sigma(locks, *rxy, lab, grid.cell_spacing))
+    json.dump(dict(summary=summ, stripes=rows, width_mm={int(k): p["width"].tolist() for k, p in prof.items()}),
+              open(os.path.join(vd, "stripe_profile.json"), "w"), indent=1)
+    return dict(summ, **density_change(P0, P))
+
 
 def run_sample(name, out_root, methods=("gauss", "tail", "smooth"), best="tail", seed=0, n=32, width=0.02,
                target_frac=0.12, do_render=True, do_projection=True, light=dict(tol=1.0, max_drag=0.75, rounds=2),
@@ -441,6 +505,11 @@ def run_sample(name, out_root, methods=("gauss", "tail", "smooth"), best="tail",
     if want("light_fm_edit"):
         _light_fm_edit(add, grid, shell, P0, labels0, region0, rx, ry, best, light)
     _vis_variants(add, want_new, grid, shell, P0, labels0, region0, rx, ry, best, methods, center)
+    from highlighting.generate_from_3D_models.strands_editing.stripe_profile import assign_ids
+    ids0 = assign_ids(locks, rx, ry, labels0)
+    for vname, v in stripe_shape_variants(variants, P0, ids0, locks, (rx, ry), grid, center, width).items():
+        print(f"[{name}] {vname}: " + ", ".join(f"{k}={x}" for k, x in v["info"].items() if np.isscalar(x)))
+        add(vname, v["P"], labels0, region0, v["info"])
     for vname in [v for v in variants or () if v.endswith("_soft")]:
         b = res.get(vname[:-5])
         if b is None:
@@ -452,7 +521,7 @@ def run_sample(name, out_root, methods=("gauss", "tail", "smooth"), best="tail",
     if asked is not None:
         res = {k: v for k, v in res.items() if k in asked}
     return _finish(name, out, field, grid, locks, params, P0, fp0, res, npz, root_uv, root_normal, do_render, do_projection,
-                   center)
+                   center, (rx, ry), ids0, width)
 
 
 def _vis_variants(add, want_new, grid, shell, P0, labels0, region0, rx, ry, best, methods, center):
@@ -497,7 +566,7 @@ def _light_fm_edit(add, grid, shell, P0, labels0, region0, rx, ry, best, light):
 
 
 def _finish(name, out, field, grid, locks, params, P0, fp0, res, npz, root_uv, root_normal, do_render, do_projection,
-            center):
+            center, rxy, ids0, width):
     summary = dict(sample=name, n_strands=int(len(P0)), locks=len(locks), params={k: v for k, v in params.items()
                                                                                     if k not in ("locks",)},
                    variants={}, render="optical" if RENDER_OUT["optical"] else "raw", vis_density=vz.DENSITY_SCALE)
@@ -520,6 +589,7 @@ def _finish(name, out, field, grid, locks, params, P0, fp0, res, npz, root_uv, r
         if do_projection:
             met["cut_pairs"], met["cut_weight"] = projection_cut(grid, v["P"], smg, hard)
         met.update(dfm.deformation_stats(P0, v["P"], edited))
+        met.update(stripe_metrics(vd, P0, v["P"], hard, None, ids0, locks, rxy, grid, center, width))
         met.update({k: x for k, x in v["info"].items() if k == "rounds_strands" or (k != "edited" and np.isscalar(x))})
         summary["variants"][vname] = met
         np.save(os.path.join(vd, "labels.npy"), v["labels"])
@@ -793,6 +863,10 @@ def run_dense(name, out_root, seed=0, n=32, method="tail", fm_lam=10000, do_rend
                       f"{info['fm_to_hl']} base -> highlight")
                 res[vname] = dict(P=P2, hl=ids1 > 0, ids=ids1, fp=dfm.Footprints(shell, P2), info=info)
             del G
+    from highlighting.generate_from_3D_models.initial_masks_generation.styles import head_center
+    for vname, v in stripe_shape_variants(variants, P0, ids0, locks, rxy, grid, head_center(field), width).items():
+        print(f"[{name}] {vname}: " + ", ".join(f"{k}={x}" for k, x in v["info"].items() if np.isscalar(x)))
+        res[vname] = dict(P=v["P"], hl=ids0 > 0, fp=dfm.Footprints(shell, v["P"]), info=v["info"])
     for prefix in ("iter", "viter"):
         iters = sorted(int(v[len(prefix):]) for v in variants if v.startswith(prefix) and v[len(prefix):].isdigit())
         if not iters:
@@ -866,6 +940,8 @@ def run_dense(name, out_root, seed=0, n=32, method="tail", fm_lam=10000, do_rend
         if do_projection:
             met["cut_pairs"], met["cut_weight"] = projection_cut(grid, v["P"], smg, hard)
         met.update(dfm.deformation_stats(P0, v["P"], edited))
+        # does every stripe reach its tips with a steady visible width; hair density kept (stripe_profile.py)
+        met.update(stripe_metrics(vd, P0, v["P"], hard, v.get("ids", ids0), ids0, locks, rxy, grid, center, width))
         met.update({k: x for k, x in v["info"].items() if k == "rounds_strands" or (k != "edited" and np.isscalar(x))})
         summary["variants"][vname] = met
         np.save(os.path.join(vd, "labels.npy"), v["hl"])

@@ -113,8 +113,10 @@ def point_camera_at(cam_obj, target_loc):
     cam_obj.rotation_euler = direction.to_track_quat('-Z', 'Y').to_euler()
 
 
-def render_multiview_composite(scene, front_cam, front_render_path, out_path):
-    """Unchanged from ../coloring_by_grid/generate_highlight_render.py."""
+def render_multiview_composite(scene, front_cam, front_render_path, out_path, views_wanted=None):
+    """From ../coloring_by_grid/generate_highlight_render.py. views_wanted (list of front / back / left / right /
+    top / bottom, --views): render only those, composite 2 per row in that order; None = the 6-view layout."""
+    want = set(views_wanted) if views_wanted else {"front", "back", "left", "right", "top", "bottom"}
     target_obj = bpy.data.objects.get("CameraOrbitLookat")
     target = target_obj.matrix_world.translation.copy() if target_obj else mathutils.Vector((0.0, 0.0, 0.0))
 
@@ -139,21 +141,25 @@ def render_multiview_composite(scene, front_cam, front_render_path, out_path):
         "right": front_azimuth + _math.pi / 2.0,
     }
     for name, azimuth in side_azimuths.items():
+        if name not in want:
+            continue
         tmp_cam_obj.location = target + mathutils.Vector(
             (radius_xy * _math.cos(azimuth), radius_xy * _math.sin(azimuth), height))
         point_camera_at(tmp_cam_obj, target)
         bpy.ops.render.render(write_still=True)
         views[name] = load_png_as_rgb_uint8(tmp_render_path)
 
-    tmp_cam_obj.location = target + mathutils.Vector((0.0, 0.0, offset.length))
-    tmp_cam_obj.rotation_euler = (0.0, 0.0, 0.0)
-    bpy.ops.render.render(write_still=True)
-    views["top"] = load_png_as_rgb_uint8(tmp_render_path)
+    if "top" in want:
+        tmp_cam_obj.location = target + mathutils.Vector((0.0, 0.0, offset.length))
+        tmp_cam_obj.rotation_euler = (0.0, 0.0, 0.0)
+        bpy.ops.render.render(write_still=True)
+        views["top"] = load_png_as_rgb_uint8(tmp_render_path)
 
-    tmp_cam_obj.location = target + mathutils.Vector((0.0, 0.0, -offset.length))
-    tmp_cam_obj.rotation_euler = (_math.pi, 0.0, 0.0)
-    bpy.ops.render.render(write_still=True)
-    views["bottom"] = load_png_as_rgb_uint8(tmp_render_path)
+    if "bottom" in want:
+        tmp_cam_obj.location = target + mathutils.Vector((0.0, 0.0, -offset.length))
+        tmp_cam_obj.rotation_euler = (_math.pi, 0.0, 0.0)
+        bpy.ops.render.render(write_still=True)
+        views["bottom"] = load_png_as_rgb_uint8(tmp_render_path)
 
     views["front"] = load_png_as_rgb_uint8(front_render_path)
 
@@ -163,6 +169,14 @@ def render_multiview_composite(scene, front_cam, front_render_path, out_path):
     if os.path.isfile(tmp_render_path):
         os.remove(tmp_render_path)
 
+    if views_wanted:
+        imgs = [views[v] for v in views_wanted]
+        if len(imgs) % 2:
+            imgs.append(np.zeros_like(imgs[0]))
+        composite = np.vstack([np.hstack(imgs[i:i + 2]) for i in range(0, len(imgs), 2)])
+        save_uint8_rgb_as_image(composite, out_path, file_format='PNG')
+        print(f"wrote {len(views_wanted)}-view composite ({'/'.join(views_wanted)}) to {out_path}")
+        return
     composite = np.vstack([
         np.hstack([views["front"], views["back"], views["top"]]),
         np.hstack([views["left"], views["right"], views["bottom"]]),
@@ -351,6 +365,9 @@ def blender_main():
     parser.add_argument('--scalp_grid_size', type=int, default=256)
     parser.add_argument('--no_save_scalp_grid', action='store_true')
     parser.add_argument('--no_save_multiview', action='store_true')
+    parser.add_argument('--views', type=str, default=None,
+                        help='comma list of multiview views (front,back,left,right,top,bottom), 2 per row in this '
+                             'order; default: the 6-view composite')
     parser.add_argument('--save_blend', default=None)
 
     args = parser.parse_args(sys.argv[sys.argv.index("--") + 1:])
@@ -515,7 +532,8 @@ def blender_main():
 
     if not args.no_save_multiview:
         multiview_path = os.path.splitext(args.out_path)[0] + "_multiview.png"
-        render_multiview_composite(scene, front_cam, args.out_path, multiview_path)
+        render_multiview_composite(scene, front_cam, args.out_path, multiview_path,
+                                   args.views.split(",") if args.views else None)
 
     if args.save_blend:
         os.makedirs(os.path.dirname(os.path.abspath(args.save_blend)), exist_ok=True)

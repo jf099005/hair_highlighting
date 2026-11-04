@@ -35,6 +35,7 @@ CHUNKY = {
     "vfm_edit_A": "可見度加權 FM → 拖動（放寬 A）",
     "vfm_vedit_A": "可見度加權 FM → 可見度加權拖動（看不到的越界點較少當 handle，放寬 A）",
     "vfm_edit_A_soft": "可見度加權 FM → 拖動（放寬 A）→ 窄軟邊界",
+    "rlift_bf": "統一條紋塑形：每個 lock 排成設計寬度（2 cm）的帶子、中心線平滑 → 抬到 base 上 → base 補位（不改標籤）",
 }
 DENSE = {
     "init": "密集細條紋 Bezier mask（每條 8 mm），髮型未動",
@@ -53,6 +54,8 @@ for _lam in ("3k", "1k", "600", "300", "100", "0"):
 DENSE["clumpK2_vsfm300_t50"] = "K2 → 可見度加權逐條修剪 FM（最多 50%）→ 再做 K2"
 DENSE["clumpK2_vsfm300_t50_soft"] = "同上 → 窄軟邊界（條紋外 2 mm、條紋內 0.5 mm 漸層）"
 DENSE["vfm"] = "可見度加權 FM（lam 1e4），髮型未動"
+DENSE["rlift"] = "條紋塑形：每段把條紋髮絲排成 8 mm 帶子（分位數對應、相鄰條紋 ≥ 1.6 cm、中心線平滑）→ 抬到 base 上；不修剪"
+DENSE["rlift_bf"] = "rlift → base 補位：每根移動的條紋髮絲配一根在它新位置的 base，反向移回條紋原位（密度維持）"
 for _r in range(1, 9):
     DENSE[f"iter{_r}"] = f"交替微調第 {_r} 輪（溫和成束 35% + 逐條修剪 ≤ 15%，累積）"
 for _t in ("50", "70", "85"):
@@ -150,6 +153,24 @@ EXPERIMENTS = [
          result="兩例都改善且 10 條全保留：base_36 0.0836 → 0.0764（軟邊界 0.0771，加權 score 0.0411 → 0.0310），"
                 "base_18 0.264 → 0.244 → 軟邊界 0.229（加權 0.090 → 0.073），"
                 "base_15 0.218 → 0.210 → 軟邊界 0.207（加權 0.089 → 0.078）。"),
+    dict(id="stripe-shape", run="stripe_shape96", style="dense",
+         title="18a. 條紋連續到髮尾、寬度一致：條紋塑形 + 補位（密集細條紋，96×96，四視角）", grid="96×96",
+         what="新指標 stripe_profile：沿每條條紋（分線 → 髮尾）切 20 段，量看得見的挑染寬度（可見髮絲中挑染 ≥ 50% 的"
+              "橫向寬度），得到覆蓋、連續到達、寬度 CV、抖動（看得見的中心線偏離拋物線的 RMS）、與鄰條合併；"
+              "密度變化 = 5 mm 體素的頭髮長度前後 L1 / 總量。方法 rlift_bf：不修剪，條紋髮絲每段排成 8 mm 帶子"
+              "（相鄰 ≥ 1.6 cm、中心線平滑）、抬到 base 上方，再讓 base 補位。與 17c 同一份 mask。",
+         result="條紋覆蓋（fill）兩例都從 ~0.45 升到 0.80，平均可見寬度 base_36 4.6 → 7.2 mm、長髮 base_15 3.7 → 9.1 mm，"
+                "寬度 CV 0.84 → 0.37 / 0.91 → 0.66，抖動 3.2 → 1.9 / 12.5 → 5.7 mm；10 條全保留、不修剪。"
+                "17c 的最佳（clumpK2_vsfm300_t50_soft）grid score 低很多（0.077 / 0.207 vs 0.188 / 0.320），"
+                "但條紋被修剪掉一半又沉到 base 下：fill 0.31 / 0.19、寬 2.5 / 1.5 mm，渲染上只剩細碎的線。"
+                "密度變化 dens_l1 0.128 / 0.208（17c 0.105 / 0.107）；長髮仍有 15% 的段落與鄰條合併。"),
+    dict(id="stripe-shape-chunky", run="stripe_shape_chunky", style="chunky",
+         title="18b. 同一個條紋塑形套用到 chunky（32×32，四視角）", grid="32×32",
+         what="與 18a 完全相同的 rlift_bf，只是寬度改成 lock 的設計寬度 2 cm；與 17b 同一份 mask。",
+         result="base_36：grid 0.216 → 0.103（17b 最佳 0.069），連續到達 0.95（17b 0.53）、fill 0.98、寬度 CV 0.14、"
+                "密度變化 0.106（17b 0.124）。長髮 base_15：grid 0.254 → 0.145（17b 0.047），但 17b 把第 2 束整束刪掉、"
+                "第 1 束變 1.7 倍寬（reach 0.05），rlift_bf 兩束都保留、寬度與 init 相近，抖動 15.4 → 8.1 mm。"
+                "同一套演算法兩種風格都能跑；代價是 grid score 比各自的最佳高。"),
 ]
 
 COLS = [
@@ -169,6 +190,13 @@ COLS = [
     ("kink_deg_mean", "轉折 平均°", "{:.1f}"),
     ("kink_deg_p95", "轉折 p95°", "{:.1f}"),
     ("length_change_pct", "長度變化 %", "{:.2f}"),
+    ("sp_fill", "條紋覆蓋", "{:.2f}"),
+    ("sp_reach", "連續到達", "{:.2f}"),
+    ("sp_mean_w_mm", "可見寬度 mm", "{:.1f}"),
+    ("sp_width_cv", "寬度 CV", "{:.2f}"),
+    ("sp_wiggle_mm", "抖動 mm", "{:.1f}"),
+    ("sp_merged", "合併", "{:.2f}"),
+    ("dens_l1", "密度變化", "{:.3f}"),
 ]
 
 CSS = """
@@ -256,6 +284,11 @@ def variant_row(exp, sample, v, m, init_gs, rel, desc):
     kv.append(f"挑染 {m.get('hl_frac', 0):.1%}")
     if m.get("vis_grid_score") is not None:
         kv.append(f"加權 score {m['vis_grid_score']:.4f}")
+    if m.get("sp_fill") is not None:
+        kv.append(f"條紋覆蓋 {m['sp_fill']:.2f} · 寬 {m['sp_mean_w_mm']:.1f} mm（CV {m['sp_width_cv']:.2f}）"
+                  f" · 抖動 {m['sp_wiggle_mm']:.1f} mm")
+    if m.get("dens_l1"):
+        kv.append(f"密度變化 {m['dens_l1']:.3f}")
     if m.get("soft_strands"):
         kv.append(f"軟邊界 {m['soft_strands']:,} 根")
     return (f"<div class=row><div class=side><div class=name>{html.escape(v)}</div>"
@@ -263,7 +296,7 @@ def variant_row(exp, sample, v, m, init_gs, rel, desc):
             f"<div class=bar title='相對於 init'><i style='width:{pct:.0f}%'></i></div>"
             f"<div class=desc>{html.escape(desc.get(v, ''))}</div><div class=kv>{' · '.join(kv)}</div></div>"
             f"<div class=imgs><img loading=lazy src='{front}' alt='{v} front'>"
-            f"<img loading=lazy src='{mv}' alt='{v} 6 views'>{raw}</div></div>")
+            f"<img loading=lazy src='{mv}' alt='{v} multiview'>{raw}</div></div>")
 
 
 def section(exp, runs, root):
@@ -298,16 +331,16 @@ def section(exp, runs, root):
 
 INTRO = """
 <h1>Chunky 挑染：直接移動髮絲（strands_editing）總報告</h1>
-<p class=muted>所有實驗與渲染。每列左側是 grid score（越低越好，長條 = 相對於該樣本的 init），右側是正面與六視角
-（front / back / top / left / right / bottom）。第 1–16 節：白 = base、黑 = 挑染（原始粗髮渲染）。第 17 節起：
+<p class=muted>所有實驗與渲染。每列左側是 grid score（越低越好，長條 = 相對於該樣本的 init），右側是正面與多視角
+（第 17 節以前：front / back / top / left / right / bottom；第 18 節起：front / top / left / back）。第 1–16 節：白 = base、黑 = 挑染（原始粗髮渲染）。第 17 節起：
 深棕 = base、金色 = 挑染（DiffLocks 光學渲染），第三張為原始渲染。不同節的 grid 解析度不同（32 / 96 / 128），
 分數不能跨解析度直接比；加權 score 與 grid score 是不同尺度。</p>
 <div class=box><b>目前建議</b><br>
-・一般 chunky：可見度加權 FM → 拖動（放寬 A）→ 窄軟邊界（第 17b 節 <code>vfm_edit_A_soft</code>）；
-不要軟邊界時用 <code>vfm_edit_A</code>。拖動本身不要加權。<br>
-・密集細條紋：96×96，K2 成束 + 可見度加權逐條修剪 50% + 軟邊界（第 17c 節，base_36 0.077、長髮 0.207 / 0.229，
-10 條全保留；K2 會把捲髮拉直）。<br>
-・密集細條紋，長髮：目前到不了 0.1（最低 0.108 / 0.130，條紋只剩 15%）；要髮型自然用預設成束（第 6 節）。</div>
+・要 grid score 最低：chunky 用第 17b 節 <code>vfm_edit_A_soft</code>；密集細條紋用第 17c 節
+<code>clumpK2_vsfm300_t50_soft</code>（base_36 0.077、長髮 0.207）。但它們會修剪 / 刪掉條紋，條紋常到不了髮尾。<br>
+・要條紋連續到髮尾、寬度一致、每條都保留：<code>rlift_bf</code>（第 18 節，chunky 與密集同一套）：
+密集 fill 0.45 → 0.80、寬度 CV 減半；chunky 連續到達 0.95。grid score 比上一項高（密集 0.188 / 0.320，chunky 0.103 / 0.145）。<br>
+・密集細條紋，長髮：最佳 grid 仍 &gt; 0.2；rlift_bf 的條紋看得最清楚，但有 15% 段落與鄰條合併。</div>
 <div class=box><b>方法速覽</b><br>
 ・<b>拖動</b>：髮絲點投到頭皮（shell 座標 x, y, h），落在另一色區域深度 &gt; 門檻的點當 handle，沿 grid 的 x/y、
 固定 h 推回自己區域，整根髮絲依權重跟著移動，髮根固定，FTL 保長。<br>

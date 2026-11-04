@@ -94,3 +94,32 @@ python -m highlighting.generate_from_3D_models.strands_editing.pipeline --rerend
 grid score（括號內為加權 score），越低越好。長髮 chunky base_15 的加權流程位移也較小（平均 14.3 → 10.4 mm、
 轉折 p95 25° → 11°）。記憶體：長髮在 32×32 再算交叉圖指標（`cut_*`、`vis_cut`）會超過 30 GB，要加 `--no_projection`
 （峰值 17 GB）；密集 96×96 長髮峰值 22 GB。
+
+## 條紋連續到髮尾、寬度一致（`stripe_profile.py`、`stripe_shape.py`，2026-11）
+
+```bash
+bash run.sh --out data/runs/<name> --style dense --n 96 --per_side 5,5 --no_projection --samples base_36_idx_42564 \
+    --variants init,clumpK2_vsfm300_t50_soft,rlift_bf
+bash run.sh --out data/runs/<name> --no_projection --samples base_36_idx_42564 --variants init,vfm_edit_A_soft,rlift_bf
+python -m highlighting.generate_from_3D_models.strands_editing.stripe_profile data/runs/<name>   # 重新算指標
+```
+
+- **指標**（`sp_*`，每個 variant 的 metrics 與 `stripe_profile.json`）：每條條紋依 σ（髮根在條紋中心線上的位置 + 弧長）
+  切 20 段，量「看得見的髮絲中挑染 ≥ 50%」的橫向寬度。`sp_fill` = 平均 min(寬 / 設計寬, 1)，`sp_reach` = 第一次寬度
+  < 一半的位置，`sp_width_cv` 寬度變異，`sp_wiggle_mm` 看得見的中心線偏離拋物線的 RMS，`sp_merged` 與鄰條合併的比例。
+  `dens_l1` = 5 mm 體素頭髮量前後的 L1 / 總量（密度變化）。
+- **原因**：條紋髮絲其實一直到髮尾，但長髮下半段沉到 base 下面（穿透率 0–0.05）；逐條修剪又剪掉一半。grid score 看不到。
+- **方法 `rlift_bf`**（不修剪、標籤不變）：每段把條紋髮絲的橫向位置做分位數映射，排成設計寬度的帶子（相鄰中心線
+  ≥ 2 倍寬、中心線平滑），抬到 base 上方，FTL 保長，每根轉折增加 ≤ 30°；再讓「條紋移去的位置上的 base 髮絲」移回條紋原位（補位）。
+  `_x` 允許髮尾更大的移動。
+- 試過但沒採用：嚴格單向彎曲（偏移累積，長髮擠成一團）、體素反向流場補位（密度更差 0.22）、與 base 交換髮尾（只配到 11%）。
+
+| 樣本 | init fill / 寬 / CV | 最佳 grid（17b/17c）grid / fill | rlift_bf grid / fill / 寬 / CV / 密度變化 |
+|---|---|---|---|
+| 密集 base_36 | 0.47 / 4.6 mm / 0.84 | 0.077 / 0.31 | 0.188 / 0.80 / 7.2 mm / 0.37 / 0.128 |
+| 密集 base_15（長髮） | 0.45 / 3.7 mm / 0.91 | 0.207 / 0.19 | 0.320 / 0.80 / 9.1 mm / 0.66 / 0.208 |
+| chunky base_36 | 0.99 / 31 mm / 0.18 | 0.069 / 0.95（到達 0.53） | 0.103 / 0.98（到達 0.95）/ 23 mm / 0.14 / 0.106 |
+| chunky base_15（長髮） | 0.68 / 21 mm / 0.70 | 0.047 / 0.47（刪掉 1 束） | 0.145 / 0.69 / 18 mm / 0.65 / 0.176 |
+
+**統一演算法**：`rlift_bf` 對兩種風格完全相同（只差設計寬度），每條 / 每束都保留、連續到髮尾，但 grid score 比各自的最佳高；
+若同時要低 grid score，可在 `rlift_bf` 之後再接輕量的修剪或軟邊界（尚未試）。
