@@ -1,4 +1,6 @@
-# strands_editing 方法總整理
+# strands_editing 方法總整理（封存）
+
+> **封存（2026-11-04）**：這是 `strands_editing` 只保留 `rlift_bf` 之前的完整說明。這個資料夾（`archive/`）裡的程式是當時的完整副本，import 都指向 `strands_editing.archive.*`，可以原樣執行：`bash archive/run.sh ...`（輸出仍在 `data/runs/`，報告改為 `data/runs/report_archive.html`）。下文的 `run.sh`、`pipeline` 指的都是 `archive/` 裡的版本。
 
 2026-11-04。範圍：`generate_from_3D_models/strands_editing/`。數字取自 `data/runs/*/summary.json`。
 
@@ -91,19 +93,19 @@ grid score 會把每格的柱壓平，看不出條紋在髮尾斷掉。新指標
 
 **密集細條紋 base_36**：`rlift_bf` 的條紋清楚、等寬、一路到髮尾；grid score 最低的方法只剩細碎的線。
 
-![密集 base_36](figures/dense_base36.png)
+![密集 base_36](../figures/dense_base36.png)
 
 **密集細條紋 base_15（長髮）**：init 的條紋細且斷續；grid score 最低的方法背面幾乎看不到條紋；`rlift_bf` 的背面條紋清楚、連到髮尾。
 
-![密集 base_15](figures/dense_base15.png)
+![密集 base_15](../figures/dense_base15.png)
 
 **Chunky base_36**：兩種方法都乾淨；`rlift_bf` 的 lock 寬度更一致、延伸更長。
 
-![chunky base_36](figures/chunky_base36.png)
+![chunky base_36](../figures/chunky_base36.png)
 
 **Chunky base_15（長髮）**：grid score 最低的方法把第 2 束整束刪掉，第 1 束變寬；`rlift_bf` 兩束都保留。
 
-![chunky base_15](figures/chunky_base15.png)
+![chunky base_15](../figures/chunky_base15.png)
 
 ### 數字
 
@@ -138,12 +140,40 @@ grid score：密集條紋用 96×96 網格，chunky 用 32×32，兩者不能互
 - 長髮密集條紋有 15% 的段落與鄰條合併，密度變化約 0.2。
 - 密集長髮的 grid score 仍到不了 0.1。
 
+## 六、初始 mask 修正：左右對稱、從分線開始（2026-11-04）
+
+問題：從上方看，密集細條紋左右兩側起點高低不一，有些條紋沒接到分線或頭頂。原因：
+- 舊 mask 左右兩側各自隨機挑條紋。
+- 舊 mask 也用分線以外的種子點，這些條紋往回只追 3 格，所以接不到分線。
+
+修正（`make_dense_bezier` 預設 `pair=True`；`--no_pair` 可完全重現舊 mask）：
+1. 只用分線旁的種子。
+2. 左右以分線主軸為對稱軸成對挑選，兩側起點的位置差 ≤ 1.5 格。
+3. 沿分線從前額到頭頂分段，每段先放一對。
+
+![新舊 mask 對照 base_36](../figures/pair_base36.png)
+
+![新舊 mask 對照 base_15](../figures/pair_base15.png)
+
+每張圖由左到右：舊 mask 的 `rlift_bf`、新 mask 的 init、新 mask 的 `clumpK2_vsfm300_t50_soft`、新 mask 的 `rlift_bf`。
+
+| 樣本 | 方法 | mask | 條紋數 | grid score | fill | reach | 寬度 CV | 抖動 | 合併 | 密度變化 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| base_36 | `rlift_bf` | 舊 | 5+5 | 0.188 | 0.80 | 0.43 | 0.37 | 1.9 mm | 0.005 | 0.128 |
+| | | 新 | 5+5 | 0.200 | **0.86** | **0.46** | **0.28** | **1.2 mm** | **0** | 0.138 |
+| base_15 長髮 | `rlift_bf` | 舊 | 5+5 | 0.320 | 0.80 | **0.69** | 0.66 | 5.7 mm | 0.15 | 0.208 |
+| | | 新 | 4+4 | **0.278** | **0.83** | 0.55 | **0.47** | 6.0 mm | 0.16 | **0.168** |
+
+- **base_36**：新 mask 在條紋指標上全面較好，grid score 略高。
+- **base_15**：寬度更一致，grid score 和密度變化也較低，但連續到達下降，而且只放得下 4 對條紋，背面條紋變少。
+- 換到新 mask 後，`clumpK2_vsfm300_t50_soft` 的 grid score：base_36 0.077 → 0.085，base_15 0.207 → 0.184。
+
 ## 附註
 
 - 指令：
   - 密集：`bash run.sh --out data/runs/<name> --style dense --n 96 --per_side 5,5 --no_projection --samples <s> --variants init,rlift_bf`
   - chunky：同上，但不加 `--style dense --n 96 --per_side 5,5`。
-  - 重新算條紋指標：`python -m ...strands_editing.stripe_profile <run>`。
+  - 重新算條紋指標：`python -m ...strands_editing.archive.stripe_profile <run>`。
 - 記憶體：長髮 chunky 32×32 要加 `--no_projection`（峰值 17 GB）；密集 96×96 長髮峰值 22 GB。一次只跑一個樣本。
 - 只有 Blender 渲染用 GPU（每個 variant 約 1 分鐘），其餘計算都在 CPU。
-- 範例圖來自 `data/runs/stripe_shape96`、`stripe_shape_chunky`；完整實驗見 `data/runs/report.html` 第 18 節。舊的六視角對照圖 `figures/sota_compare.png` 仍保留。
+- 範例圖來自 `data/runs/stripe_shape96`、`stripe_shape_chunky`；完整實驗見 `data/runs/report_archive.html` 第 18 節。舊的六視角對照圖 `../figures/sota_compare.png` 仍保留。

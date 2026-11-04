@@ -330,12 +330,25 @@ def dense_candidates(field, root_xy, lattice=None, min_len=None):
     return field.info["_dense_bez"]
 
 
+def _part_frame(line):
+    """principal axis of the part cells: (mean, along, across) in (x = col, y = row) grid units"""
+    r, c = np.nonzero(line)
+    X = np.stack([c, r], 1).astype(float)
+    mu = X.mean(0)
+    ax = np.linalg.svd(X - mu)[2][0]
+    return mu, ax, np.array([-ax[1], ax[0]])
+
+
 def make_dense_bezier(field, rng, root_xy, per_side=(5, 10), width=0.008, min_gap=0.016, max_near=0.3,
-                      min_vis_gap=0.04, max_frac=0.35, part_bonus=1.0, visible_weight=3.0):
+                      min_vis_gap=0.04, max_frac=0.35, part_bonus=1.0, visible_weight=3.0, pair=True, pair_tol=1.5):
     """many thin stripes (width m, constant), each a Bezier band along the flow, 5-10 per head side (side = where it
     hangs). Selection as initial_masks_generation.dense_chunky: random with the visible / part-seeded candidates
     first, centerlines at least min_gap apart over >= (1 - max_near) of their length (parallel, never merged), hang
     azimuths min_vis_gap apart, strand fraction <= max_frac.
+    pair (default): only part-seeded stripes, picked as mirrored left / right pairs (seeds within pair_tol cells of
+    each other's mirror image across the part axis), the pairs spread evenly along the part (one per bin from the
+    front to the crown, then a second pass). Without it the sides are picked independently and lattice seeds are
+    allowed: left and right started at different places, and lattice stripes started below the part / crown.
     -> locks, Region (one part per stripe), stripe id per strand (0 = base), params"""
     how, table, line, V = dense_candidates(field, root_xy)
     sp = field.grid.cell_spacing
@@ -347,35 +360,73 @@ def make_dense_bezier(field, rng, root_xy, per_side=(5, 10), width=0.008, min_ga
     side = np.where(vis >= 0, 1, -1)
     visible = np.array([t["visible"] for t in table])
     logits = visible_weight * visible / max(visible.max(), 1e-9) + part_bonus * np.array([t["src"] == "part" for t in table])
-    order = np.argsort(-(logits + rng.gumbel(size=len(table))))
+    g = None if pair else rng.gumbel(size=len(table))       # drawn first: same random stream as before pairs
     target = {s: int(rng.integers(per_side[0], per_side[1] + 1)) for s in (-1, 1)}
     count = {-1: 0, 1: 0}
     taken = np.zeros(S, bool)
     chosen, locks = [], []
-    for i in order:
-        s = side[i]
-        if count[s] >= target[s]:
-            continue
+
+    def fits(i, others):
         L = table[i]["pts"]
         head = L[: max(2, len(L) // 3)]            # the roots are seen at the part: no bunching there either
         if any(np.mean(_polyline_dist(L, table[j]["pts"]) < gap) > max_near
-               or np.mean(_polyline_dist(head, table[j]["pts"]) < gap) > max_near for j in chosen):
-            continue
-        if any(abs(np.angle(np.exp(1j * (vis[i] - vis[j])))) < min_vis_gap for j in chosen):
-            continue
-        lk = build_lock(field, V, table[i]["seed"], line, wc, wclip=(1.0, 1.0))
-        inside = Path(lk["polygon"]).contains_points(Q) & ~taken
-        if inside.sum() < 20 or (taken.sum() + inside.sum()) / S > max_frac:
-            continue
-        taken |= inside
-        chosen.append(int(i))
-        lk.update(src=table[i]["src"], side=int(s))
-        locks.append(lk)
-        count[s] += 1
-        if all(count[k] >= target[k] for k in count):
-            break
+               or np.mean(_polyline_dist(head, table[j]["pts"]) < gap) > max_near for j in others):
+            return False
+        return not any(abs(np.angle(np.exp(1j * (vis[i] - vis[j])))) < min_vis_gap for j in others)
+
+    def accept(idx):
+        """add the stripes idx together (all or none)"""
+        nonlocal taken
+        new = [build_lock(field, V, table[i]["seed"], line, wc, wclip=(1.0, 1.0)) for i in idx]
+        ins = [Path(lk["polygon"]).contains_points(Q) & ~taken for lk in new]
+        if min(x.sum() for x in ins) < 20 or (taken.sum() + sum(x.sum() for x in ins)) / S > max_frac:
+            return False
+        for i, lk, x in zip(idx, new, ins):
+            taken |= x
+            chosen.append(int(i))
+            lk.update(src=table[i]["src"], side=int(side[i]))
+            locks.append(lk)
+            count[side[i]] += 1
+        return True
+
+    if pair:
+        mu, ax, pn = _part_frame(line)
+        part = np.array([i for i, t in enumerate(table) if t["src"] == "part"])
+        X = np.array([[table[i]["seed"][1], table[i]["seed"][0]] for i in part], float) - mu
+        T, U = X @ ax, X @ pn
+        R, L_ = part[side[part] > 0], part[side[part] < 0]
+        iR, iL = np.flatnonzero(side[part] > 0), np.flatnonzero(side[part] < 0)
+        dT = np.abs(T[iR][:, None] - T[iL][None])
+        dU = np.abs(U[iR][:, None] + U[iL][None])
+        pr, pl_ = np.nonzero((dT <= pair_tol) & (dU <= pair_tol))
+        pairs = np.stack([R[pr], L_[pl_]], 1)
+        Tp = (T[iR][pr] + T[iL][pl_]) / 2
+        n_pairs = min(target.values())
+        tl = (np.stack(np.nonzero(line)[::-1], 1) - mu) @ ax
+        edges = np.linspace(tl.min() - 1, tl.max() + 3, n_pairs + 1)
+        bins = np.clip(np.searchsorted(edges, Tp) - 1, 0, n_pairs - 1)
+        order = np.argsort(-(logits[pairs].sum(1) + rng.gumbel(size=len(pairs))))
+        filled = set()
+        for rnd in range(2):                        # one pair per bin first, then fill the remaining slots
+            for bi in range(n_pairs):
+                if len(chosen) >= 2 * n_pairs or (rnd == 0 and bi in filled):
+                    continue
+                for k in order[bins[order] == bi]:
+                    a, b = pairs[k]
+                    if fits(a, chosen) and fits(b, chosen + [a]) and accept((a, b)):
+                        filled.add(bi)
+                        break
+    else:
+        order = np.argsort(-(logits + g))
+        for i in order:
+            s = side[i]
+            if count[s] >= target[s] or not fits(i, chosen):
+                continue
+            accept((i,))
+            if all(count[k] >= target[k] for k in count):
+                break
     region = Region.from_polygons([lk["polygon"] for lk in locks], field.n, separate=True)
-    params = dict(style="dense_bezier", seed_line=how, width=width, n_stripes=len(locks),
+    params = dict(style="dense_bezier", seed_line=how, width=width, n_stripes=len(locks), pair=pair,
                   per_side={"right" if k > 0 else "left": count[k] for k in count},
                   target_per_side={"right" if k > 0 else "left": target[k] for k in target},
                   from_part=sum(lk["src"] == "part" for lk in locks),
@@ -391,42 +442,3 @@ def stripe_ids(region, root_xy):
         phi = region.sample(region.parts[k][0], x, y) if region.parts is not None else region.phi_at(x, y)
         ids[(ids == 0) & (phi > 0)] = k + 1
     return ids
-
-
-def corridor_region(fp, ids, positions, n, width_cells, step=0.004, min_share=0.3, smooth=2.0):
-    """Editing target for dense stripes on long hair: where each stripe's OWN hair lies, not where its flow line
-    goes (a long strand drifts several cells off the root-space streamline). Stripe k's corridor centerline is
-    the median footprint of its strands per `step` m of arc length (only checked footprints, until fewer than
-    min_share of its strands are still over the scalp), Gaussian-smoothed and fit with one quintic Bezier; the
-    corridor is the band of width_cells around it. Near the roots it coincides with the stripe.
-    -> Region (one part per stripe), list of corridor dicts (ctrl, polygon)"""
-    s = np.concatenate([np.zeros((len(positions), 1)),
-                        np.cumsum(np.linalg.norm(np.diff(positions.astype(np.float64), axis=1), axis=-1), 1)], 1)
-    polys, cors = [], []
-    for k in range(1, int(ids.max()) + 1):
-        sel = np.flatnonzero(ids == k)
-        if sel.size < 5:
-            continue
-        b = (s[sel] / step).astype(np.int64)
-        m = fp.chk[sel]
-        X, Y, B = fp.x[sel][m], fp.y[sel][m], b[m]
-        path = []
-        for j in range(int(B.max()) + 1 if B.size else 0):
-            q = B == j
-            if q.sum() < min_share * sel.size:
-                break
-            path.append((np.median(X[q]), np.median(Y[q])))
-        if len(path) < 3:
-            continue
-        path = np.asarray(path)
-        path = np.stack([ndi.gaussian_filter1d(path[:, 0], smooth, mode="nearest"),
-                         ndi.gaussian_filter1d(path[:, 1], smooth, mode="nearest")], 1)
-        ctrl, _ = fit_bezier(path, 5 if len(path) > 8 else 3)
-        C = bezier(ctrl, np.linspace(0, 1, 100))
-        d = np.gradient(C, axis=0)
-        d /= np.maximum(np.linalg.norm(d, axis=1, keepdims=True), 1e-9)
-        nrm = np.stack([-d[:, 1], d[:, 0]], 1) * width_cells / 2
-        poly = np.vstack([C + nrm, (C - nrm)[::-1]])
-        polys.append(poly)
-        cors.append(dict(stripe=k, ctrl=ctrl, polygon=poly, left=None, right=None, tip=None))
-    return Region.from_polygons(polys, n, separate=True), cors

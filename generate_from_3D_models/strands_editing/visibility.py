@@ -1,5 +1,6 @@
-"""Per-point visibility weights, and what uses them: a visibility-weighted projection graph for FM, a weighted
-(soft-label aware) grid score, and a narrow soft boundary.
+"""Per-point visibility (Beer-Lambert), used by stripe_shape.lift (the base hair's optical depth) and by the metrics:
+a weighted grid score (vis_grid_score) and the visibility-weighted projection cut (vis_cut). The visibility-weighted
+FM, the drag weights and the soft boundary that also used it are archived in archive/visibility.py.
 
 Visibility (Beer-Lambert, the same hair model as update_contour.overlap's depth weights)
     Every hair blocks a fraction `hair_opacity` of the light that passes it (overlap.HAIR_OPACITY), and a hair of
@@ -26,8 +27,7 @@ Weighted projection graph (build_vis_graph)
     min: a color clash is seen only where both strands are seen (if one lies under the other, the lower one's
     vis already includes the hair above it). Per cell a pair keeps its largest q, the edge weight is the sum over
     cells, exactly like projection_depth. With floor 0.1 and 8 levels every crossing keeps q >= 1.
-    FM (update_contour.fm_refine) takes the graph unchanged; its `lam` is absolute, so fm_lam() rescales it by the
-    mean q per crossing to keep the same strength as on the 0/1 graph.
+    pipeline.vis_metrics reports its cut (soft_cut) as vis_cut.
 
 Weighted grid score (vis_grid_score)
     Wanted: the convex-hull grid score's behaviour (low when the two colors sit side by side, high when they are
@@ -44,19 +44,6 @@ Weighted grid score (vis_grid_score)
     strays 0.223 / 0.374, random 50/50 0.997 / 0.998. Cells with one class only (e.g. a base-side fringe) use a
     weighted least-squares quadratic fit of a for f. Up to `max_pts` points per cell (random). The map is averaged
     over all n x n cells, like the grid score. Values are not comparable with the hull grid score's.
-
-Soft boundary (soften)
-    Hard labels -> colors a in [0, 1]. Only strands whose root is closer than `band` (cells) to a root of the other
-    label get a value in between: band on the base side, inner * band on the highlight side (inner < 1 for thin
-    stripes, so they stay solid and the fringe lies outside them). Their prior is a linear ramp over that root
-    distance, p = 0.5 +- 0.5 * d / (side's band), and a minimizes
-        sum_ij W_ij (a_i - a_j)^2 + mu * sum_i deg_i (a_i - p_i)^2
-    over the visibility graph W: the soft version of FM's cut (for hard labels the first term IS the cut). A band
-    strand that lies over the other color fades toward it; one that sits among its own color keeps it. Strands
-    outside the band keep 0 / 1, so the stripes keep their contrast.
-    blend_colors turns a into render colors. The hair BSDF's COLOR mode is far from linear in the color (absorption
-    ~ (ln color)^2): a linear mix of white 0.99 and black 0.0 at a = 0.8 is 0.2, which renders as light hair and
-    washed the locks out. The mix is linear in ln(color) instead (black clamped to BLEND_FLOOR).
 """
 from __future__ import annotations
 
@@ -379,7 +366,7 @@ def _merge_packed(sorted_packed, wbits):
 def build_vis_graph(grid, positions, vis, smg=None, levels=WEIGHT_LEVELS, n_threads=None, chunk=64):
     """StrandGraph of visibility-weighted projection crossings (module docstring) over every cell of smg
     (common.strand_mask_grid_cpu(grid, positions) if None) -> (graph, info); info["mean_q"] = mean q per
-    (cell, pair) crossing (used by fm_lam)"""
+    (cell, pair) crossing"""
     from concurrent.futures import ThreadPoolExecutor
 
     from highlighting.generate_from_3D_models.contour_algo_test import common
@@ -429,21 +416,6 @@ def build_vis_graph(grid, positions, vis, smg=None, levels=WEIGHT_LEVELS, n_thre
     mean_q = float(w.astype(np.int64).sum() / max(n_cross, 1))
     G = StrandGraph(*symmetric_csr(uniq, w, n_strands))
     return G, dict(mean_q=round(mean_q, 3), graph_seconds=round(time.time() - t0, 1), edges=int(uniq.shape[0]))
-
-
-VIS_FULL = 0.5   # edit_weight: points at least this visible count fully
-
-
-def edit_weight(vis, full=VIS_FULL):
-    """violation weight for deform.edit(vis=...): 1 for points at least `full` visible, vis / full below.
-    Multiplying the depth by vis itself raised the drag threshold everywhere (mean vis ~0.63) and left more
-    visible violations than not weighting at all (base_36, vfm -> drag A: grid score 0.0975 vs 0.0789)."""
-    return np.minimum(1.0, vis / full).astype(np.float32)
-
-
-def fm_lam(lam, info):
-    """an absolute FM lam tuned on the 0/1 projection graph, rescaled to the weighted graph"""
-    return int(round(lam * info["mean_q"]))
 
 
 def soft_cut(G, a):
@@ -534,68 +506,6 @@ def vis_grid_score_map(fp, alpha, vis, n, max_pts=2000, seed=0):
 
 def vis_grid_score(fp, alpha, vis, n, **kw):
     return float(vis_grid_score_map(fp, alpha, vis, n, **kw).mean())
-
-
-# ---------------------------------------------------------------- soft boundary
-
-BLEND_FLOOR = 0.01
-
-
-def blend_colors(a, base, highlight, floor=BLEND_FLOOR):
-    """(S,) a in [0, 1] -> (S, 3) float32 colors, mixed linearly in ln(color) (module docstring); a = 0 / 1 give
-    base / highlight exactly"""
-    a = np.clip(np.asarray(a, np.float64), 0, 1)[:, None]
-    lb = np.log(np.maximum(np.asarray(base, np.float64), floor))[None]
-    lh = np.log(np.maximum(np.asarray(highlight, np.float64), floor))[None]
-    c = np.exp((1 - a) * lb + a * lh)
-    c = np.where(a <= 0, np.asarray(base)[None], np.where(a >= 1, np.asarray(highlight)[None], c))
-    return c.astype(np.float32)
-
-def root_distance_to_other(rx, ry, labels):
-    """(S,) distance (cells, root footprint space) from each root to the nearest root of the other label"""
-    from scipy.spatial import cKDTree
-    lab = np.asarray(labels, bool)
-    xy = np.stack([rx, ry], 1)
-    d = np.full(len(lab), np.inf)
-    for side in (True, False):
-        src, dst = lab == side, lab != side
-        if src.any() and dst.any():
-            d[src] = cKDTree(xy[dst]).query(xy[src])[0]
-    return d
-
-
-def soften(G, labels, rx, ry, band, mu=1.0, iters=200, inner=1.0):
-    """hard labels -> colors a in [0, 1] with a transition at most (1 + inner) * band cells wide: band on the base
-    side of the boundary, inner * band on the highlight side (module docstring). inner < 1 keeps thin stripes
-    solid: the fringe goes outside them. -> (a float32, info)"""
-    import scipy.sparse as sp
-    lab = np.asarray(labels, bool)
-    S = len(lab)
-    d = root_distance_to_other(rx, ry, lab)
-    # the nearest root of the other label is just across the boundary, so d ~ the distance to the boundary
-    b = np.where(lab, inner * band, band)
-    t = np.clip(d / np.maximum(b, 1e-9), 0, 1)
-    prior = np.where(lab, 0.5 + 0.5 * t, 0.5 - 0.5 * t)
-    free = d < b
-    a = lab.astype(np.float64)
-    a[free] = prior[free]
-    W = sp.csr_matrix((G.weight.astype(np.float64), G.nbr, G.ptr), shape=(S, S))
-    deg = np.asarray(W.sum(1)).ravel()
-    fi = np.flatnonzero(free)
-    Wf = W[fi]
-    df = deg[fi]
-    pf = prior[fi]
-    for _ in range(iters):
-        num = Wf @ a + mu * df * pf
-        new = np.where(df > 0, num / np.maximum((1 + mu) * df, 1e-30), pf)
-        delta = np.abs(new - a[fi]).max() if fi.size else 0.0
-        a[fi] = new
-        if delta < 1e-4:
-            break
-    a = np.clip(a, 0, 1).astype(np.float32)
-    soft = (a > 0.02) & (a < 0.98)
-    return a, dict(soft_band=round(float(band), 3), soft_inner=inner, soft_strands=int(soft.sum()),
-                   soft_flipped=int(((a > 0.5) != lab).sum()), soft_mu=mu)
 
 
 def check_against_columns(grid, positions, center, smg, k=200000, seed=0, **kw):

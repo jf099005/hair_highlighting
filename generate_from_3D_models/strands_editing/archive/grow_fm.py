@@ -1,4 +1,6 @@
-"""One-way FM for dense stripes: base strands that lie ON TOP of a stripe may turn highlight, no highlight strand
+"""[ARCHIVED 2026-11-04: frozen copy, imports point to strands_editing.archive.*]
+
+One-way FM for dense stripes: base strands that lie ON TOP of a stripe may turn highlight, no highlight strand
 ever turns base, so no stripe can vanish (two-way FM eats thin stripes: lam 1e3 keeps 3/15 on long hair).
 
     candidates   base strands rooted within `near` cells of a (root-space) stripe with >= min_points checked points
