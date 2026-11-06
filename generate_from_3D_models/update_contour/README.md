@@ -153,6 +153,76 @@ PYTHON=~/anaconda3/envs/hair_exp/bin/python ./run_update_contour.sh \
 - `--mask` 可為 `.npy` / `.npz`（key `mask`）/ `.png`，(N,N) 或 (N,N,3)；輸出 `.npz`（預設 `<mask>_updated.npz`）
   含 `mask`、`binary_mask`、`strand_colors`、`strand_mask`。
 
+## 流程與實作細節
+
+`ScalpGrid`（grid + 切線基底）→ `strand_mask_grid`（(N, N, S) 歸屬）→ 每根髮絲的 bool 狀態（取髮根格）→ 演算法 →
+髮絲標籤寫回 grid（每格取髮根在該格的髮絲眾數；沒有髮根的格子保留輸入值）。
+
+### FM 容易出錯的地方
+
+- `fm_refine` 不改傳入的任何東西，回傳新的 state（`return_history=True` 時回傳每個 pass 的 list）。
+- `fm_refine` 接受 `build_cell_incidence` 的 cell incidence tuple `(cell_ptr, cell_members, strand_ptr, strand_cells)`
+  （< 2 根髮絲的格子被丟掉），或 `overlap.StrandGraph`。傳 graph 時 `mode` 被忽略，目標是被切開的邊權重。由 `_is_graph`
+  分派；`fm_objectives` 與 `trim.strand_conflict_counts` 用同樣的分派，兩個回傳值的意義跟著改變
+  （混色格數 / clique cut ↔ 被切開的對數 / 權重）。
+- gain 是整數，bucket 陣列大小 `2*max_gain+1`，`max_gain` 含 `+lam`。`lam` 必須是非負整數，而且是和交叉數比較的**絕對值**，
+  不能跨不同髮絲數或 overlap 模式沿用。
+- `balance_tol` 預設 0.02，因為 `cutnet` 沒有它會塌成單色；`None` 關閉。
+- `state0`（lam 的參考）= 傳進 `fm_refine` 的 state，所有 pass 固定。
+- Boundary FM（`boundary_fm.py`）與 `fm.py` 共用 bucket helper；改 gain / balance 邏輯時 `_fm_pass` / `_bfm_pass`（及
+  `_graph` 版本）要同步，`joint_contour/boundary_fm.py` 也對應它。
+- `build_projection_graph` 是最貴的一步（長髮 32×32 / ~98k 根約 30–45 s、峰值 ~13 GB），建一次重複用，FM 不會重算。
+- 深度加權：q 存在 pair key 的低 `Q_BITS`（`crossing_keys_weighted`，由 `weighted_pairs(packed=True)` 合併），所以二元路徑
+  （`crossing_keys`、`_crossings` 的 `levels=0`）完全不受影響。`project_segments` 回傳的 `sz`/`ez` 只有深度路徑使用，
+  二元路徑傳 `segs[:5]` 給 `crossing_keys`。
+
+### 2_stage（`two_stage.py`）細節
+
+- 第一階段：髮根格 |flux| > `threshold`（預設 0.3；或改用前 `top_pct` %）的髮絲被拿掉，`fm_refine` 在
+  `subset_incidence(incidence, keep)` 上跑（StrandGraph 的誘導子圖 / 不含它們的 cell incidence，依序重新編號）。
+  第二階段 `neighbor_vote`：被拿掉的髮絲取相交的保留髮絲中交點權重較多的一色。
+- 沒有髮絲被拿掉時與 `fm_refine` 逐位元相同（兩種 overlap 都檢查過），也完全重現
+  `contour_algo_test/divergence_clip_test.ipynb`（「clip2」+ 放回）。
+- 記憶體：第一階段期間子圖是 projection graph 大部分的第二份副本（長髮 ~4–5 GB），第二階段前釋放。
+- benchmark method 是 `contour_algo_test/methods.py` 的 `two_stage`（variants `fm2s_*`）。
+
+### 誰依賴這個套件（改簽名或內部前先查）
+
+- `joint_contour/` import **私有** helper：`fm._b_insert/_b_remove/_bump`、`boundary_fm._activate/_bbump`、
+  `overlap` 內部（`project_segments`、`crossing_keys`、`crossing_keys_weighted`、`weighted_pairs`、`cell_frame`、
+  `symmetric_csr`、`projection_kappa`、`check_weight_levels`、`HAIR_WIDTH/HAIR_OPACITY/WEIGHT_LEVELS`）、
+  `grid.H_MIN/H_MAX/ScalpGrid`、`masks`、`uv_to_rc`。
+- `contour_algo_test/` 直接呼叫 `fm_refine`、`build_cell_incidence`、`build_projection_graph`、`trim`，並有自己的 numba
+  歸屬 kernel（`common.strand_mask_grid_cpu`），必須與 `grid.compute_strand_mask_grid` 一致。
+- `mask_analysis/` import `masks` 與 `grid.uv_to_rc`。
+- `flow_field/` 在呼叫時才讀 `grid.H_MIN/H_MAX` 與 `uv_to_rc`（本套件 import 它）。`update_contour.flux`、
+  `uc.cal_grid_flux_3d` / `uc.strand_divergence` 是 re-export，要保持可用。
+- `../../../NCKU_3D_hair_reconstruction/inference/img2hair_tsai_1.py` 以 `uc` import 本套件做分析；
+  `scalp_grid_volume_sample/` 的 notebook（`FM_test_3D`、`active_contour_test_3D`）也有 import。
+- 很多 docstring 提到已刪除的 `mask_updating_test_3D.ipynb`，那是歷史名稱。
+
+## 開發守則
+
+- **改之前**先查使用者（上方「誰依賴這個套件」）：`joint_contour` import 私有 helper，改名或改參數會壞；`contour_algo_test` 直接呼叫
+  `fm_refine`、`build_cell_incidence`、`build_projection_graph`、`trim`；NCKU repo 與 `scalp_grid_volume_sample` 的 notebook 以 `uc` import。
+- 改 `H_MIN/H_MAX` 或 column 測試時，也要改 `contour_algo_test/common.strand_mask_grid_cpu` 與 `highlight_diffusion/reward.Scorer`，
+  並重新確認結果一致。
+- 預設關閉必須逐位元相同：`boundary=False`、`overlap="cell"`、`lam=0`、`depth_weight=False`，以及沒有拿掉任何髮絲的
+  `2_stage`（= `fm_refine`）。改深度路徑時二元 projection 路徑（`crossing_keys`、`levels=0`）不能變。
+- gain 或 balance 邏輯的改動要同時改 `_fm_pass` 與 `_bfm_pass`（及 `_graph` 版本），以及 `joint_contour/boundary_fm.py` 與
+  `initial_masks_generation/local_fm._fm_pass_fixed`。
+- `fm_refine` 不能修改輸入；`lam` 維持非負整數。
+- projection graph 建一次重複用，不要在 FM 內重建。
+- 只用 CPU 的呼叫者傳入 `contour_algo_test.common.strand_mask_grid_cpu` 算好的 `strand_mask_grid=`（使用者的 GPU 常被佔用）。
+- 驗證：CLI 跑一個髮型，或（FM 改動）`contour_algo_test` smoke run，確認預設參數的 variant 與之前的 run 相同。
+
+## 效能
+
+- `grid.strand_mask_grid(device="auto")` 有 CUDA 用 torch，否則 numpy（每個髮型 ~170 s）。只用 CPU 時改用
+  `contour_algo_test.common.strand_mask_grid_cpu`（numba，< 1 s，結果相同），用 `strand_mask_grid=` 傳入。
+- 對同一個髮型重複呼叫 `update_mask` 時傳 `grid=` 與 `strand_mask_grid=`。
+- numba kernel 第一次呼叫要編譯數秒；計時看第二次。
+
 ## 環境
 
 - `hair_exp` 環境（numba、torch、opencv、scipy）以及 `DiffLocks_Dataset/difflocks_dataset/body_data/scalp.ply`。

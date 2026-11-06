@@ -4,7 +4,7 @@
 **微調後的髮型**與**微調後的 mask**，目標是讓挑染（黑）與底色（白）髮絲在 3D 中盡量不交錯
 （grid score 低），同時 mask 面積與髮型都盡量貼近輸入。
 
-完整的實驗紀錄、各階段結果與渲染範例在 `REPORT.md`（以及發佈的 HTML 報告）。
+結果與結論在 [`Summary.md`](Summary.md)（以及發佈的 HTML 報告）。**狀態：已放棄**（underfit，幾乎不改 mask）；後續改做 `../highlight_vae`。
 
 ## 架構
 
@@ -55,4 +55,35 @@ DiffLocks HDiT 推論完成 ──► scalp texture T0 (64 latent + density, 256
 
 ## 使用方式
 
-見 `CLAUDE.md` 的指令區（資料準備 → SFT → RL → evaluate → render）。
+環境 `hair_exp`（含 natten、flash-attn、numba）。從專案根目錄（`/home/kyh/Desktop/P76154862`）以 `PYTHONPATH=$PWD` 用模組方式執行；
+`common.py` 會把 NCKU repo 加到 `sys.path`（它的 `k_diffusion`、`models`、`utils`、`data_loader`、`modules` 是那邊的頂層套件）。
+HDiT 從 `../../../NCKU_3D_hair_reconstruction` import，不複製也不修改。**用 GPU**（不同於 `contour_algo_test`）：`reward.py` 在
+import `contour_algo_test.common` 之前設 `CONTOUR_BENCH_ALLOW_GPU=1`，否則那個 import 會藏起 CUDA。
+
+```bash
+P=~/anaconda3/envs/hair_exp/bin/python; M=highlighting.generate_from_3D_models.highlight_diffusion
+PYTHONPATH=$PWD $P -m $M.prepare_textures --from_cases --extra_random 200      # data/textures/<hairstyle>/
+PYTHONPATH=$PWD $P -m $M.train_sft --run sft_v1 --steps 3000                     # data/runs/sft_v1/ckpt.pt
+PYTHONPATH=$PWD $P -m $M.train_rl --run rl_v1 --init <sft ckpt> --algo nft       # data/runs/rl_v1/best.pt
+PYTHONPATH=$PWD $P -m $M.evaluate --out data/eval/v1 --model rl=<ckpt> --save_outputs [--fm_decoded]
+PYTHONPATH=$PWD $P -m $M.render --eval data/eval/v1 --cases <ids> --methods mask_only,fm_best,rl
+```
+
+## 慣例
+
+- 兩種 layout：scalp texture (row, col) = ((1-v)·256, u_tex·256)，`mirror_hair` 髮型的 u_tex = 1-u（DiffLocks dataloader）；
+  以及挑染用的 scalp grid（原始 uv）。`common.texel_cell_map` 連接兩者。逐髮絲標籤一律是「髮根處的 mask 值」（各自 layout）；
+  評分用 scalp grid，與 `contour_algo_test.metrics.grid_score` 相同。
+- 髮根固定（資料集髮根），只透過 latent 改髮絲（相對髮根的形狀）；density 通道每個 sampler step 都換回原值。
+- `reward.Scorer` 是 `mask_analysis.cal_grid_score` 的 numba 版（`reward.check_fast_score` 檢查逐位元相同，快 ~20 倍）。
+  `single_grid_score2`、`H_MIN/H_MAX` 或 column 測試改了要同步，並重跑 `python -m ...highlight_diffusion.reward`。
+- HDiT 的 cross-attention 是 cosine-similarity attention（key 做 L2 normalize）：把條件 token 縮向 0 不會關掉它，只有精確的 0
+  才重現 DiffLocks 的無條件模式。
+- 所有分數都在每個髮型固定的 20k 髮絲子集（`Hairstyle(n_strands=20000)`）的解碼髮型上；FM baseline 在同一髮型上重新評分。
+  子集時 FM 的 `lam` 乘 (S/S_full)²。
+- mask 通道（channel 65）是**殘差** r = (M − M0)·σ_data，在 x0-space 預測（D = σ_data·F，zero-init head = 「保持 M0」），
+  **不**回饋為輸入（`ObjectiveModel.forward` 把該槽歸零）。`pipeline.sample(mask_temp=)`：0 = 原始預測（評估）；
+  > 0 = 平滑的隨機門檻場（RL 探索，回傳實際的離散殘差，NFT 用它訓練）。為何如此設計見 Summary.md。
+- `--pos_w` 衰減到 0（`--pos_w_decay`）；SFT 目標是解碼髮型上的逐髮絲 FM 標籤（`gen_fm_targets.py`），`extras.py` 的 `sgraph`
+  提供髮絲解析度的交錯特徵。新 run 從 l_lat ~0.13 的 checkpoint 暖啟動。
+- `data/` 不在 git（texture 每個髮型 ~8.5 MB、runs、evals、renders）。

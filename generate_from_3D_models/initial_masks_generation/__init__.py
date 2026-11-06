@@ -8,8 +8,9 @@ follow the hair flow, so that highlight and base strands cross as little as poss
     postprocess  BFS clean-up (small islands / holes, unrooted cells)
     viz       debug figure (flux, flow, seeds, mask)
     build_bench  writes a contour_algo_test benchmark folder from these styles (then `bench.sh run`)
+    bezier    curve-based (Bezier) masks bezier_dense / bezier_chunky (per strand; strands_editing.pipeline.build_mask)
 
-See ALGORITHM.md for the algorithm and CLAUDE.md for the conventions.
+See README.md for the algorithm and conventions, Summary.md for results.
 """
 import os
 import sys

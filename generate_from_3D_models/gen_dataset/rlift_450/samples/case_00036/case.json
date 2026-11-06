@@ -1,0 +1,23 @@
+{
+  "case": "case_00036",
+  "index": 36,
+  "hairstyle": "base_72_idx_60440",
+  "length_class": "short",
+  "mask_round": 0,
+  "style": "chunky",
+  "mask_style": "bezier_chunky",
+  "grid_n": 32,
+  "width": 0.02,
+  "per_side": [
+    5,
+    10
+  ],
+  "target_frac": 0.12,
+  "mask_seed": [
+    0,
+    20,
+    36
+  ],
+  "npz_path": "/home/kyh/Desktop/P76154862/DiffLocks_Dataset/difflocks_dataset/generated_hairstyles/base_72_idx_60440/full_strands.npz",
+  "created": "2026-11-05 00:25:06"
+}

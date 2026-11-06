@@ -6,6 +6,11 @@
     gen.sh filter     <dataset_dir> [--filter SPEC] [--a/--b/--c] [--n_samples] [--ratio] [--keep_surplus]
     gen.sh render     <dataset_dir> [render options] [--overwrite] [--limit K]
     gen.sh report     <dataset_dir>
+    gen.sh rlift      <dataset_dir> --n_samples N [--ratio 1:2:2] [--dense_share 0.8] [--max_hours H]
+                      (curve masks + strands_editing rlift_bf, no filter; rlift.py)
+    gen.sh rlift_overview <dataset_dir>  |  gen.sh rlift_calibrate
+    gen.sh rlift_div <dataset_dir> [--overwrite]   (|div| before / after rlift_bf, shown in the overviews)
+    gen.sh rlift_filter_overview <dataset_dir> [--threshold 0.3] [--stage rlift_bf|init] [--sort]
 
 generate: per length class, draw candidates (hairstyle + random mask), refine each with every --methods variant
 (contour_algo_test run_benchmark, CPU, memory-guarded child per case), filter them, and repeat until every class
@@ -392,6 +397,15 @@ def cmd_report(args):
 
 
 def main():
+    if len(sys.argv) > 1 and sys.argv[1] in ("rlift", "rlift_overview", "rlift_calibrate"):
+        from highlighting.generate_from_3D_models.gen_dataset import rlift
+        return rlift.main(sys.argv[1:])        # curve masks + strands_editing rlift_bf (rlift.py)
+    if len(sys.argv) > 1 and sys.argv[1] == "rlift_div":
+        from highlighting.generate_from_3D_models.gen_dataset import rlift_div
+        return rlift_div.main(sys.argv[2:])         # |div| of every ok rlift sample, then rewrite the overview
+    if len(sys.argv) > 1 and sys.argv[1] == "rlift_filter_overview":
+        from highlighting.generate_from_3D_models.gen_dataset import filter_overview
+        return filter_overview.main(sys.argv[2:])   # overview of the rlift samples with grid_score < threshold
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = p.add_subparsers(dest="cmd", required=True)
     g = sub.add_parser("generate", help="generate, filter, render, report")

@@ -1,0 +1,134 @@
+{
+  "case": "case_00111",
+  "index": 111,
+  "hairstyle": "base_69_idx_42097",
+  "length_class": "mid",
+  "mask_round": 0,
+  "style": "dense",
+  "mask_style": "bezier_dense",
+  "grid_n": 96,
+  "width": 0.008,
+  "per_side": [
+    5,
+    10
+  ],
+  "target_frac": 0.12,
+  "mask_seed": [
+    0,
+    20,
+    111
+  ],
+  "npz_path": "/home/kyh/Desktop/P76154862/DiffLocks_Dataset/difflocks_dataset/generated_hairstyles/base_69_idx_42097/full_strands.npz",
+  "created": "2026-11-06 02:30:09",
+  "result": {
+    "case": "case_00111",
+    "status": "ok",
+    "n_strands": 96702,
+    "n_parts": 4,
+    "mask_params": {
+      "style": "bezier_dense",
+      "seed_line": "part",
+      "width": 0.008,
+      "n_stripes": 4,
+      "pair": true,
+      "per_side": {
+        "left": 2,
+        "right": 2
+      },
+      "target_per_side": {
+        "left": 7,
+        "right": 5
+      },
+      "from_part": 4,
+      "flow_alignment": 0.06405876475222919,
+      "pair_tol": 3.0,
+      "strand_frac": 0.06235651796239995,
+      "n_parts": 4,
+      "grid_n": 96,
+      "seed": [
+        0,
+        20,
+        111
+      ]
+    },
+    "seconds": {
+      "load": 1.1,
+      "mask": 48.9,
+      "rlift_bf": 8.7,
+      "metrics": 37.5,
+      "total": 127.1
+    },
+    "metrics": {
+      "init": {
+        "grid_score": 0.19355155527591705,
+        "sp_reach": 0.25,
+        "sp_reach_full": 0.0,
+        "sp_fill": 0.22121710526315785,
+        "sp_width_cv": 1.5906847665132189,
+        "sp_jump": 0.14756944444444442,
+        "sp_frag": 0.5394736842105262,
+        "sp_merged": 0.18421052631578946,
+        "sp_wiggle_mm": 5.849152281881768,
+        "sp_mean_w_mm": 2.111842105263158,
+        "sp_between_cv": 0.9327656334698782,
+        "dens_l1": 0.0,
+        "dens_p95": 0.0
+      },
+      "rlift_bf": {
+        "grid_score": 0.17111368477344513,
+        "sp_reach": 0.18750000000000003,
+        "sp_reach_full": 0.0,
+        "sp_fill": 0.32072368421052627,
+        "sp_width_cv": 2.008188975927226,
+        "sp_jump": 0.2890625,
+        "sp_frag": 1.0263157894736843,
+        "sp_merged": 0.15789473684210525,
+        "sp_wiggle_mm": 6.248059003810073,
+        "sp_mean_w_mm": 3.1776315789473686,
+        "sp_between_cv": 0.8309760520182367,
+        "dens_l1": 0.04566632928961078,
+        "dens_p95": 0.2382098969883173,
+        "n_edited": 9174,
+        "disp_mean_mm": 6.26779261779593,
+        "disp_max_mm": 53.06097211613609,
+        "disp_p95_strand_max_mm": 34.51980175464983,
+        "length_change_pct": 0.7002239887602325,
+        "kink_deg_mean": 13.175003557004018,
+        "kink_deg_p95": 29.430909527821616,
+        "curvature_change": 0.4376769385492749,
+        "shift_max_mm": 26.63337010681351,
+        "lift_mean_mm": 6.949198170528073,
+        "lift_max_mm": 17.910018657120588,
+        "kink_limited": 1297,
+        "n_moved": 5776,
+        "n_paired": 3144,
+        "bf_kink_limited": 30,
+        "edit_seconds": 8.7
+      }
+    },
+    "highlight_frac": 0.06235651796239995,
+    "finished": "2026-11-06 02:31:47",
+    "peak_rss_gb": 4.61,
+    "wall_seconds": 127.6
+  },
+  "base_color": [
+    0.6918366551399231,
+    0.5765305757522583,
+    0.38435372710227966
+  ],
+  "highlight_color": [
+    0.11604864150285721,
+    0.26828837394714355,
+    0.01995856873691082
+  ],
+  "render_delta_e": 47.4,
+  "min_delta_e": 45.2,
+  "render": {
+    "preset": "optical_rgb",
+    "samples": 256,
+    "resolution": 512,
+    "views": "front,top,left,back"
+  },
+  "rendered": true,
+  "render_seconds": 34.6
+}

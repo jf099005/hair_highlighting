@@ -1,0 +1,46 @@
+{
+  "mode": "rlift",
+  "n_samples": 560,
+  "ratio": {
+    "short": 0.0,
+    "mid": 0.5,
+    "long": 0.5
+  },
+  "dense_share": 0.8,
+  "seed": 0,
+  "strands_file": "full_strands.npz",
+  "grid_n": {
+    "dense": 96,
+    "chunky": 32
+  },
+  "per_side": [
+    5,
+    10
+  ],
+  "width": {
+    "dense": 0.008,
+    "chunky": 0.02
+  },
+  "target_frac": 0.12,
+  "min_hair_length": 0.0,
+  "max_hair_length": null,
+  "max_masks_per_hairstyle": 3,
+  "max_candidates": 1350,
+  "max_hours": 4.5,
+  "max_mem_gb": 22.8,
+  "min_free_gb": 2.0,
+  "refine_threads": null,
+  "overlap": true,
+  "workers": 2,
+  "render": {
+    "enabled": true,
+    "color_mode": "random",
+    "base_color": null,
+    "highlight_color": null,
+    "min_contrast": 0.25,
+    "min_delta_e": null,
+    "samples": 256,
+    "resolution": 512
+  },
+  "updated": "2026-11-06 03:15:16"
+}

@@ -7,7 +7,7 @@ Every method is rendered on the same 20k-strand subset the scores use (drawn at 
   fm_decoded           source hair, FM re-run on it (as evaluate.py)
   <model>              refined hair decoded from the saved output texture, labels = output mask at the root texel
   <model>+fm           refined hair, FM re-run on it from the initial mask (hybrid)
-through coloring_by_strand/run_highlight_render.sh (GPU, see the repo CLAUDE.md).
+through coloring_by_strand/run_highlight_render.sh (GPU, see the repo README.md).
 
     python -m highlighting.generate_from_3D_models.highlight_diffusion.render --eval data/eval/main \
         --cases hl_n50/case_0003,... --methods mask_only,fm_decoded,rl_nft,rl_nft+fm

@@ -1,0 +1,90 @@
+{
+  "case": "case_00211",
+  "status": "ok",
+  "n_strands": 99122,
+  "n_parts": 12,
+  "mask_params": {
+    "style": "bezier_dense",
+    "seed_line": "part",
+    "width": 0.008,
+    "n_stripes": 12,
+    "pair": false,
+    "per_side": {
+      "left": 6,
+      "right": 6
+    },
+    "target_per_side": {
+      "left": 6,
+      "right": 10
+    },
+    "from_part": 5,
+    "flow_alignment": 0.04553722894255372,
+    "strand_frac": 0.15179274025947823,
+    "n_parts": 12,
+    "grid_n": 96,
+    "seed": [
+      0,
+      20,
+      211
+    ]
+  },
+  "seconds": {
+    "load": 1.7,
+    "mask": 67.0,
+    "rlift_bf": 16.3,
+    "metrics": 61.1,
+    "total": 186.3
+  },
+  "metrics": {
+    "init": {
+      "grid_score": 0.6096023321151733,
+      "sp_reach": 0.13333333333333333,
+      "sp_reach_full": 0.0,
+      "sp_fill": 0.1817434210526316,
+      "sp_width_cv": 1.34493581381418,
+      "sp_jump": 0.1111111111111111,
+      "sp_frag": 0.912280701754386,
+      "sp_merged": 0.13157894736842105,
+      "sp_wiggle_mm": 7.766824264325547,
+      "sp_mean_w_mm": 1.4605263157894737,
+      "sp_between_cv": 0.9684440251123043,
+      "dens_l1": 0.0,
+      "dens_p95": 0.0
+    },
+    "rlift_bf": {
+      "grid_score": 0.5789396166801453,
+      "sp_reach": 0.3125,
+      "sp_reach_full": 0.08333333333333333,
+      "sp_fill": 0.6208881578947368,
+      "sp_width_cv": 1.1262290700125466,
+      "sp_jump": 0.402199074074074,
+      "sp_frag": 2.2675438596491233,
+      "sp_merged": 0.25,
+      "sp_wiggle_mm": 10.62404185570553,
+      "sp_mean_w_mm": 7.785087719298247,
+      "sp_between_cv": 0.37486555151144274,
+      "dens_l1": 0.19265987409954685,
+      "dens_p95": 0.6125753290795306,
+      "n_edited": 19380,
+      "disp_mean_mm": 10.610669930030738,
+      "disp_max_mm": 58.26230146566496,
+      "disp_p95_strand_max_mm": 48.34009744507945,
+      "length_change_pct": 0.5081944402919615,
+      "kink_deg_mean": 12.742950137702886,
+      "kink_deg_p95": 29.446232226660744,
+      "curvature_change": 0.453912917894403,
+      "shift_max_mm": 29.06541052361857,
+      "lift_mean_mm": 7.691807498486028,
+      "lift_max_mm": 24.046912284982618,
+      "kink_limited": 2561,
+      "n_moved": 14955,
+      "n_paired": 4334,
+      "bf_kink_limited": 50,
+      "edit_seconds": 16.3
+    }
+  },
+  "highlight_frac": 0.15179274025947823,
+  "finished": "2026-11-06 04:55:04",
+  "peak_rss_gb": 5.72,
+  "wall_seconds": 186.9
+}

@@ -6,6 +6,11 @@
 測試 notebook：[`scalp_grid_volume_sample/joint_contour_updating_test.ipynb`](../scalp_grid_volume_sample/joint_contour_updating_test.ipynb)。
 目前只有 FM；active contour 尚未移植到 joint 設定。
 
+外部使用者：`../../../NCKU_3D_hair_reconstruction/inference/img2hair_tsai_1.py`（`ScalpGrid`、`strand_cell_membership`、`update_joint_mask`，
+參數集中在它的 `JOINT_FM_KWARGS`）。它傳入 scalp-texture texel 的 `rowcol_a=` / `rowcol_b=`（與 scalp grid 轉置），覆蓋預設的
+`grid.root_rowcol(root_uv)`。`update_joint_mask` 的簽名與回傳 key（`binary_mask`、`state_a`、`state_b`、`visible_a`、`visible_b`、
+`objectives`）要保持不變。
+
 ## 交叉的定義（跟 update_contour 的差別）
 
 | | update_contour（單頭） | joint_contour（雙頭） |
@@ -45,16 +50,7 @@
 `update_joint_mask` / CLI / `img2hair_tsai_1.py` 的 `JOINT_FM_KWARGS` 都用同樣的參數名稱。
 不論設定，從不跟另一顆頭共用柱體的節點都不會被翻（翻了也不影響目標函數）。
 
-**關閉限制的代價**（實測 256×256，Lee + Tsai，lam=2）：
-
-| 設定 | 交叉對數 | 保留的 A / B 髮絲 | 時間 |
-|---|---|---|---|
-| 三個限制全開（`cell`、`0.02`、`movable_only`） | 6.71M → 1.60M | 40,925 / 52,650 | 38 s |
-| 全關（預設） | 6.71M → 49 | 37,940 / 47,110 | 131 s |
-
-每根髮絲各自翻轉時，「把交界處 A 的髮絲和 B 的髮絲都藏起來」不用任何代價就能消掉交叉，所以交叉幾乎歸零，
-但可見髮絲少了約 8,500 根（可能禿塊）。只有一顆頭有髮根的格子翻過去也是假 gain（藏起髮絲卻沒有髮絲補上）。
-`movable_only` 就是擋這個。沒有 `balance_tol` 且 `lam` 太小時，FM 可以收斂到全 A 或全 B（0 交叉）。
+**關閉限制的代價**（每根髮絲各自翻轉時會把交界兩顆頭的髮絲都藏起來，造成禿塊）的實測數字見 [`Summary.md`](Summary.md)。只有一顆頭有髮根的格子翻過去是假 gain（藏起髮絲卻沒有髮絲補上），`movable_only` 就是擋這個。沒有 `balance_tol` 且 `lam` 太小時，FM 可以收斂到全 A 或全 B（0 交叉）。
 
 翻轉一個節點 = 它的 A 髮絲變 hidden、B 髮絲變 visible（或反之）。gain 範圍夠小時（每根髮絲一個節點通常如此）用
 update_contour.fm 的 O(1) gain bucket；cell 節點的 gain 以髮絲數加權、範圍可能很大，這時改用兩棵 max segment tree

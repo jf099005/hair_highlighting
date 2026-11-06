@@ -5,7 +5,7 @@
 # highlights, ombre, money piece (bold face-framing chunk), and skunk stripe
 # - selected with --pattern, all sharing the exact same underlying mechanism
 # and Blender node graph. Only the PYTHON-side per-strand selection algorithm
-# differs between patterns; see ALGORITHMS.md in this directory for the full
+# differs between patterns; see README.md in this directory for the full
 # write-up of each technique and why it maps to these parameters the way it
 # does.
 #
@@ -17,7 +17,7 @@
 # stay hidden from a frontal view) and read as barely-there in a single still
 # render. money_piece replaces face_framing as the deliberately bold,
 # narrow, hard-edged version of the same "highlight near the face" idea; see
-# ALGORITHMS.md section 3 for the full reasoning.
+# README.md ("Caveats" section) for the full reasoning.
 #
 # ---- The shared mechanism ----------------------------------------------
 # For every strand we compute one number in Python: `transition_start`, the
@@ -595,7 +595,7 @@ def main():
         flat_points[:, [1, 2]] = flat_points[:, [2, 1]]
         flat_points[:, 1] *= -1
     else:  # 'dataset_raw'
-        # measured empirically (see ALGORITHMS.md): the dataset's own strand
+        # measured empirically (see README.md): the dataset's own strand
         # npz files (full_strands.npz etc.) already land directly in hair_01's
         # local space via local_xyz = (raw_x, -raw_z, raw_y) - no further
         # swap needed (unlike 'world' above, this is NOT the same intermediate

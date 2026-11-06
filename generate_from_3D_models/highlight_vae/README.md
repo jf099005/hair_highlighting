@@ -2,7 +2,7 @@
 
 與 `../highlight_diffusion` 相同的任務與輸入組合（source 髮型的 strand latent、初始 mask、flow field、
 cell / strand overlap graph），但不用 diffusion model，改為在 DiffLocks 的 **strand VAE decoder** 上加條件並
-fine-tune。即時實驗紀錄見 `PROGRESS.md`。
+fine-tune。結果與結論見 [`Summary.md`](Summary.md)；即時實驗紀錄（原始，§0–43）見 [`PROGRESS.md`](PROGRESS.md)，實驗時要即時追加（含單位與每個指標的解釋）。
 
 ## 架構
 
@@ -38,81 +38,86 @@ cd /home/kyh/Desktop/P76154862 && export PYTHONPATH=$PWD
 P=~/anaconda3/envs/hair_exp/bin/python; M=highlighting.generate_from_3D_models.highlight_vae
 $P -m $M.train --stage sft  --run sft1 --steps 3000 --batch 4
 $P -m $M.train --stage bp   --run bp3  --init <...>/data/runs/sft1/best.pt --steps 1500 --batch 4 --lr 1e-4 \
-    --w_flip 2 --w_hair_sq 0.02 --hair_sq_free 2 --cache 24     # 建議設定（防止豎起髮絲、保留挑染位置）
+    --w_flip 2 --w_hair_sq 0.02 --hair_sq_free 2 --cache 24     # bp3 的設定（防豎起髮絲、保留挑染位置）；目前推薦見「推薦設定」
 $P -m $M.train --stage grpo --run grpo1 --init <...>/data/runs/bp3/best.pt --steps 400 --batch 2 --K 8 --lr 3e-5 --cache 12
 $P -m $M.evaluate --out <...>/data/eval/test --model vae_bp3=<...>/data/runs/bp3/best.pt --fm_on_model --save_outputs
 $P -m $M.val_ckpt <ckpt.pt> ...
 ```
 
-## 結果摘要（測試集 124 例，詳見 PROGRESS.md）
+### 可選的 head 與 stage
 
-| 方法 | obj 中位數 | avg grid score 平均 | 翻轉比例 | 平均位移 / p99 |
-|---|---|---|---|---|
-| 輸入 | 1.658 | 0.125 | 0 | 0 |
-| FM（解碼髮型上重跑） | 0.263 | 0.0231 | 13.7 % | 0 |
-| **VAE editor（bp3）** | 0.603 | 0.0616 | 6.8 % | 2.2 / 7.8 mm |
-| **bp3 髮型 + FM** | **0.242** | **0.0221** | 11.9 % | 2.2 / 7.8 mm |
+- 所有 head 都 zero-init（flip bias −4），未訓練的 editor 會重現原始髮型與初始 mask。
+- `--rot`：繞髮根的剛體旋轉（≤ 0.15 rad）；`--rf`：每格預測、內插到髮絲的平滑旋轉場；`--clump_op`：可學的 clump 運算子
+  `pos + beta * ramp(t) * (鄰居平均 - pos)` 加鄰居輸入；`--knn_layers N`：cell transformer 之後的 zero-init 殘差
+  `StrandKNNBlock`（16 個鄰居，取自 `Static.knn`：8 個依整條曲線、8 個依中點；預設關閉）。checkpoint 會存 `rot`/`rf`/`clump`/`clump_R`/`knn`，
+  `Bundle(path)` 會還原。每個 decode 呼叫都要傳 `deform=b.deform`，否則 `rf`/`clump` head 會被默默忽略。
+- 有效的 stage 是 `bp`；`grpo` 每項檢查都比 `bp` 差，不要用。
 
-GRPO 沒有幫助；只限制平均位移時（bp1/bp2）會出現豎起髮絲的 reward hacking。
+## 檔案
 
-## chunky / money piece 風格（第二部分，詳見 PROGRESS.md §15–23）
+| 檔案 | 角色 |
+|---|---|
+| `features.py` | `Static`（每個髮型的 tensor：latent、座標系、membership `M`/`MT`、flow、`guide()`、`membership(n)`、`knn`）、`Cache`、`case_features`（逐髮絲輸入，可選逐髮絲 `labels`） |
+| `model.py` | `Editor`、`StrandKNNBlock`、`FilmDecoder`、`world`（座標系、剛體旋轉、旋轉場、clump）、`decode` |
+| `train.py` | `Bundle`（editor + decoder；`run(st, mask, labels)` 設 `b.deform`）、loss、`soft_membership(_n)`、`clique_cut`、`fm_from_state`、`validate`、`validate_style`、CLI |
+| `clump.py` | 分析式條紋成束（`clump_target`）、成束位移（`clump_delta`）、`root_components` |
+| `sdf.py` | `smplx_base.ply` 的身體 SDF（winding number，4 mm grid 快取於 `data/body_sdf_4mm.npy`） |
+| `gen_style_masks.py` | 解碼髮型上的 chunky / money_piece_gc / chunky_dense mask → `data/style_masks{,_val,_test}/` |
+| `style_eval.py` | 風格測試：grid score、保留條紋、合併、IoU、位移尾部；`--fm --fm_lam`、`--clump_R`、`--grid_n`、`--save_outputs`、`--cases` |
+| `evaluate.py`、`render.py`、`val_ckpt.py`、`ref_sval.py` | 一般測試評估；渲染存下的輸出；重新驗證 checkpoint；輸入 / FM 參考列 |
 
-風格 fine-tune：`gen_style_masks.py` 產生訓練 / 驗證用的 chunky、money piece mask；`train.py --stage bp` 加上
-`--style_frac 0.7 --w_keep 2 --keep_tau 0.5 --w_gap 2 --w_dl 0.5 --rot`（條紋保留、合併懲罰、DiffLocks strand loss）；
-`style_eval.py` 在 `initial_masks_generation` 的測試 benchmark（img_chunky_v6、img_mp_v4）上評估條紋保留。
+## 相依
 
-| 測試集 | avg grid score | 條紋 / piece 保留 | 塌成 ≤ 1 條 |
-|---|---|---|---|
-| chunky：FM | 0.023 | 14/41 | 10/12 |
-| chunky：bp5 @750 | 0.136 | 40/41 | 0/12 |
-| chunky：bp7 @500 | 0.108 | 32/41 | 1/12 |
-| money piece：FM | 0.020 | 2/6 | – |
-| money piece：bp7 @250 + FM | 0.020 | 6/6 | – |
+重用 `../highlight_diffusion` 與模型無關的程式與資料，從不用它的 diffusion 模型：
+- 程式：`common`（路徑、layout、`GRID_N`、`fit_mask`）、`reward`（`Hairstyle`、numba `Scorer`）、`extras`（flow / cell-graph 快取）、
+  `data.split`、`prepare_textures.Codec`、`evaluate.fm_on_decoded`、`report.montage`。
+- 資料：`textures/`、`decoded/`、`extras/`、`fm_targets/`。
 
-注意：bp5 / bp7 的條紋與 money piece 保留有一部分來自挑染髮絲向外翹（PROGRESS §23–24）。bp8 加上 `--w_hl_sq 0.1 --hl_sq_free 1 --w_out 0.05`
-（挑染髮絲位移尾部 + 向外移動懲罰）後外翹消失：chunky 39/41 條紋、0/12 塌陷、挑染髮絲位移 p99 4.7 mm（`data/runs/bp8/ckpt_500.pt`，建議版本），見 §25–26。
+改這些檔案也會改到本套件。mask 風格來自 `../initial_masks_generation`（含 `dense_chunky.py`）。
 
-## 密集 chunky（每側 5–10+ 條，第三部分，詳見 PROGRESS.md §27–33）
+## 推薦設定
 
-- 產生器：`initial_masks_generation/dense_chunky.py`（髮絲層級的細條紋，6–9 mm 寬）；`gen_style_masks.py --dense_per N`
-  產生 `chunky_dense`（`data/style_masks{,_val,_test}/`，含每根髮絲的初始標籤）。
-- `clump.py`：分析式條紋成束（挑染髮絲往同條紋鄰居的平均曲線拉，髮根不動）。
-- `style_eval.py --npz_bench chunky_dense=data/style_masks_test --fm --fm_lam 50000 --clump_R 0.04 --save_outputs`
-  （`+fm50k` = 保留風格的 FM；`clump4cm` = 成束 baseline）；`render.py --npz_bench ...` 直接渲染存下的輸出。
+推薦模型 `data/runs/bp12b/ckpt_500.pt`，訓練參數：
 
-| 測試集（24 個 mask、350 條） | avg grid score | gs < 0.1 | 條紋保留 |
-|---|---|---|---|
-| 輸入 | 0.340 | 0/24 | 350 |
-| FM | 0.026 | 24/24 | 91（塌成 1–2 塊） |
-| FM lam 5e4 | 0.138 | 10/24 | 213 |
-| 成束 4 cm + FM lam 5e4 | 0.089 | 15/24 | 212 |
-| bp8 @500 | 0.301 | 0/24 | 322 |
+```
+--stage bp --init data/runs/bp8/ckpt_500.pt --rot --rf --clump_op --style_frac 0.8 --dense_rep 3
+--w_keep 3 --keep_tau 0.6 --w_gap 2 --w_cut_hair 2 --w_flip 2 --w_hair 0.02 --w_hair_sq 0.02 --hair_sq_free 2
+--hair_sq_base_only --w_dl 0 --w_hl_sq 0 --w_out 0.05 --w_shape 0.05 --w_enc 0.2 --w_sdf 0.05 --w_cmp 0.2
+--w_l2sp 0.3 --lr_dec 3e-5 --val_fm_lam 50000
+```
 
-結論：32×32 凸包 grid score 下，大量可見細條紋與 gs < 0.1 互相衝突（長髮下垂後條紋與 base 在投影中交錯）。
-gs < 0.1 的結果在渲染上是幾個乾淨的粗髮束；放寬 regularization（bp9）與讓模型學成束（bp11）都沒有改善。
+評分與 FM 用 96×96：`style_eval.py --grid_n 96 --fm --fm_lam 50000`（或 `100000`，保留較多條紋）。
 
-## 鄰近髮絲耦合（第四部分，詳見 PROGRESS.md §34–37）
+**grid 解析度**：
+- 環境變數 `HL_GRID_N`（預設 32）設定所有東西的 grid：輸入、mask、目標、評分、FM。`--score_n` / `--grid_n` 只改目標 / 評分 / FM。
+- train、style_eval、render 要用 checkpoint 訓練時的 `HL_GRID_N`（bp14 需要 96），否則 editor 拿到錯的格數。
+- 96 格剛好 3×3 嵌在 32 格內（同一個 uv box），`common.fit_mask` 可無損上採樣 32 grid mask；`Hairstyle.grid_rc` 從 `raw_uv` 重新分格。
+  96 時 membership 是稀疏 COO、cell graph 稀疏（`extras._graph_sparse`，快取 `*_n96.npz`）；32 grid checkpoint 的 `cell_pos` 載入時雙線性上採樣。
+- `soft_membership_n` 需要每根髮絲 ~96 點與 tau 0.5 mm；32 點時會漏掉 25% 的 4.7 mm 格子。
+- 96 上所有 gs 都較低（輸入 0.287 vs 0.345），比較方法要用同一個 grid。
 
-上限測試顯示 decoder 能表達成束（逐根擬合誤差 0.2 mm），問題在 editor 看不到同條紋的鄰居。新架構（`--rf --clump_op`）：
-鄰居資訊輸入、可學參數的 clump 運算子 x' = x + β·ramp(t)·(鄰居平均 − x)、per-cell 引導的平滑旋轉場；正則化
-`--w_shape`（曲率／段長）、`--w_enc`（strand-VAE 重新編碼誤差）、`--w_sdf`（身體 SDF，`sdf.py`），並保留 `--w_out`。
+## 注意事項
 
-| 測試 | gs | gs < 0.1 | 條紋保留 |
-|---|---|---|---|
-| 一般 chunky：bp8 @500 → **bp12b @500** | 0.158 → **0.129** | 5 → 6 /12 | 39 → 40 /41 |
-| 密集 chunky：bp12b（只改頭髮） | 0.232（bp8 0.301） | 0/24 | 333/350 |
-| 密集 chunky：bp12b + FM lam 5e4 | 0.105 | 12/24 | 215/350 |
-| 密集 chunky：分析式成束 + FM lam 5e4 | 0.089 | 15/24 | 212/350 |
+- `bp` 在 32 時峰值 ~13.5 GB（1,200 根 × 255 點經 SIREN backprop），執行時 16 GB 卡上放不下別的東西。
+  `features.Cache` 每個髮型在 GPU 上 ~140 MB，用 `--cache 12–16`。
+- 驗證集 = 訓練髮型的 10%（`load_targets`，seed 1）。不要在測試 case 上挑 checkpoint。
+- 解碼髮型快取是 float16，未改的模型也會顯示 ~0.06 mm 的「髮型變化」。
+- `chunky_dense` case 是逐髮絲的：npz 裡有 `labels` + `band`。要把 `labels` 傳給 `Bundle.run` / `case_features` 並用 `fm_from_state`；
+  grid-mask helper 會失去次格條紋。
+- 防 reward hacking 的 loss 要開著：`--w_hair_sq`（看 `hair_p99` / `frac_1cm`）、`--w_out`（看 `hl_p99` / `out_p99`）。
+  身體 SDF 只擋髮絲**進入**身體。`kept` 指標（條紋保留 ≥ 30% 髮絲）會高估被藏起或併成色塊的條紋。一律看尾部與渲染，不要只看平均。
+- 用 `pgrep`/`pkill -f "<args>"` 砍 run 時也會比對到呼叫的 shell；從腳本檔啟動 run 並比對腳本名稱。
 
-建議模型：`data/runs/bp12b/ckpt_500.pt`。
+## 開發守則
 
-## 96×96 grid（第五部分，PROGRESS §38–40）
-
-`train.py --score_n 96`（訓練目標、驗證 gs 與 FM 都在 96 上；模型輸入仍是 32）與 `style_eval.py --grid_n 96`。
-以 96 評分時，96 訓練的 bp13 與 32 訓練的 bp12b 差不多：密集 chunky 只改頭髮 0.185 vs 0.188，加 FM lam 5e4 後
-0.072 vs 0.070；一般 chunky 0.105 vs 0.107。96 訓練每步約慢 3 倍。96 真正有幫助的是 FM 與評分本身：用細格子做 FM
-（lam 1e5）時，捲髮上的條紋不會併成一塊。
-
-全部解析度改為 96（`HL_GRID_N=96`，模型輸入的 cell token / 重疊圖 / 流場 / guide、mask、目標、評分、FM 全部 96；bp14）：
-測試結果與 bp12b（全 32）、bp13（只有目標 96）在誤差內（密集 + FM lam 5e4：0.072 / 0.070 / 0.072），只改頭髮時
-條紋保留略多（342 vs 333/350），訓練慢 3–7 倍。建議模型仍用 bp12b，評分與 FM 用 96（PROGRESS §41–42）。
+- 實驗時即時追加到 `PROGRESS.md`（含單位與每個指標的解釋），結束後把結論寫進 `Summary.md`。
+- 不要在測試 case 上挑 checkpoint：驗證集 = 訓練髮型的 10%（`load_targets`，seed 1）。
+- 不要用 `--stage grpo` 或 `--shape_only_reg`（每項檢查都更差）。保持 `--w_hair_sq` 與 `--w_out` 開啟（否則 reward hacking：髮絲豎起 / 外翹）。
+- 檢查尾部（`hair_p99`、`hl_p99`、`out_p99`）與渲染，不要只看平均；`kept` 會高估被藏起或合併的條紋。
+- 每個 decode 呼叫都傳 `deform=b.deform`，否則 `rf` / `clump` head 會被默默忽略。新 head 要 zero-init 並存進 checkpoint 讓
+  `Bundle(path)` 還原；預設關閉的選項必須重現舊模型。
+- train、style_eval、render 用 checkpoint 訓練時的 `HL_GRID_N`；方法要在同一個 grid 上比。
+- `chunky_dense` case 是逐髮絲的：傳 `labels` 並用 `fm_from_state`，不要用 grid-mask helper。
+- 重用 `../highlight_diffusion` 的程式與資料（`common`、`reward`、`extras` 等）：那邊改了這裡也跟著變。
+- GPU：`bp` 佔 16 GB 卡中的 ~13.5 GB；開始前看 `nvidia-smi`，執行期間 GPU 上不跑別的。
+- run 從腳本檔（`data/run_*.sh`）啟動，用腳本名稱或 PID 停止，不要 `pkill -f "<args>"`。

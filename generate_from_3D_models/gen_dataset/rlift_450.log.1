@@ -1,0 +1,412 @@
+hairstyles per class: {'short': 436, 'mid': 237, 'long': 164}; quotas {'short': 90, 'mid': 180, 'long': 180}; min ΔE 45.2
+
+=== case_00000 base_73_idx_28380 (short, dense) | short: 0/90 (0 dense, 0 cand.) | mid: 0/180 (0 dense, 0 cand.) | long: 0/180 (0 dense, 0 cand.) | render queue 0 | 0.00 h
+
+=== case_00001 base_40_idx_50852 (mid, dense) | short: 0/90 (0 dense, 1 cand.) | mid: 0/180 (0 dense, 0 cand.) | long: 0/180 (0 dense, 0 cand.) | render queue 0 | 0.00 h
+  case_00001 ok: 10 parts, 119.2 s (mask 54.5, rlift 13.0, metrics 48.6), peak 5.29 GB
+  case_00001 grid 0.471 -> 0.271, fill 0.59 -> 0.90, reach 0.78
+
+=== case_00002 base_23_idx_84818 (long, dense) | short: 0/90 (0 dense, 1 cand.) | mid: 1/180 (1 dense, 1 cand.) | long: 0/180 (0 dense, 0 cand.) | render queue 1 | 0.03 h
+  [render] case_00001: base_40_idx_50852 (mid, dense, ΔE 46.7) rendering ...
+  case_00000 ok: 14 parts, 138.5 s (mask 58.4, rlift 8.4, metrics 68.5), peak 4.44 GB
+  case_00000 grid 0.288 -> 0.225, fill 0.64 -> 0.73, reach 0.48
+
+=== case_00003 base_74_idx_69748 (mid, dense) | short: 1/90 (1 dense, 1 cand.) | mid: 1/180 (1 dense, 1 cand.) | long: 0/180 (0 dense, 1 cand.) | render queue 2 | 0.04 h
+eptr)device_pointer) (intern/cycles/device/cuda/device_impl.cpp:533)
+00:20.122  cycles           | ERROR Misaligned address in cuMemFree_v2((CUdeviceptr)device_pointer) (intern/cycles/device/cuda/device_impl.cpp:533)
+00:20.122  cycles           | ERROR Misaligned address in cuMemFree_v2((CUdeviceptr)device_pointer) (intern/cycles/device/cuda/device_impl.cpp:533)
+00:20.122  cycles           | ERROR Misaligned address in cuMemFree_v2((CUdeviceptr)device_pointer) (intern/cycles/device/cuda/device_impl.cpp:533)
+00:20.122  cycles           | ERROR Misaligned address in cuMemFree_v2((CUdeviceptr)device_pointer) (intern/cycles/device/cuda/device_impl.cpp:533)
+00:20.122  cycles           | ERROR Misaligned address in cuMemFree_v2((CUdeviceptr)device_pointer) (intern/cycles/device/cuda/device_impl.cpp:533)
+00:20.122  cycles           | ERROR Misaligned address in cuMemFree_v2((CUdeviceptr)device_pointer) (intern/cycles/device/cuda/device_impl.cpp:533)
+00:20.122  cycles           | ERROR Error synching on OptixPipeline event (CUDA error string: misaligned address, CUDA error code: 716)
+00:20.128  cycles           | ERROR Error destroying resource event. (CUDA error string: misaligned address, CUDA error code: 716)
+                            | Failed to destroy launch resources (CUDA error string: misaligned address, CUDA error code: 716)
+                            | Error destroying resource event. (CUDA error string: misaligned address, CUDA error code: 716)
+                            | Failed to destroy launch resources (CUDA error string: misaligned address, CUDA error code: 716)
+                            | Error destroying resource event. (CUDA error string: misaligned address, CUDA error code: 716)
+                            | Failed to destroy launch resources (CUDA error string: misaligned address, CUDA error code: 716)
+00:20.128  cycles           | ERROR Misaligned address in cuModuleUnload(cuModule) (intern/cycles/device/cuda/device_impl.cpp:138)
+
+Blender quit
+ Traceback (most recent call last):
+  File "/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/coloring_by_strand/generate_highlight_render_by_strand_trimmed.py", line 545, in <module>
+    blender_main()
+  File "/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/coloring_by_strand/generate_highlight_render_by_strand_trimmed.py", line 530, in blender_main
+    bpy.ops.render.render(write_still=True)
+  File "/home/kyh/blender/5.0/scripts/modules/bpy/ops.py", line 109, in __call__
+    ret = _op_call(self.idname_py(), kw)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: Error: Misaligned address in CUDA queue copy_from_device (integrator_intersect_shadow)
+Error: Misaligned address in CUDA queue copy_from_device (integrator_intersect_shadow)
+
+
+  [render] case_00001: render failed on OPTIX (RuntimeError: Blender render failed)
+  case_00003 ok: 4 parts, 110.7 s (mask 44.9, rlift 27.8, metrics 35.3), peak 3.18 GB
+  case_00003 grid 0.156 -> 0.152, fill 0.05 -> 0.21, reach 0.05
+
+=== case_00004 base_38_idx_69167 (long, dense) | short: 1/90 (1 dense, 1 cand.) | mid: 2/180 (2 dense, 2 cand.) | long: 0/180 (0 dense, 1 cand.) | render queue 3 | 0.07 h
+  case_00002 ok: 10 parts, 187.3 s (mask 72.8, rlift 33.0, metrics 74.7), peak 4.33 GB
+  case_00002 grid 0.496 -> 0.353, fill 0.51 -> 0.85, reach 0.58
+
+=== case_00005 base_75_idx_2535 (short, dense) | short: 1/90 (1 dense, 1 cand.) | mid: 2/180 (2 dense, 2 cand.) | long: 1/180 (1 dense, 2 cand.) | render queue 4 | 0.09 h
+  case_00004 skipped_oom: - parts, 103.5 s (mask None, rlift None, metrics None), peak 5.63 GB — free memory 2.9 GB < min_free_gb 3.0 (RSS 2.5 GB)
+
+=== case_00006 base_17_idx_92872 (long, dense) | short: 1/90 (1 dense, 2 cand.) | mid: 2/180 (2 dense, 2 cand.) | long: 1/180 (1 dense, 2 cand.) | render queue 4 | 0.10 h
+  case_00005 skipped_oom: - parts, 46.9 s (mask None, rlift None, metrics None), peak 3.48 GB — free memory 2.9 GB < min_free_gb 3.0 (RSS 3.4 GB)
+
+=== case_00007 base_72_idx_36116 (short, dense) | short: 1/90 (1 dense, 2 cand.) | mid: 2/180 (2 dense, 2 cand.) | long: 1/180 (1 dense, 3 cand.) | render queue 4 | 0.10 h
+  [render] case_00001: render ok in 243 s
+  [render] case_00000: base_73_idx_28380 (short, dense, ΔE 47.0) rendering ...
+  [render] case_00000: render ok in 28 s
+  [render] case_00003: base_74_idx_69748 (mid, dense, ΔE 47.8) rendering ...
+  [render] case_00003: render ok in 32 s
+  [render] case_00002: base_23_idx_84818 (long, dense, ΔE 79.4) rendering ...
+  case_00007 ok: 6 parts, 90.2 s (mask 35.4, rlift 7.6, metrics 43.5), peak 4.53 GB
+  case_00007 grid 0.137 -> 0.127, fill 0.30 -> 0.33, reach 0.05
+
+=== case_00008 base_65_idx_26415 (mid, chunky) | short: 2/90 (2 dense, 3 cand.) | mid: 2/180 (2 dense, 2 cand.) | long: 1/180 (1 dense, 3 cand.) | render queue 2 | 0.12 h
+interrupted: killing the workers and the running render; rerun the same command to resume
+Traceback (most recent call last):
+  File "/home/kyh/anaconda3/envs/hair_exp/lib/python3.10/runpy.py", line 196, in _run_module_as_main
+    return _run_code(code, main_globals, None,
+  File "/home/kyh/anaconda3/envs/hair_exp/lib/python3.10/runpy.py", line 86, in _run_code
+    exec(code, run_globals)
+  File "/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/gen_dataset/cli.py", line 430, in <module>
+    main()
+  File "/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/gen_dataset/cli.py", line 400, in main
+    return rlift.main(sys.argv[1:])        # curve masks + strands_editing rlift_bf (rlift.py)
+  File "/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/gen_dataset/rlift.py", line 607, in main
+    generate(a.out, cfg)
+  File "/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/gen_dataset/rlift.py", line 540, in generate
+    done, _ = wait(list(running), return_when=FIRST_COMPLETED)
+  File "/home/kyh/anaconda3/envs/hair_exp/lib/python3.10/concurrent/futures/_base.py", line 307, in wait
+    waiter.event.wait(timeout)
+  File "/home/kyh/anaconda3/envs/hair_exp/lib/python3.10/threading.py", line 607, in wait
+    signaled = self._cond.wait(timeout)
+  File "/home/kyh/anaconda3/envs/hair_exp/lib/python3.10/threading.py", line 320, in wait
+    waiter.acquire()
+KeyboardInterrupt
+hairstyles per class: {'short': 436, 'mid': 237, 'long': 164}; quotas {'short': 90, 'mid': 180, 'long': 180}; min ΔE 45.2
+=== resume case_00004 (base_38_idx_69167, dense)
+=== resume case_00005 (base_75_idx_2535, dense)
+=== resume case_00006 (base_17_idx_92872, dense)
+=== resume case_00008 (base_65_idx_26415, chunky)
+  [render] case_00002: base_23_idx_84818 (long, dense, ΔE 79.4) rendering ...
+  [render] case_00002: render ok in 67 s
+  [render] case_00007: base_72_idx_36116 (short, dense, ΔE 45.5) rendering ...
+  case_00005 ok: 4 parts, 84.6 s (mask 38.4, rlift 8.2, metrics 36.1), peak 4.47 GB
+  case_00005 grid 0.089 -> 0.084, fill 0.47 -> 0.48, reach 0.11
+  [render] case_00007: render ok in 24 s
+  [render] case_00005: base_75_idx_2535 (short, dense, ΔE 46.8) rendering ...
+  [render] case_00005: render ok in 26 s
+  case_00004 ok: 13 parts, 138.3 s (mask 53.3, rlift 16.3, metrics 64.5), peak 4.81 GB
+  case_00004 grid 0.603 -> 0.596, fill 0.15 -> 0.37, reach 0.15
+  [render] case_00004: base_38_idx_69167 (long, dense, ΔE 45.6) rendering ...
+  [render] case_00004: render ok in 34 s
+  case_00008 ok: 3 parts, 77.4 s (mask 43.4, rlift 9.8, metrics 21.2), peak 3.44 GB
+  case_00008 grid 0.246 -> 0.183, fill 0.72 -> 0.75, reach 0.48
+
+=== case_00009 base_2_idx_2174 (mid, dense) | short: 3/90 (3 dense, 3 cand.) | mid: 3/180 (2 dense, 3 cand.) | long: 2/180 (2 dense, 3 cand.) | render queue 1 | 0.06 h
+  [render] case_00008: base_65_idx_26415 (mid, chunky, ΔE 51.8) rendering ...
+  case_00006 ok: 6 parts, 158.6 s (mask 96.7, rlift 10.4, metrics 49.5), peak 4.69 GB
+  case_00006 grid 0.309 -> 0.217, fill 0.39 -> 0.84, reach 0.64
+
+=== case_00010 base_21_idx_85394 (long, chunky) | short: 3/90 (3 dense, 3 cand.) | mid: 3/180 (2 dense, 4 cand.) | long: 3/180 (3 dense, 3 cand.) | render queue 2 | 0.07 h
+  [render] case_00008: render ok in 34 s
+  [render] case_00006: base_17_idx_92872 (long, dense, ΔE 60.8) rendering ...
+  case_00010 no_mask: 1 parts, 51.1 s (mask 49.2, rlift None, metrics None), peak 2.41 GB — 1 stripes / locks, 8291 highlight strands
+
+=== case_00011 base_8_idx_25613 (long, chunky) | short: 3/90 (3 dense, 3 cand.) | mid: 3/180 (2 dense, 4 cand.) | long: 3/180 (3 dense, 4 cand.) | render queue 1 | 0.08 h
+  [render] case_00006: render ok in 62 s
+  case_00009 ok: 8 parts, 160.8 s (mask 97.8, rlift 13.4, metrics 46.1), peak 5.72 GB
+  case_00009 grid 0.382 -> 0.247, fill 0.44 -> 0.77, reach 0.66
+
+=== case_00012 base_56_idx_19858 (mid, dense) | short: 3/90 (3 dense, 3 cand.) | mid: 4/180 (3 dense, 4 cand.) | long: 3/180 (3 dense, 5 cand.) | render queue 1 | 0.10 h
+  [render] case_00009: base_2_idx_2174 (mid, dense, ΔE 69.3) rendering ...
+  [render] case_00009: render ok in 30 s
+  case_00011 ok: 2 parts, 136.2 s (mask 100.0, rlift 11.4, metrics 21.2), peak 4.79 GB
+  case_00011 grid 0.275 -> 0.172, fill 0.90 -> 0.95, reach 0.97
+
+=== case_00013 base_22_idx_93871 (long, dense) | short: 3/90 (3 dense, 3 cand.) | mid: 4/180 (3 dense, 5 cand.) | long: 4/180 (3 dense, 5 cand.) | render queue 1 | 0.12 h
+  [render] case_00011: base_8_idx_25613 (long, chunky, ΔE 46.5) rendering ...
+eptr)device_pointer) (intern/cycles/device/cuda/device_impl.cpp:533)
+00:19.080  cycles           | ERROR Misaligned address in cuMemFree_v2((CUdeviceptr)device_pointer) (intern/cycles/device/cuda/device_impl.cpp:533)
+00:19.080  cycles           | ERROR Misaligned address in cuMemFree_v2((CUdeviceptr)device_pointer) (intern/cycles/device/cuda/device_impl.cpp:533)
+00:19.080  cycles           | ERROR Misaligned address in cuMemFree_v2((CUdeviceptr)device_pointer) (intern/cycles/device/cuda/device_impl.cpp:533)
+00:19.080  cycles           | ERROR Misaligned address in cuMemFree_v2((CUdeviceptr)device_pointer) (intern/cycles/device/cuda/device_impl.cpp:533)
+00:19.080  cycles           | ERROR Misaligned address in cuMemFree_v2((CUdeviceptr)device_pointer) (intern/cycles/device/cuda/device_impl.cpp:533)
+00:19.080  cycles           | ERROR Misaligned address in cuMemFree_v2((CUdeviceptr)device_pointer) (intern/cycles/device/cuda/device_impl.cpp:533)
+00:19.080  cycles           | ERROR Error synching on OptixPipeline event (CUDA error string: misaligned address, CUDA error code: 716)
+00:19.087  cycles           | ERROR Error destroying resource event. (CUDA error string: misaligned address, CUDA error code: 716)
+                            | Failed to destroy launch resources (CUDA error string: misaligned address, CUDA error code: 716)
+                            | Error destroying resource event. (CUDA error string: misaligned address, CUDA error code: 716)
+                            | Failed to destroy launch resources (CUDA error string: misaligned address, CUDA error code: 716)
+                            | Error destroying resource event. (CUDA error string: misaligned address, CUDA error code: 716)
+                            | Failed to destroy launch resources (CUDA error string: misaligned address, CUDA error code: 716)
+00:19.087  cycles           | ERROR Misaligned address in cuModuleUnload(cuModule) (intern/cycles/device/cuda/device_impl.cpp:138)
+
+Blender quit
+ Traceback (most recent call last):
+  File "/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/coloring_by_strand/generate_highlight_render_by_strand_trimmed.py", line 545, in <module>
+    blender_main()
+  File "/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/coloring_by_strand/generate_highlight_render_by_strand_trimmed.py", line 530, in blender_main
+    bpy.ops.render.render(write_still=True)
+  File "/home/kyh/blender/5.0/scripts/modules/bpy/ops.py", line 109, in __call__
+    ret = _op_call(self.idname_py(), kw)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: Error: Misaligned address in CUDA queue copy_from_device (integrator_intersect_closest integrator_queued_paths_array)
+Error: Misaligned address in CUDA queue copy_from_device (integrator_intersect_closest integrator_queued_paths_array)
+
+
+  [render] case_00011: render failed on OPTIX (RuntimeError: Blender render failed)
+  case_00012 ok: 8 parts, 159.9 s (mask 54.3, rlift 11.9, metrics 57.5), peak 4.19 GB
+  case_00012 grid 0.248 -> 0.151, fill 0.58 -> 0.93, reach 0.98
+
+=== case_00014 base_69_idx_35780 (mid, dense) | short: 3/90 (3 dense, 3 cand.) | mid: 5/180 (4 dense, 5 cand.) | long: 4/180 (3 dense, 6 cand.) | render queue 2 | 0.16 h
+  case_00013 ok: 15 parts, 232.5 s (mask 69.9, rlift 86.7, metrics 71.8), peak 3.86 GB
+  case_00013 grid 0.469 -> 0.433, fill 0.07 -> 0.21, reach 0.13
+
+=== case_00015 base_3_idx_34594 (long, dense) | short: 3/90 (3 dense, 3 cand.) | mid: 5/180 (4 dense, 6 cand.) | long: 5/180 (4 dense, 6 cand.) | render queue 3 | 0.18 h
+  [render] case_00011: render ok in 308 s
+  [render] case_00012: base_56_idx_19858 (mid, dense, ΔE 48.9) rendering ...
+  case_00014 ok: 8 parts, 161.6 s (mask 83.7, rlift 27.1, metrics 45.3), peak 4.15 GB
+  case_00014 grid 0.202 -> 0.138, fill 0.54 -> 0.74, reach 0.22
+
+=== case_00016 base_71_idx_34470 (short, chunky) | short: 3/90 (3 dense, 3 cand.) | mid: 6/180 (5 dense, 6 cand.) | long: 5/180 (4 dense, 7 cand.) | render queue 3 | 0.21 h
+  [render] case_00012: render ok in 37 s
+  [render] case_00013: base_22_idx_93871 (long, dense, ΔE 48.2) rendering ...
+  case_00016 ok: 2 parts, 53.6 s (mask 26.6, rlift 4.7, metrics 19.0), peak 3.95 GB
+  case_00016 grid 0.043 -> 0.043, fill 0.67 -> 0.69, reach 0.33
+
+=== case_00017 base_21_idx_42733 (mid, dense) | short: 4/90 (3 dense, 4 cand.) | mid: 6/180 (5 dense, 6 cand.) | long: 5/180 (4 dense, 7 cand.) | render queue 3 | 0.22 h
+  [render] case_00013: render ok in 42 s
+  [render] case_00014: base_69_idx_35780 (mid, dense, ΔE 47.9) rendering ...
+  [render] case_00014: render ok in 27 s
+  [render] case_00016: base_71_idx_34470 (short, chunky, ΔE 49.0) rendering ...
+  [render] case_00016: render ok in 26 s
+  case_00015 ok: 4 parts, 220.7 s (mask 154.7, rlift 10.0, metrics 53.0), peak 5.63 GB
+  case_00015 grid 0.333 -> 0.223, fill 0.23 -> 0.69, reach 0.38
+
+=== case_00018 base_4_idx_60809 (long, dense) | short: 4/90 (3 dense, 4 cand.) | mid: 6/180 (5 dense, 7 cand.) | long: 6/180 (5 dense, 7 cand.) | render queue 1 | 0.25 h
+  [render] case_00015: base_3_idx_34594 (long, dense, ΔE 45.2) rendering ...
+  [render] case_00015: render ok in 50 s
+  case_00017 ok: 17 parts, 151.8 s (mask 54.8, rlift 22.3, metrics 70.7), peak 5.4 GB
+  case_00017 grid 0.559 -> 0.543, fill 0.04 -> 0.37, reach 0.15
+
+=== case_00019 base_69_idx_44131 (mid, chunky) | short: 4/90 (3 dense, 4 cand.) | mid: 7/180 (6 dense, 7 cand.) | long: 6/180 (5 dense, 8 cand.) | render queue 1 | 0.26 h
+  [render] case_00017: base_21_idx_42733 (mid, dense, ΔE 59.4) rendering ...
+  [render] case_00017: render ok in 34 s
+  case_00019 ok: 2 parts, 60.4 s (mask 36.1, rlift 6.2, metrics 15.7), peak 3.59 GB
+  case_00019 grid 0.072 -> 0.053, fill 0.77 -> 0.80, reach 0.30
+
+=== case_00020 base_15_idx_69899 (long, chunky) | short: 4/90 (3 dense, 4 cand.) | mid: 8/180 (6 dense, 8 cand.) | long: 6/180 (5 dense, 8 cand.) | render queue 1 | 0.28 h
+  [render] case_00019: base_69_idx_44131 (mid, chunky, ΔE 45.9) rendering ...
+  case_00018 ok: 4 parts, 127.5 s (mask 76.7, rlift 9.3, metrics 38.2), peak 5.23 GB
+  case_00018 grid 0.308 -> 0.158, fill 0.38 -> 0.77, reach 0.67
+
+=== case_00021 base_71_idx_52029 (short, dense) | short: 4/90 (3 dense, 4 cand.) | mid: 8/180 (6 dense, 8 cand.) | long: 7/180 (6 dense, 9 cand.) | render queue 2 | 0.28 h
+eptr)device_pointer) (intern/cycles/device/cuda/device_impl.cpp:533)
+00:11.774  cycles           | ERROR Misaligned address in cuMemFree_v2((CUdeviceptr)device_pointer) (intern/cycles/device/cuda/device_impl.cpp:533)
+00:11.774  cycles           | ERROR Misaligned address in cuMemFree_v2((CUdeviceptr)device_pointer) (intern/cycles/device/cuda/device_impl.cpp:533)
+00:11.774  cycles           | ERROR Misaligned address in cuMemFree_v2((CUdeviceptr)device_pointer) (intern/cycles/device/cuda/device_impl.cpp:533)
+00:11.774  cycles           | ERROR Misaligned address in cuMemFree_v2((CUdeviceptr)device_pointer) (intern/cycles/device/cuda/device_impl.cpp:533)
+00:11.774  cycles           | ERROR Misaligned address in cuMemFree_v2((CUdeviceptr)device_pointer) (intern/cycles/device/cuda/device_impl.cpp:533)
+00:11.774  cycles           | ERROR Misaligned address in cuMemFree_v2((CUdeviceptr)device_pointer) (intern/cycles/device/cuda/device_impl.cpp:533)
+00:11.774  cycles           | ERROR Error synching on OptixPipeline event (CUDA error string: misaligned address, CUDA error code: 716)
+00:11.780  cycles           | ERROR Error destroying resource event. (CUDA error string: misaligned address, CUDA error code: 716)
+                            | Failed to destroy launch resources (CUDA error string: misaligned address, CUDA error code: 716)
+                            | Error destroying resource event. (CUDA error string: misaligned address, CUDA error code: 716)
+                            | Failed to destroy launch resources (CUDA error string: misaligned address, CUDA error code: 716)
+                            | Error destroying resource event. (CUDA error string: misaligned address, CUDA error code: 716)
+                            | Failed to destroy launch resources (CUDA error string: misaligned address, CUDA error code: 716)
+00:11.780  cycles           | ERROR Misaligned address in cuModuleUnload(cuModule) (intern/cycles/device/cuda/device_impl.cpp:138)
+
+Blender quit
+ Traceback (most recent call last):
+  File "/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/coloring_by_strand/generate_highlight_render_by_strand_trimmed.py", line 545, in <module>
+    blender_main()
+  File "/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/coloring_by_strand/generate_highlight_render_by_strand_trimmed.py", line 530, in blender_main
+    bpy.ops.render.render(write_still=True)
+  File "/home/kyh/blender/5.0/scripts/modules/bpy/ops.py", line 109, in __call__
+    ret = _op_call(self.idname_py(), kw)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: Error: Misaligned address in CUDA queue copy_from_device (integrator_intersect_closest integrator_queued_paths_array)
+Error: Misaligned address in CUDA queue copy_from_device (integrator_intersect_closest integrator_queued_paths_array)
+
+
+  [render] case_00019: render failed on OPTIX (RuntimeError: Blender render failed)
+  case_00021 ok: 6 parts, 106.7 s (mask 53.0, rlift 9.4, metrics 41.5), peak 4.72 GB
+  case_00021 grid 0.161 -> 0.160, fill 0.34 -> 0.34, reach 0.05
+
+=== case_00022 base_69_idx_93103 (mid, dense) | short: 5/90 (4 dense, 5 cand.) | mid: 8/180 (6 dense, 8 cand.) | long: 7/180 (6 dense, 9 cand.) | render queue 3 | 0.31 h
+  case_00020 ok: 2 parts, 134.5 s (mask 98.5, rlift 14.5, metrics 18.3), peak 4.45 GB
+  case_00020 grid 0.194 -> 0.114, fill 0.90 -> 0.85, reach 0.68
+
+=== case_00023 base_15_idx_2590 (long, dense) | short: 5/90 (4 dense, 5 cand.) | mid: 8/180 (6 dense, 9 cand.) | long: 8/180 (6 dense, 9 cand.) | render queue 4 | 0.32 h
+  [render] case_00019: render ok in 175 s
+  [render] case_00018: base_4_idx_60809 (long, dense, ΔE 46.0) rendering ...
+  [render] case_00018: render ok in 36 s
+  [render] case_00021: base_71_idx_52029 (short, dense, ΔE 49.7) rendering ...
+  case_00022 ok: 6 parts, 125.7 s (mask 68.1, rlift 8.2, metrics 46.8), peak 5.29 GB
+  case_00022 grid 0.125 -> 0.133, fill 0.25 -> 0.34, reach 0.05
+
+=== case_00024 base_43_idx_68817 (mid, dense) | short: 5/90 (4 dense, 5 cand.) | mid: 9/180 (7 dense, 9 cand.) | long: 8/180 (6 dense, 10 cand.) | render queue 3 | 0.35 h
+  [render] case_00021: render ok in 28 s
+  [render] case_00020: base_15_idx_69899 (long, chunky, ΔE 56.4) rendering ...
+  [render] case_00020: render ok in 45 s
+  [render] case_00022: base_69_idx_93103 (mid, dense, ΔE 64.3) rendering ...
+  [render] case_00022: render ok in 31 s
+  case_00023 ok: 13 parts, 186.3 s (mask 85.9, rlift 16.9, metrics 80.3), peak 4.34 GB
+  case_00023 grid 0.547 -> 0.521, fill 0.13 -> 0.57, reach 0.28
+
+=== case_00025 base_20_idx_85540 (long, dense) | short: 5/90 (4 dense, 5 cand.) | mid: 9/180 (7 dense, 10 cand.) | long: 9/180 (7 dense, 10 cand.) | render queue 1 | 0.37 h
+  [render] case_00023: base_15_idx_2590 (long, dense, ΔE 49.5) rendering ...
+  case_00024 ok: 4 parts, 119.2 s (mask 73.3, rlift 8.8, metrics 34.4), peak 4.34 GB
+  case_00024 grid 0.162 -> 0.100, fill 0.27 -> 0.62, reach 0.23
+
+=== case_00026 base_74_idx_60531 (short, dense) | short: 5/90 (4 dense, 5 cand.) | mid: 10/180 (8 dense, 10 cand.) | long: 9/180 (7 dense, 11 cand.) | render queue 2 | 0.38 h
+  [render] case_00023: render ok in 39 s
+  [render] case_00024: base_43_idx_68817 (mid, dense, ΔE 79.0) rendering ...
+eptr)device_pointer) (intern/cycles/device/cuda/device_impl.cpp:533)
+00:19.645  cycles           | ERROR Misaligned address in cuMemFree_v2((CUdeviceptr)device_pointer) (intern/cycles/device/cuda/device_impl.cpp:533)
+00:19.645  cycles           | ERROR Misaligned address in cuMemFree_v2((CUdeviceptr)device_pointer) (intern/cycles/device/cuda/device_impl.cpp:533)
+00:19.645  cycles           | ERROR Misaligned address in cuMemFree_v2((CUdeviceptr)device_pointer) (intern/cycles/device/cuda/device_impl.cpp:533)
+00:19.645  cycles           | ERROR Misaligned address in cuMemFree_v2((CUdeviceptr)device_pointer) (intern/cycles/device/cuda/device_impl.cpp:533)
+00:19.645  cycles           | ERROR Misaligned address in cuMemFree_v2((CUdeviceptr)device_pointer) (intern/cycles/device/cuda/device_impl.cpp:533)
+00:19.645  cycles           | ERROR Misaligned address in cuMemFree_v2((CUdeviceptr)device_pointer) (intern/cycles/device/cuda/device_impl.cpp:533)
+00:19.646  cycles           | ERROR Error synching on OptixPipeline event (CUDA error string: misaligned address, CUDA error code: 716)
+00:19.656  cycles           | ERROR Error destroying resource event. (CUDA error string: misaligned address, CUDA error code: 716)
+                            | Failed to destroy launch resources (CUDA error string: misaligned address, CUDA error code: 716)
+                            | Error destroying resource event. (CUDA error string: misaligned address, CUDA error code: 716)
+                            | Failed to destroy launch resources (CUDA error string: misaligned address, CUDA error code: 716)
+                            | Error destroying resource event. (CUDA error string: misaligned address, CUDA error code: 716)
+                            | Failed to destroy launch resources (CUDA error string: misaligned address, CUDA error code: 716)
+00:19.656  cycles           | ERROR Misaligned address in cuModuleUnload(cuModule) (intern/cycles/device/cuda/device_impl.cpp:138)
+
+Blender quit
+ Traceback (most recent call last):
+  File "/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/coloring_by_strand/generate_highlight_render_by_strand_trimmed.py", line 545, in <module>
+    blender_main()
+  File "/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/coloring_by_strand/generate_highlight_render_by_strand_trimmed.py", line 530, in blender_main
+    bpy.ops.render.render(write_still=True)
+  File "/home/kyh/blender/5.0/scripts/modules/bpy/ops.py", line 109, in __call__
+    ret = _op_call(self.idname_py(), kw)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: Error: Misaligned address in CUDA queue copy_from_device (integrator_intersect_shadow)
+Error: Misaligned address in CUDA queue copy_from_device (integrator_intersect_shadow)
+
+
+  [render] case_00024: render failed on OPTIX (RuntimeError: Blender render failed)
+  case_00026 ok: 6 parts, 133.0 s (mask 42.2, rlift 8.9, metrics 77.9), peak 4.22 GB
+  case_00026 grid 0.125 -> 0.095, fill 0.45 -> 0.58, reach 0.06
+
+=== case_00027 base_64_idx_11039 (mid, dense) | short: 6/90 (5 dense, 6 cand.) | mid: 10/180 (8 dense, 10 cand.) | long: 9/180 (7 dense, 11 cand.) | render queue 2 | 0.42 h
+  case_00025 ok: 10 parts, 252.5 s (mask 104.3, rlift 51.3, metrics 90.6), peak 5.4 GB
+  case_00025 grid 0.412 -> 0.257, fill 0.38 -> 0.87, reach 0.54
+
+=== case_00028 base_14_idx_1307 (long, dense) | short: 6/90 (5 dense, 6 cand.) | mid: 10/180 (8 dense, 11 cand.) | long: 10/180 (8 dense, 11 cand.) | render queue 3 | 0.44 h
+  [render] case_00024: render ok in 261 s
+  [render] case_00026: base_74_idx_60531 (short, dense, ΔE 52.5) rendering ...
+  [render] case_00026: render ok in 29 s
+  [render] case_00025: base_20_idx_85540 (long, dense, ΔE 66.1) rendering ...
+  case_00027 ok: 8 parts, 175.4 s (mask 107.3, rlift 12.9, metrics 51.3), peak 5.26 GB
+  case_00027 grid 0.315 -> 0.220, fill 0.42 -> 0.75, reach 0.46
+
+=== case_00029 base_70_idx_8736 (mid, dense) | short: 6/90 (5 dense, 6 cand.) | mid: 11/180 (9 dense, 11 cand.) | long: 10/180 (8 dense, 12 cand.) | render queue 2 | 0.46 h
+  [render] case_00025: render ok in 42 s
+  [render] case_00027: base_64_idx_11039 (mid, dense, ΔE 45.7) rendering ...
+  [render] case_00027: render ok in 29 s
+  case_00028 ok: 16 parts, 162.6 s (mask 67.0, rlift 20.1, metrics 71.9), peak 4.1 GB
+  case_00028 grid 0.521 -> 0.535, fill 0.11 -> 0.37, reach 0.13
+
+=== case_00030 base_23_idx_43758 (long, dense) | short: 6/90 (5 dense, 6 cand.) | mid: 11/180 (9 dense, 12 cand.) | long: 11/180 (9 dense, 12 cand.) | render queue 1 | 0.48 h
+  [render] case_00028: base_14_idx_1307 (long, dense, ΔE 62.3) rendering ...
+  [render] case_00028: render ok in 48 s
+  case_00029 ok: 13 parts, 125.0 s (mask 41.6, rlift 16.4, metrics 62.6), peak 4.51 GB
+  case_00029 grid 0.424 -> 0.397, fill 0.05 -> 0.35, reach 0.07
+
+=== case_00031 base_71_idx_58609 (short, dense) | short: 6/90 (5 dense, 6 cand.) | mid: 12/180 (10 dense, 12 cand.) | long: 11/180 (9 dense, 13 cand.) | render queue 1 | 0.50 h
+  [render] case_00029: base_70_idx_8736 (mid, dense, ΔE 45.9) rendering ...
+  [render] case_00029: render ok in 27 s
+  case_00030 ok: 10 parts, 133.0 s (mask 63.9, rlift 15.8, metrics 49.2), peak 4.57 GB
+  case_00030 grid 0.517 -> 0.284, fill 0.50 -> 0.85, reach 0.77
+
+=== case_00032 base_70_idx_93180 (mid, chunky) | short: 6/90 (5 dense, 7 cand.) | mid: 12/180 (10 dense, 12 cand.) | long: 12/180 (10 dense, 13 cand.) | render queue 1 | 0.52 h
+  [render] case_00030: base_23_idx_43758 (long, dense, ΔE 47.5) rendering ...
+  case_00031 ok: 6 parts, 95.4 s (mask 41.9, rlift 10.5, metrics 39.5), peak 5.07 GB
+  case_00031 grid 0.153 -> 0.162, fill 0.38 -> 0.53, reach 0.14
+
+=== case_00033 base_11_idx_27069 (long, chunky) | short: 7/90 (6 dense, 7 cand.) | mid: 12/180 (10 dense, 13 cand.) | long: 12/180 (10 dense, 13 cand.) | render queue 2 | 0.53 h
+  [render] case_00030: render ok in 37 s
+  [render] case_00031: base_71_idx_58609 (short, dense, ΔE 59.0) rendering ...
+  case_00032 ok: 2 parts, 62.1 s (mask 39.3, rlift 5.4, metrics 15.3), peak 4.36 GB
+  case_00032 grid 0.028 -> 0.022, fill 0.94 -> 0.95, reach 1.00
+
+=== case_00034 base_42_idx_28161 (mid, dense) | short: 7/90 (6 dense, 7 cand.) | mid: 13/180 (10 dense, 13 cand.) | long: 12/180 (10 dense, 14 cand.) | render queue 2 | 0.54 h
+  [render] case_00031: render ok in 27 s
+  [render] case_00032: base_70_idx_93180 (mid, chunky, ΔE 48.6) rendering ...
+  [render] case_00032: render ok in 28 s
+  case_00033 ok: 2 parts, 112.2 s (mask 78.5, rlift 11.8, metrics 18.9), peak 3.25 GB
+  case_00033 grid 0.408 -> 0.304, fill 0.90 -> 0.90, reach 0.50
+
+=== case_00035 base_23_idx_1963 (long, dense) | short: 7/90 (6 dense, 7 cand.) | mid: 13/180 (10 dense, 14 cand.) | long: 13/180 (10 dense, 14 cand.) | render queue 1 | 0.56 h
+  [render] case_00033: base_11_idx_27069 (long, chunky, ΔE 53.2) rendering ...
+  [render] case_00033: render ok in 43 s
+  case_00034 ok: 17 parts, 131.7 s (mask 45.7, rlift 16.1, metrics 66.2), peak 4.56 GB
+  case_00034 grid 0.543 -> 0.538, fill 0.10 -> 0.29, reach 0.21
+
+=== case_00036 base_72_idx_60440 (short, chunky) | short: 7/90 (6 dense, 7 cand.) | mid: 14/180 (11 dense, 14 cand.) | long: 13/180 (10 dense, 15 cand.) | render queue 1 | 0.57 h
+  [render] case_00034: base_42_idx_28161 (mid, dense, ΔE 47.1) rendering ...
+  [render] case_00034: render ok in 29 s
+  case_00035 ok: 15 parts, 128.2 s (mask 54.9, rlift 15.8, metrics 53.7), peak 4.47 GB
+  case_00035 grid 0.600 -> 0.589, fill 0.11 -> 0.43, reach 0.12
+
+=== case_00037 base_22_idx_50104 (mid, dense) | short: 7/90 (6 dense, 8 cand.) | mid: 14/180 (11 dense, 14 cand.) | long: 14/180 (11 dense, 15 cand.) | render queue 1 | 0.59 h
+  [render] case_00035: base_23_idx_1963 (long, dense, ΔE 74.0) rendering ...
+  case_00036 ok: 2 parts, 66.1 s (mask 37.9, rlift 6.3, metrics 19.0), peak 4.61 GB
+  case_00036 grid 0.054 -> 0.038, fill 0.97 -> 1.00, reach 1.00
+
+=== case_00038 base_43_idx_69692 (long, dense) | short: 8/90 (6 dense, 8 cand.) | mid: 14/180 (11 dense, 15 cand.) | long: 14/180 (11 dense, 15 cand.) | render queue 2 | 0.59 h
+  [render] case_00035: render ok in 46 s
+  [render] case_00036: base_72_idx_60440 (short, chunky, ΔE 69.8) rendering ...
+  [render] case_00036: render ok in 26 s
+  case_00037 ok: 16 parts, 128.0 s (mask 48.4, rlift 17.5, metrics 58.5), peak 5.17 GB
+  case_00037 grid 0.523 -> 0.501, fill 0.10 -> 0.34, reach 0.13
+
+=== case_00039 base_70_idx_26021 (mid, dense) | short: 8/90 (6 dense, 8 cand.) | mid: 15/180 (12 dense, 15 cand.) | long: 14/180 (11 dense, 16 cand.) | render queue 1 | 0.63 h
+  [render] case_00037: base_22_idx_50104 (mid, dense, ΔE 45.3) rendering ...
+  [render] case_00037: render ok in 28 s
+  case_00038 ok: 8 parts, 172.0 s (mask 92.0, rlift 10.8, metrics 66.0), peak 4.88 GB
+  case_00038 grid 0.423 -> 0.331, fill 0.43 -> 0.88, reach 0.67
+
+=== case_00040 base_15_idx_68493 (long, dense) | short: 8/90 (6 dense, 8 cand.) | mid: 15/180 (12 dense, 16 cand.) | long: 15/180 (12 dense, 16 cand.) | render queue 1 | 0.64 h
+  [render] case_00038: base_43_idx_69692 (long, dense, ΔE 55.4) rendering ...
+  [render] case_00038: render ok in 33 s
+  case_00039 ok: 12 parts, 135.5 s (mask 59.8, rlift 14.1, metrics 56.3), peak 5.99 GB
+  case_00039 grid 0.472 -> 0.428, fill 0.11 -> 0.21, reach 0.05
+
+=== case_00041 base_75_idx_17116 (short, dense) | short: 8/90 (6 dense, 8 cand.) | mid: 16/180 (13 dense, 16 cand.) | long: 15/180 (12 dense, 17 cand.) | render queue 1 | 0.67 h
+  [render] case_00039: base_70_idx_26021 (mid, dense, ΔE 46.4) rendering ...
+  [render] case_00039: render ok in 34 s
+interrupted: killing the workers and the running render; rerun the same command to resume
+Traceback (most recent call last):
+  File "/home/kyh/anaconda3/envs/hair_exp/lib/python3.10/runpy.py", line 196, in _run_module_as_main
+    return _run_code(code, main_globals, None,
+  File "/home/kyh/anaconda3/envs/hair_exp/lib/python3.10/runpy.py", line 86, in _run_code
+    exec(code, run_globals)
+  File "/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/gen_dataset/cli.py", line 430, in <module>
+    main()
+  File "/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/gen_dataset/cli.py", line 400, in main
+    return rlift.main(sys.argv[1:])        # curve masks + strands_editing rlift_bf (rlift.py)
+  File "/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/gen_dataset/rlift.py", line 624, in main
+    generate(a.out, cfg)
+  File "/home/kyh/Desktop/P76154862/highlighting/generate_from_3D_models/gen_dataset/rlift.py", line 557, in generate
+    done, _ = wait(list(running), return_when=FIRST_COMPLETED)
+  File "/home/kyh/anaconda3/envs/hair_exp/lib/python3.10/concurrent/futures/_base.py", line 307, in wait
+    waiter.event.wait(timeout)
+  File "/home/kyh/anaconda3/envs/hair_exp/lib/python3.10/threading.py", line 607, in wait
+    signaled = self._cond.wait(timeout)
+  File "/home/kyh/anaconda3/envs/hair_exp/lib/python3.10/threading.py", line 320, in wait
+    waiter.acquire()
+KeyboardInterrupt

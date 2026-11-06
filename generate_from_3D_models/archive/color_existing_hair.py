@@ -10,7 +10,7 @@
 # no GPU model loading, no ~10GB diffusion checkpoint.
 #
 # Four patterns, all deliberately high-contrast/clearly-visible (see
-# ALGORITHMS.md section 3 for why balayage/face_framing/peekaboo were
+# README.md ("Caveats" section) for why balayage/face_framing/peekaboo were
 # removed): random, ombre, money_piece, skunk_stripe.
 #
 # This is what you want if you're experimenting with highlight

@@ -48,6 +48,9 @@ VARIANTS = ("init", "rlift_bf")
 RENDER_PRESETS = {
     "raw": dict(subsample=0.3, radius=None, bounces=None, samples=128),
     "optical": dict(subsample=1.0, radius="metadata", bounces=32, samples=256, melanin=True),
+    # optical geometry (every strand, metadata radius, 32 bounces) with arbitrary per-strand RGB in the BSDF's COLOR
+    # parametrization: gen_dataset's rlift mode (random colors)
+    "optical_rgb": dict(subsample=1.0, radius="metadata", bounces=32, samples=256),
 }
 RENDER_VIEWS = "front,top,left,back"          # multiview composite (2 x 2); None = the renderer's 6 views
 RENDER_OUT = dict(optical=True, raw=False)        # which renders each variant gets (--render_optical / --render_raw)
@@ -253,14 +256,20 @@ def plot_footprints(path, region, fp0, fp1, labels, edited, title, k=160, seed=0
 
 # ---------------------------------------------------------------- render
 
-def render(out_dir, positions, labels, root_uv, root_normal, preset="optical", meta=None):
-    """Blender render (front + RENDER_VIEWS composite) of the given geometry and per-strand bool labels through the
-    coloring_by_strand trimmed renderer (GPU, see run_highlight_render.sh), RENDER_PRESETS. -> seconds"""
+def render(out_dir, positions, labels, root_uv, root_normal, preset="optical", meta=None, colors=None, multiview=True,
+           samples=None, seed=0, device=None):
+    """Blender render (front + RENDER_VIEWS composite unless multiview=False) of the given geometry and per-strand
+    bool labels through the coloring_by_strand trimmed renderer (GPU, see run_highlight_render.sh), RENDER_PRESETS.
+    colors: (S, 3) RGB per strand instead of the labels' colors (COLOR parametrization; preset without melanin).
+    device: CYCLES_DEVICE for Blender (default OptiX; "CUDA" when OptiX crashes with a misaligned address).
+    -> seconds"""
     from highlighting.generate_from_3D_models.update_contour.masks import mask_to_rgb
     cfg = RENDER_PRESETS[preset]
+    if colors is not None and cfg.get("melanin"):
+        raise ValueError(f"preset {preset!r} colors by melanin; per-strand RGB needs e.g. 'optical_rgb'")
     os.makedirs(out_dir, exist_ok=True)
     labels = np.asarray(labels, bool)
-    colors = mask_to_rgb(labels)
+    colors = mask_to_rgb(labels) if colors is None else np.asarray(colors, np.float32)
     hair = os.path.join(out_dir, "_hair.npz")
     np.savez(hair, positions=positions.astype(np.float32), root_uv=root_uv, root_normal=root_normal)
     tmpl = os.path.join(out_dir, "template.npz")
@@ -271,10 +280,12 @@ def render(out_dir, positions, labels, root_uv, root_normal, preset="optical", m
              root_uv=root_uv.astype(np.float32), **extra)
     cmd = ["bash", RUN_SH, BLENDER, RENDER_PY, "--input_npz", hair, "--out_path", os.path.join(out_dir, "front.png"),
            "--dataset_path", DATASET, "--coord_convention", "dataset_raw", "--base_color", "0.05", "0.05", "0.05",
-           "--template_npz", tmpl, "--seed", "0", "--transition_softness", "0.04", "--highlight_start", "0.0",
-           "--samples", str(cfg["samples"]), "--resolution", "512", "--strands_subsample", str(cfg["subsample"]),
+           "--template_npz", tmpl, "--seed", str(seed), "--transition_softness", "0.04", "--highlight_start", "0.0",
+           "--samples", str(samples or cfg["samples"]), "--resolution", "512", "--strands_subsample", str(cfg["subsample"]),
            "--env_light_strength", "2.0", "--scalp_grid_size", "128", "--no_save_scalp_grid"]
-    if RENDER_VIEWS:
+    if not multiview:
+        cmd.append("--no_save_multiview")
+    elif RENDER_VIEWS:
         cmd += ["--views", RENDER_VIEWS]
     radius = cfg.get("radius")
     if radius == "metadata":
@@ -287,7 +298,8 @@ def render(out_dir, positions, labels, root_uv, root_normal, preset="optical", m
         cmd += ["--bsdf_roughness", str(meta["bsdf_roughness"]), "--bsdf_radial_roughness",
                 str(meta["bsdf_radial_roughness"]), "--bsdf_coat", str(meta["bsdf_coat"])]
     t0 = time.time()
-    r = subprocess.run(cmd, capture_output=True, text=True)
+    env = dict(os.environ, CYCLES_DEVICE=device) if device else None
+    r = subprocess.run(cmd, capture_output=True, text=True, env=env)
     os.remove(hair)
     if r.returncode != 0:
         print(r.stdout[-2000:], r.stderr[-2000:])
@@ -353,73 +365,114 @@ def _load(name, n):
     return P0, raw["root_uv"], raw["root_normal"], common.scalp_grid(n, DATASET)
 
 
-def run_sample(name, out_root, seed=0, n=32, width=0.02, target_frac=0.12, do_render=True, do_projection=True,
-               variants=VARIANTS):
-    """chunky: a few 2 cm Bezier locks (bezier_mask.make_chunky_bezier); labels = the root inside a lock"""
+MASK_STYLES = ("chunky", "dense")
+DEFAULT_WIDTH = dict(chunky=0.02, dense=0.008)
+
+
+PAIR_TOLS = (1.5, 3.0, 4.5)     # dense pairing tolerance (cells), loosened only while fewer than MIN_PAIRS pairs fit
+MIN_PAIRS = 3
+
+
+def build_mask(style, P0, root_uv, grid, seed=0, width=None, target_frac=0.12, per_side=(5, 10), pair=True,
+               mask_pkl=None, pair_tols=PAIR_TOLS):
+    """the curve-based (Bezier) initial mask of a style on one hairstyle, and what rlift_bf needs with it.
+        chunky  a few 2 cm Bezier locks seeded on the part (bezier_mask.make_chunky_bezier); ids = nearest lock
+        dense   5-10 thin (8 mm) stripes per side as mirrored part-seeded pairs (bezier_mask.make_dense_bezier,
+                pair=True); ids = stripe ids. Every cell-unit constant (flow smoothing, hair closing) scales with
+                n / 32, so n = 96 keeps the physical sizes. On side-swept hair the stripes of one side start far
+                from the part and no mirrored pair fits pair_tol 1.5 cells (base_74: 0 stripes): while fewer than
+                MIN_PAIRS pairs fit, the mask is drawn again (same seed) with the next of pair_tols, and the one
+                with the most stripes is kept (params["pair_tol"]). Hairstyles that fit 3 pairs are unchanged.
+                With < 2 pairs even then (crown whorl, no part line), the unpaired selection is used if it gives
+                more stripes (params["pair"] = False).
+    mask_pkl: reuse (or write) (locks, region, params) there. rng = default_rng(seed).
+    -> dict(field, shell, fp0, rxy, locks, region, params, ids0 (S,) int, labels0 (S,) bool, center, width, t_mask)"""
     from highlighting.generate_from_3D_models.initial_masks_generation.field import build_field
     from highlighting.generate_from_3D_models.initial_masks_generation.styles import head_center
     from highlighting.generate_from_3D_models.strands_editing.stripe_profile import assign_ids
+    if style not in MASK_STYLES:
+        raise ValueError(f"unknown mask style {style!r}: {MASK_STYLES}")
+    width = width or DEFAULT_WIDTH[style]
+    n = grid.n
+    t0 = time.time()
+    dense = style == "dense"
+    sc = n / 32
+    # dense: flow smoothing of the same physical width at any n (chunky ran at n = 32 with the default)
+    field = build_field(P0, root_uv, grid, coupling=False, **(dict(sigma=sc) if dense else {}))
+    shell = ShellMap(grid)
+    # only footprints over rooted cells are checked (deform.Footprints); at n > 32 a hair cell holds ~10 roots and
+    # the rooted set has holes: close them (dense)
+    shell.hair = ndi_close(field.hair, round(sc)) if dense and n > 32 else field.hair
+    fp0 = dfm.Footprints(shell, P0)
+    rxy = dfm.root_xy(fp0, shell, root_uv, grid)
+    if mask_pkl and os.path.exists(mask_pkl):
+        locks, region, params = pickle.load(open(mask_pkl, "rb"))
+    else:
+        if dense:
+            best = None
+            for tol in (pair_tols if pair else pair_tols[:1]):
+                # centerlines at least 1.6 cm apart, and 1.6 x the width for wide stripes (else they would touch)
+                locks, region, params = bm.make_dense_bezier(field, np.random.default_rng(seed), rxy, width=width,
+                                                             per_side=per_side, min_gap=max(0.016, 1.6 * width),
+                                                             pair=pair, pair_tol=tol)
+                if best is None or len(locks) > len(best[0]):
+                    best = (locks, region, dict(params, pair_tol=tol) if tol != pair_tols[0] else params)
+                if not pair or len(locks) >= 2 * MIN_PAIRS:
+                    break
+            if pair and len(best[0]) < 4:
+                # still < 2 pairs (short hair around a crown whorl, no part line: base_73 had 0): the unpaired
+                # selection (sides independent, lattice seeds too; params["pair"] = False)
+                locks, region, params = bm.make_dense_bezier(field, np.random.default_rng(seed), rxy, width=width,
+                                                             per_side=per_side, min_gap=max(0.016, 1.6 * width),
+                                                             pair=False)
+                if len(locks) > len(best[0]):
+                    best = (locks, region, params)
+            locks, region, params = best
+        else:
+            locks, region, params = bm.make_chunky_bezier(field, np.random.default_rng(seed), width=width,
+                                                          target_frac=target_frac)
+        if mask_pkl:
+            pickle.dump((locks, region, params), open(mask_pkl, "wb"))
+    if dense:
+        ids0 = bm.stripe_ids(region, rxy)
+        labels0 = ids0 > 0
+    else:
+        labels0 = region.phi_at(*rxy) > 0
+        ids0 = assign_ids(locks, *rxy, labels0)
+    return dict(field=field, shell=shell, fp0=fp0, rxy=rxy, locks=locks, region=region, params=params, ids0=ids0,
+                labels0=labels0, center=head_center(field), width=width, t_mask=round(time.time() - t0, 1))
+
+
+def _sample(name, out_root, style, n, seed, width, do_render, do_projection, variants, **mask_kw):
     out = os.path.join(out_root, name)
     os.makedirs(out, exist_ok=True)
     P0, root_uv, root_normal, grid = _load(name, n)
-    t0 = time.time()
-    field = build_field(P0, root_uv, grid, coupling=False)
-    pk = os.path.join(out, "mask.pkl")
-    if os.path.exists(pk):
-        locks, region, params = pickle.load(open(pk, "rb"))
+    m = build_mask(style, P0, root_uv, grid, seed=seed, width=width, mask_pkl=os.path.join(out, "mask.pkl"), **mask_kw)
+    locks, params, field = m["locks"], m["params"], m["field"]
+    if style == "dense":
+        print(f"[{name}] field + dense mask {m['t_mask']:.0f} s, {len(locks)} stripes {params['per_side']}")
+        title = f"{name}: {len(locks)} stripes {params['per_side']}, |sin(side, flow)| = {params['flow_alignment']:.3f}"
     else:
-        locks, region, params = bm.make_chunky_bezier(field, np.random.default_rng(seed), width=width,
-                                                      target_frac=target_frac)
-        pickle.dump((locks, region, params), open(pk, "wb"))
-    print(f"[{name}] field + mask {time.time() - t0:.0f} s, {len(locks)} locks")
-    shell = ShellMap(grid)
-    shell.hair = field.hair              # only footprints over rooted cells are checked (deform.Footprints)
-    fp0 = dfm.Footprints(shell, P0)
-    rxy = dfm.root_xy(fp0, shell, root_uv, grid)
-    labels0 = region.phi_at(*rxy) > 0
-    ids0 = assign_ids(locks, *rxy, labels0)
-    plot_mask(os.path.join(out, "mask.png"), field, region, locks,
-              f"{name}: {len(locks)} Bezier locks, {sum(l['n_ctrl'] for l in locks)} control points, "
-              f"|sin(side, flow)| = {params['flow_alignment']:.3f}")
-    ctx = dict(name=name, out=out, style="chunky", field=field, grid=grid, shell=shell, locks=locks, region=region,
-               params=params, P0=P0, fp0=fp0, rxy=rxy, ids0=ids0, labels0=labels0, center=head_center(field),
-               width=width, root_uv=root_uv, root_normal=root_normal)
+        print(f"[{name}] field + mask {m['t_mask']:.0f} s, {len(locks)} locks")
+        title = (f"{name}: {len(locks)} Bezier locks, {sum(l['n_ctrl'] for l in locks)} control points, "
+                 f"|sin(side, flow)| = {params['flow_alignment']:.3f}")
+    plot_mask(os.path.join(out, "mask.png"), field, m["region"], locks, title)
+    ctx = dict(m, name=name, out=out, style=style, grid=grid, P0=P0, root_uv=root_uv, root_normal=root_normal)
     return _run_variants(ctx, variants, do_render, do_projection)
+
+
+def run_sample(name, out_root, seed=0, n=32, width=0.02, target_frac=0.12, do_render=True, do_projection=True,
+               variants=VARIANTS):
+    """chunky: a few 2 cm Bezier locks (build_mask)"""
+    return _sample(name, out_root, "chunky", n, seed, width, do_render, do_projection, variants,
+                   target_frac=target_frac)
 
 
 def run_dense(name, out_root, seed=0, n=32, width=0.008, per_side=(5, 10), pair=True, do_render=True,
               do_projection=False, variants=VARIANTS):
-    """dense: 5-10 thin Bezier stripes per side (bezier_mask.make_dense_bezier); labels = stripe ids. Every
-    cell-unit constant (flow smoothing, hair closing) scales with n / 32, so n = 96 keeps the physical sizes."""
-    from highlighting.generate_from_3D_models.initial_masks_generation.field import build_field
-    from highlighting.generate_from_3D_models.initial_masks_generation.styles import head_center
-    out = os.path.join(out_root, name)
-    os.makedirs(out, exist_ok=True)
-    P0, root_uv, root_normal, grid = _load(name, n)
-    t0 = time.time()
-    sc = n / 32
-    field = build_field(P0, root_uv, grid, coupling=False, sigma=sc)   # flow smoothing: same physical width
-    shell = ShellMap(grid)
-    # at n > 32 a hair cell holds ~10 roots and the rooted set has holes: close them for the footprint check
-    shell.hair = field.hair if n <= 32 else ndi_close(field.hair, round(sc))
-    fp0 = dfm.Footprints(shell, P0)
-    rxy = dfm.root_xy(fp0, shell, root_uv, grid)
-    pk = os.path.join(out, "mask.pkl")
-    if os.path.exists(pk):
-        locks, region, params = pickle.load(open(pk, "rb"))
-    else:
-        # centerlines at least 1.6 cm apart, and 1.6 x the width for wide stripes (else they would touch)
-        locks, region, params = bm.make_dense_bezier(field, np.random.default_rng(seed), rxy, width=width,
-                                                     per_side=per_side, min_gap=max(0.016, 1.6 * width), pair=pair)
-        pickle.dump((locks, region, params), open(pk, "wb"))
-    ids0 = bm.stripe_ids(region, rxy)
-    print(f"[{name}] field + dense mask {time.time() - t0:.0f} s, {len(locks)} stripes {params['per_side']}")
-    plot_mask(os.path.join(out, "mask.png"), field, region, locks,
-              f"{name}: {len(locks)} stripes {params['per_side']}, |sin(side, flow)| = {params['flow_alignment']:.3f}")
-    ctx = dict(name=name, out=out, style="dense", field=field, grid=grid, shell=shell, locks=locks, region=region,
-               params=params, P0=P0, fp0=fp0, rxy=rxy, ids0=ids0, labels0=ids0 > 0, center=head_center(field),
-               width=width, root_uv=root_uv, root_normal=root_normal)
-    return _run_variants(ctx, variants, do_render, do_projection)
+    """dense: 5-10 thin Bezier stripes per side (build_mask)"""
+    return _sample(name, out_root, "dense", n, seed, width, do_render, do_projection, variants,
+                   per_side=per_side, pair=pair)
 
 
 def _run_variants(c, variants, do_render, do_projection):

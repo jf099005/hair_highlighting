@@ -1,0 +1,44 @@
+{
+  "case": "case_00310",
+  "status": "no_mask",
+  "n_strands": 97661,
+  "n_parts": 1,
+  "mask_params": {
+    "locks": [
+      4
+    ],
+    "seed_line": "midline",
+    "n_bands": 1,
+    "seeds": [
+      [
+        3,
+        18
+      ]
+    ],
+    "lock_ratio": [
+      3.227
+    ],
+    "vis_azimuth": [
+      2.953
+    ],
+    "width": 0.02,
+    "width_cells": 1.6687935207765547,
+    "flow_alignment": 0.04994033783530859,
+    "style": "bezier_chunky",
+    "strand_frac": 0.061099108139380104,
+    "n_parts": 1,
+    "grid_n": 32,
+    "seed": [
+      0,
+      20,
+      310
+    ]
+  },
+  "seconds": {
+    "load": 1.1,
+    "mask": 117.5
+  },
+  "error": "1 stripes / locks, 5967 highlight strands",
+  "peak_rss_gb": 2.43,
+  "wall_seconds": 119.4
+}

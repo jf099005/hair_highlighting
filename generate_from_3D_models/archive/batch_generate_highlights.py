@@ -103,7 +103,7 @@ def random_highlight_color(rng, base_rgb, min_contrast):
 
 def random_pattern_params(pattern, rng):
     """Returns a dict of --flag: value overrides for this pattern, randomized
-    within ranges tuned for bold, clearly-visible results (see ALGORITHMS.md)."""
+    within ranges tuned for bold, clearly-visible results (see README.md)."""
     if pattern == 'money_piece':
         inner = round(rng.uniform(0.05, 0.15), 3)
         return {

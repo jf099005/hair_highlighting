@@ -68,13 +68,14 @@ def _lab(srgb):
     return np.array([116 * f[1] - 16, 500 * (f[0] - f[1]), 200 * (f[1] - f[2])])
 
 
-def render_delta_e(base, highlight):
-    """ΔE (CIE76) between two render input colors as they look in the render (RENDER_CURVE per channel)"""
-    shown = lambda c: _lab(np.interp(np.asarray(c, np.float64), *RENDER_CURVE))  # noqa: E731
+def render_delta_e(base, highlight, curve=RENDER_CURVE):
+    """ΔE (CIE76) between two render input colors as they look in the render (`curve` per channel; RENDER_CURVE
+    for this module's renders, rlift.py passes the curve measured on its optical renders)"""
+    shown = lambda c: _lab(np.interp(np.asarray(c, np.float64), *curve))  # noqa: E731
     return float(np.linalg.norm(shown(base) - shown(highlight)))
 
 
-def pick_colors(rcfg, rng):
+def pick_colors(rcfg, rng, curve=RENDER_CURVE):
     mode = rcfg["color_mode"]
     if mode == "bw":
         return np.array(common.BASE_RGB, np.float32), np.array(common.HIGHLIGHT_RGB, np.float32)
@@ -97,7 +98,7 @@ def pick_colors(rcfg, rng):
         if rng.random() < 0.3:                              # blonde / ash / platinum highlights
             hue, sat = rng.uniform(0.08, 0.15), rng.uniform(0.1, 0.5)
         hl = np.array(colorsys.hls_to_rgb(hue, light, sat))
-        de = render_delta_e(base, hl)
+        de = render_delta_e(base, hl, curve)
         if best is None or de > best[0]:
             best = (de, hl)
         if de >= min_de:
@@ -262,12 +263,13 @@ class BackgroundRenderer:
     abort() kills the running Blender and drops the queue. on_change(), if given, is called (from the render
     thread) when a render starts and when it ends, e.g. to rewrite the live overview."""
 
-    def __init__(self, out, cfg, on_change=None):
+    def __init__(self, out, cfg, on_change=None, process=None):
         import itertools
         import queue
         import threading
         self.out, self.cfg = os.path.abspath(out), cfg
         self.on_change = on_change
+        self.process = process or process_sample     # (out, cfg, row, s, tag=, on_start=) -> status
         self.q = queue.PriorityQueue()
         self._seq = itertools.count()
         self.submitted = set()              # (folder, case)
@@ -326,8 +328,8 @@ class BackgroundRenderer:
             self._changed()
             tag = "  [render] " if out == self.out else f"  [render {os.path.basename(out)}] "
             try:
-                self.done[key] = process_sample(out, cfg, row, s, tag=tag,
-                                                on_start=lambda p: setattr(self, "proc", p))
+                self.done[key] = self.process(out, cfg, row, s, tag=tag,
+                                              on_start=lambda p: setattr(self, "proc", p))
             except Exception as e:          # one bad sample must not stop the others
                 self.done[key] = "failed"
                 print(f"{tag}{s['case']}: FAILED {type(e).__name__}: {e}", flush=True)

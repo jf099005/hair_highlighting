@@ -319,7 +319,10 @@ def dense_candidates(field, root_xy, lattice=None, min_len=None):
             pts = _trace_side(field, V, np.array([c, r], float), line)
             if 0.5 * len(pts) < min_len:
                 continue
-            sel = np.flatnonzero(_polyline_dist(Q, pts) <= 0.5 * sc)
+            # roots within 0.5 cell of the line; only those inside its bounding box (+ the radius) can be, and the
+            # distance is per root, so the prefilter gives exactly the same selection (60 s -> ~2 s at n = 96)
+            near = np.flatnonzero(np.all((Q >= pts.min(0) - 0.5 * sc) & (Q <= pts.max(0) + 0.5 * sc), axis=1))
+            sel = near[_polyline_dist(Q[near], pts) <= 0.5 * sc]
             if sel.size < 20:
                 continue
             sub = sel[:: max(1, sel.size // 300)]

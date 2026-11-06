@@ -178,6 +178,83 @@ case (預設 3，該組不足時全取；只抽 `select_method` 有結果的 cas
 記憶體不夠時用 `--max_strands`。注意 lam 是跟邊權重相比的絕對值，`--max_strands` 會讓邊權重變小，
 同一個 lam 的效果就不同 (例如 30000 根時 lam=1000 幾乎不翻任何髮絲)，不同 max_strands 的 run 不能直接比較。
 
+## 開發者說明
+
+**一律透過 `bench.sh`**：它把 `PYTHONPATH` 設為專案根目錄、用 `hair_exp` 環境、設 `TQDM_DISABLE` 與 `PYTHONUNBUFFERED=1`、
+隱藏 CUDA。模組彼此以 `highlighting.generate_from_3D_models.contour_algo_test.*` import，用 `python -m` 執行。
+架構與兩頭融合 benchmark `../../../NCKU_3D_hair_reconstruction/benchmark/` 對應，改其中一個時檢查另一個要不要跟著改。
+
+**資料流**：
+1. `build_benchmark.py` 選 hairstyle pool，寫出每個 case 的 `case.json` 與 `mask.npy`（`masks.py` 的 generator 畫）。
+2. `run_benchmark.py`：主程序把每個 case 交給受保護的子程序執行 `run_case`：`CaseContext`（membership，overlap graph lazy 建）
+   → 每個 variant `methods.run_variant` → `metrics.evaluate`（`ResultView`）→ 寫 `result.json`、`maps.npz`、`roots.png`。
+3. `summarize.py` 彙整成 `summary.*`，用 `report.py` 寫頁面，跑 `analysis.py` 與（除非 `--no_render`）`render_results.py`，
+   每一步後重寫報告。
+
+**擴充點**（registry；加函式，不要改 pipeline）：
+
+| 什麼 | 在哪裡 | 介面 |
+|---|---|---|
+| mask 形狀 | `masks.py` `@register_mask` | `gen(rng, root_count, **kw) -> (mask, params)`；隨機性只來自 `rng`；`build --mask_generators` 選用 |
+| 演算法 | `methods.py` `@register_method` | `method(cc, **kwargs) -> MethodResult(strand_mask, hidden=None, history=None, info={})`；`info` 要能 JSON 序列化 |
+| 設定 | `methods.VARIANTS` 或 `run --variants_json` | `{"name": {"method": ..., "kwargs": {...}}}` |
+| 指標 | `metrics.py` `@register_metric` | `metric(rv) -> (scalars, maps)`；maps 為 `(n, n)` (row, col)；只算可見髮絲（`rv.visible`、`rv.smg_visible`） |
+| 首頁欄位 | `summarize.KEY_METRICS` | `(column, lower_is_better 或 None)` |
+| 主要指標 | `summarize.MAIN_METRICS` | 每個一張總覽表；極端 case 仍以 `SELECT_METRIC`（`mean_all`）挑 |
+
+**資料慣例與注意事項**：
+- mask 是 `(n, n)` bool、scalp-grid (row, col)，True = highlight；`cc.smg` 是 `(u_idx, v_idx, S)`。髮絲初始標籤 =
+  `mask[grid.root_rowcol(root_uv)]`（`cc.init_state`）。
+- membership 一律用 `common.strand_mask_grid_cpu`（numba），不要用 `grid.strand_mask_grid(...)`（CUDA 被藏起來時會退回
+  numpy，~170 s）。97k 根髮絲（1/7 抽樣）上與 `strands_above_cells` 完全相同。
+- `--max_strands` 取 seed 固定的子集（seed = case seed）；`maps.npz` 存 `strand_idx` 讓渲染對回完整 npz。
+  lam 是絕對值，不同 `max_strands` 的 run 不能比；runner 拒絕用不同 `max_strands` 或 `boundary_fm` 續跑。
+- `CaseContext` 每個 case 建一次、所有 variant 共用；`cc.incidence("cell" | "projection" | "projection_depth")` lazy 建並快取，
+  深度圖只有 `fm_projd_lam*` 與 `projection_depth` metric 會建（同一 case 兩張圖並存）。
+- 磁碟 graph cache 的 key 是輸入（座標、smg、grid 座標系、`H_MIN/H_MAX`、深度常數）加上 `update_contour/overlap.py` 原始碼的 hash；
+  graph 若依賴新東西要加進 `graph_key`。
+- `method_seconds` 不含 graph 建構；method 若自己建昂貴的共用狀態，放在 `cc` 上讓計時公平。
+- `mask_only` 是參考組，必須維持 no-op（所有配對差與勝率都相對於它）。
+- 失敗的 variant 寫 `status: "failed"` 與 traceback 到 `result.json`，run 繼續；大 run 後檢查 `summary.md` 的 failed 欄。
+  只有子程序硬當（例如 numba segfault）才會出現 `worker exited with code N`，用 `--no_isolate` 重跑除錯。
+- 改 variant 的 kwargs 但沿用舊名稱時要 `--overwrite`；`run_config.json["variants"]` 會累積。
+- `build --n_short/--n_mid/--n_long` 各用自己的 rng（`[seed, 1]`）；沒給時 pool = 全部髮型，與以前相同。
+- `compare.py`：`reports/<A>/`、`reports/<B>/` 是 `summarize(..., variants=[reference, X], out_dir=...)`，flux 分析放在
+  `cases/<case>/analysis_<select_method>/`，頁面連結相對於 `out_dir`。卡片挑選在 `compare.pick_cases`；圖表用 dataviz 參考配色。
+- `run_test.py`、`config.py`、`random_mask.py`、`run_contour_algo_test.sh`、`results/` 是舊的單一 model 深入測試（用 GPU）；
+  `masks.polygon` import `random_mask.py`，要保持可用。
+- `data/` 不在 git；`data/smoke*` 是丟棄式測試 run，部分列已過時。
+
+**檢查改動**（約 30 s；資料集已成長到 837 個髮型，重建的 case 與舊的 `data/smoke*` 不同）：
+
+```bash
+bash bench.sh build 4 --seed 1 --out data/smoke --force
+bash bench.sh run data/smoke --run_name t --cases case_0001 --max_strands 30000 --overwrite --no_render \
+    --methods mask_only,fm_proj_lam100,fm_proj_lam1000_trim100
+```
+
+確認 `mask_only` 的 `flip_frac` 為 0、`shape.iou_init` 為 1，沒有 variant 失敗，`roots.png` 合理，且沒有我們的程序在 GPU 上
+（`nvidia-smi --query-compute-apps=pid,name --format=csv`）。
+
+## 開發守則
+
+- **改之前**：`gen_dataset` 以 subprocess 執行 `run_benchmark ... --_worker` 並讀 `case.json` / `result.json` / `maps.npz`；
+  `initial_masks_generation` 以 `build_benchmark.py` 的格式寫 benchmark。worker 命令列或這些 key 改了，要同步
+  `gen_dataset/runner.worker_argv` / `dataset.py` / `render_samples.py` 與 `initial_masks_generation/build_bench.py`
+  （加 `--graph_cache` 時壞過一次）。架構對應 `../../../NCKU_3D_hair_reconstruction/benchmark/`，檢查改動是否也該套到那邊。
+- Python 不用 GPU：保留 `common.py` 的 `CUDA_VISIBLE_DEVICES=""` 保護（只能用 `CONTOUR_BENCH_ALLOW_GPU=1` 例外），不加 torch/CUDA 路徑；
+  membership 一律用 `common.strand_mask_grid_cpu`。
+- 透過 registry 擴充（`@register_mask`、`@register_method` + `VARIANTS`、`@register_metric`、`KEY_METRICS` / `MAIN_METRICS`），
+  不要為了新的 mask、method 或 metric 改 pipeline。
+- `mask_only` 必須維持 no-op（所有配對差都相對於它）。
+- 不加 `--boundary_fm` 或其他新 flag 時，每個 variant 的輸出必須與之前逐位元相同。
+- projection graph 依賴的新輸入要加進 `graph_cache.graph_key`，否則快取會給出過時的圖。
+- method 自己建的昂貴狀態放在 `cc` 上，讓 `method_seconds` 可比。
+- `run_test.py`、`config.py`、`random_mask.py` 要保持可用（`masks.polygon` import `random_mask.py`）。
+- 一律用 `bash bench.sh`；smoke test 加 `--no_render`；長時間的 run 用 `nohup`。
+- 驗證：上方「檢查改動」的 smoke run——`mask_only` 的 `flip_frac` 為 0、`shape.iou_init` 為 1，沒有 variant 失敗，`roots.png` 合理，
+  GPU 上沒有我們的程序。子程序硬當只會顯示 `worker exited with code N`，用 `--no_isolate` 重跑。
+
 ## 單一 model 深入測試 (`run_test.py`)
 
 用隨機挑選的 3D model 測試目前的 update contour 演算法（FM + trim）。注意這個腳本**會用 GPU** (torch membership 與 Blender)。這是

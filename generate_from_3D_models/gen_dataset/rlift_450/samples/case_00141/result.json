@@ -1,0 +1,7 @@
+{
+  "case": "case_00141",
+  "status": "skipped_oom",
+  "error": "killed by the kernel OOM killer (RSS peak 3.0 GB)",
+  "peak_rss_gb": 2.99,
+  "wall_seconds": 85.7
+}

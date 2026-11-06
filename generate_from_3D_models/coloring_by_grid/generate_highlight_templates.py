@@ -87,7 +87,7 @@ ALL_PATTERNS = ['money_piece', 'skunk_stripe']  # only the color-block patterns 
 
 def random_pattern_params(pattern, rng):
     """Returns a dict of pattern-specific params, randomized within ranges
-    tuned for bold, clearly-visible results (see ALGORITHMS.md and this
+    tuned for bold, clearly-visible results (see archive/README.md and this
     module's docstring for why money_piece additionally gets a front/back
     extent while skunk_stripe doesn't)."""
     if pattern == 'money_piece':
