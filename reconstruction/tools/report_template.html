@@ -1,0 +1,115 @@
+<title>挑染還原階段報告</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* layout: one reading column for the text, wide figure strips for the renders; strand-label red / base green as the
+   only accents (the same colors as the label overlays) */
+:root {
+  --bg: #f6f5f2; --panel: #ffffff; --fg: #1f1e1b; --muted: #6a675f; --line: #dedad2;
+  --hl: #c8372d; --base: #2f8a4a; --accent: #3d5a80;
+  --display: "Noto Serif TC", "Songti TC", serif;
+  --body: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --bg: #151514; --panel: #1e1d1b; --fg: #ebe8e1; --muted: #a39f95; --line: #34322e;
+    --hl: #ec6b5f; --base: #5fbf7c; --accent: #8fb0d8; color-scheme: dark; }
+}
+:root[data-theme="dark"] { --bg: #151514; --panel: #1e1d1b; --fg: #ebe8e1; --muted: #a39f95; --line: #34322e;
+  --hl: #ec6b5f; --base: #5fbf7c; --accent: #8fb0d8; color-scheme: dark; }
+body { background: var(--bg); color: var(--fg); font: 15px/1.7 var(--body); }
+.wrap { max-width: 1180px; margin: 0 auto; padding-block: 32px 64px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.col { max-width: 760px; }
+h1 { font: 700 2rem/1.25 var(--display); margin: 0 0 6px; text-wrap: balance; }
+h2 { font: 700 1.35rem/1.3 var(--display); margin: 44px 0 12px; padding-top: 18px; border-top: 1px solid var(--line); text-wrap: balance; }
+h3 { font: 600 1.02rem/1.4 var(--body); margin: 26px 0 8px; }
+p, li { margin: 0 0 8px; }
+ul { padding-left: 1.2em; margin: 0 0 10px; }
+.sub { color: var(--muted); font-size: .92rem; }
+.key { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); margin: 18px 0 6px; }
+.key div { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 12px 14px; min-width: 0; }
+.key b { display: block; font: 600 1.5rem/1.2 var(--mono); font-variant-numeric: tabular-nums; }
+.key span { color: var(--muted); font-size: .85rem; }
+.hl { color: var(--hl); font-weight: 600; } .bs { color: var(--base); font-weight: 600; }
+code, .run, .num { font-family: var(--mono); font-size: .86em; }
+.run { display: block; color: var(--muted); font-weight: 400; font-size: .76rem; }
+.tw { overflow-x: auto; margin: 4px 0 8px; }
+table { border-collapse: collapse; font-variant-numeric: tabular-nums; min-width: 560px; width: 100%; }
+th, td { border-bottom: 1px solid var(--line); padding: 6px 10px; text-align: right; }
+thead th { color: var(--muted); font-weight: 500; font-size: .84rem; }
+tbody th { text-align: left; font-weight: 500; }
+tbody tr:last-child { background: color-mix(in srgb, var(--accent) 9%, transparent); }
+.flow { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); margin: 12px 0; }
+.flow div { border-left: 3px solid var(--accent); padding: 4px 10px; background: var(--panel); min-width: 0; font-size: .9rem; }
+.flow b { display: block; font-size: .8rem; color: var(--muted); font-weight: 500; letter-spacing: .03em; }
+.case { margin: 22px 0 30px; }
+.case h3 { font-family: var(--mono); font-size: .9rem; font-weight: 500; }
+.figs { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
+figure { margin: 0; min-width: 0; }
+figure img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 4px; background: #000; display: block; }
+figcaption { font-size: .8rem; color: var(--muted); margin-top: 4px; line-height: 1.45; }
+a { color: var(--accent); }
+a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.note { font-size: .88rem; color: var(--muted); }
+</style>
+
+<div class="wrap">
+<header class="col">
+  <h1>挑染還原階段報告</h1>
+  <p class="sub">2026-11-08 · 單張照片 → DiffLocks 3D 髮絲 + 每根髮絲的挑染 / 未挑染分區。本階段以分區為主，顏色暫不處理。報告模型 <code>{{RUN}}</code>。</p>
+</header>
+
+<section class="col">
+  <h2>結論</h2>
+  <ul>
+    <li><b>把每根髮絲投影回影像取特徵</b>是關鍵：同樣資料下，純影像 → 頭皮 mask 的可見髮絲 IoU 只有 0.19，髮絲投影模型 0.70（92 個樣本）→ 0.83（全部資料）。</li>
+    <li><b>dense 從 0.50 進步到 0.67</b>（可見髮絲 IoU；precision 0.67 → 0.86）：顏色 loss 降低、256² 細特徵、依風格平衡抽樣 + 較長訓練各自有效。
+      可見條紋約 84–89% 找得到，錯誤主要在邊界與寬度；被頭髮蓋住的細條紋仍幾乎推不出來（全部髮絲 IoU 0.27）。</li>
+    <li><b>DiffLocks 重建的髮型是目前的天花板</b>：就算每根可見髮絲都標對，money piece 的正面標籤圖 IoU 也只有 0.31，因為重建的髮絲不在影像上挑染的位置。
+      要再進步得改髮絲幾何，而不是只改標籤。</li>
+    <li><b>後處理</b>：隨機 mask 用 FM 很好（IoU 不變、grid score 降 2–3 倍）；dense / money piece 用 FM 會把挑染刪光。
+      投影到生成器的 Bezier mask 家族再跑 rlift_bf，能得到乾淨、符合生成風格的條紋（grid score 下降），但對 GT 標籤圖的 IoU 通常下降；以下面的渲染判斷。</li>
+    <li><b>真實照片</b>：分區位置大致對（白色區塊、框臉帶、金色束），但受 DiffLocks 幾何與五官對齊誤差影響，邊界粗糙。</li>
+  </ul>
+</section>
+
+<section class="col">
+  <h2>方法</h2>
+  <div class="flow">
+    <div><b>輸入</b>照片 → DiffLocks 臉部裁切；真實照片以五官 landmark 對齊</div>
+    <div><b>髮型</b>DiffLocks 重建（訓練用 GT 髮型），每根取 32 點投影回影像 + z-buffer 深度差</div>
+    <div><b>模型</b>DINOv2 + CNN（128² 與 256²）在投影點取樣 → 可見度加權池化 → 4 層髮絲 transformer</div>
+    <div><b>輸出</b>每根髮絲挑染機率（+ 頭皮 mask、2D 像素分類）</div>
+    <div><b>後處理</b>隨機：FM；dense / money piece：投影到 Bezier mask 家族 + rlift_bf</div>
+  </div>
+  <p class="note">Loss：髮絲 BCE + Dice（被遮住的髮絲權重 0.3）、0.5 × 4 類像素 CE、0.1 × 顏色 L1。增強：隨機背景與膚色、亮度 / 色彩擾動、裁切平移縮放、左右翻轉。
+    資料：dense 118 / money piece 316 / 隨機 mask 151，依髮型切 train 512 / test 71，全部以隨機 RGB（ΔE ≥ 45）+ optical 幾何重新渲染。</p>
+</section>
+
+<section>
+  <h2 class="col">數字</h2>
+  <p class="col note">test 樣本的中位數。可見 IoU：至少一點看得到的髮絲上的挑染 IoU；全部 IoU：含被遮住的髮絲；條紋找回率：可見的 GT 條紋 / 片中，被判為挑染（≥ 50% 髮絲）的比例。
+    最後一列是報告用的模型。</p>
+  {{TABLES}}
+</section>
+
+<section>
+  <h2 class="col">還原渲染</h2>
+  <p class="col note">合成 test 樣本（中長髮）都用 <b>DiffLocks 從輸入影像重建的髮型</b>，配上樣本本身的兩種顏色渲染，所以只有分區不同。
+    真實照片用固定的深棕 / 金色。點渲染圖可看四個視角。指標是正面標籤圖對 GT 的 IoU 與 grid score（越低交錯越少）。</p>
+  {{CASES}}
+</section>
+
+<section class="col">
+  <h2>限制與下一步</h2>
+  <ul>
+    <li>依影像移動髮絲（把判為挑染的髮絲帶到影像上挑染的位置）以突破 DiffLocks 幾何天花板；rlift_bf 的抬升可以當起點。</li>
+    <li>dense 被遮住的條紋：以生成器的條紋結構（對稱、等距、從分線出發）做結構化預測，而不是逐根分類。</li>
+    <li>Bezier 投影目前由人指定風格（dense / money piece），之後可讓模型預測風格。</li>
+    <li>顏色：照片外觀 → 渲染參數的校正（目前的 render curve 轉換誤差大）。</li>
+    <li>所有比較都是單一 seed、test 71 個樣本；後處理比較只有 9 個代表 case。</li>
+  </ul>
+</section>
+</div>
