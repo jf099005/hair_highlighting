@@ -20,6 +20,7 @@
 | [`highlight_vae/`](highlight_vae/README.md) | 同任務，改用 strand↔cell transformer 調整 strand-VAE SIREN decoder（FiLM、latent offset、flip，可選旋轉場與 clump operator），用可微 column-rule cut 做 reward backprop。推薦 `data/runs/bp12b/ckpt_500.pt`。`HL_GRID_N=96` 整個流程改 96×96 |
 | [`bezier_mask_gui/`](bezier_mask_gui/README.md) | Tk GUI：用 Bezier 形狀畫挑染 mask，FM / \|flux\| active contour / flow 對齊調整，並排比較 grid score 與 Blender 渲染。`bash run.sh [--sample ...]` |
 | [`strands_editing/`](strands_editing/README.md) | 移動髮絲（而非只改 mask）做 chunky / 密集條紋：Bezier mask 沿 `flow_field`，再 `rlift_bf`（條紋塑形成設計寬度的帶子、抬到 base 上、base 補位；標籤不變）。`bash run.sh`。早期方法都在 `strands_editing/archive/`（可執行的凍結副本） |
+| [`recon_synth_data/`](recon_synth_data/README.md) | 給 `../reconstruction` 的多樣化合成訓練影像：沿用其 index 的挑染樣本，加 HDRI 背景 / 光、臉型 / 膚色 / 衣服、補光、相機變化重新渲染；每張附 scene.npz（相機 + 網格），用 reconstruction 自己的 prep 轉成訓練快取，經 runtime hook 訓練（不改 reconstruction）。輸出在外接碟 |
 | [`archive/`](archive/README.md) | 舊的 melanin 參數化渲染流程，保持原樣 |
 
 ## 相依關係
@@ -32,6 +33,7 @@ scalp_uv_grid.py ─┬─ scalp_grid_volume_sample ── update_contour.grid �
 contour_algo_test ← update_contour, mask_analysis, coloring_by_strand
 gen_dataset       ← contour_algo_test (subprocess + 輸出檔), coloring_by_strand；rlift 模式 ← strands_editing, initial_masks_generation.bezier
 initial_masks_generation ← flow_field, update_contour.grid, contour_algo_test (common, masks；用它的 bench.sh 測試)；bezier.py ← strands_editing (lazy)
+recon_synth_data         ← reconstruction (recon.data_index / render_data / prep / crop, runtime hook), coloring_by_strand (renderer helpers + run_highlight_render.sh), initial_masks_generation.money_piece_filter (scene format, projection), strands_editing (sample_meta)
 highlight_vae            ← highlight_diffusion (工具 + 資料，不含模型), NCKU strand VAE
 bezier_mask_gui          ← strands_editing (bezier_mask, pipeline.fm_region), update_contour, initial_masks_generation (field, streamline, scores), contour_algo_test (common), coloring_by_strand
 highlight_diffusion      ← update_contour (grid, FM), contour_algo_test (common, masks), mask_analysis, flow_field, gen_dataset / contour_algo_test 輸出 (cases), ../../NCKU_3D_hair_reconstruction (HDiT, strand VAE)

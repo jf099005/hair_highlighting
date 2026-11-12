@@ -448,3 +448,10 @@ block 撞到 OptiX 716，自動改 CUDA 重渲成功。
   - masknet_alb：money piece 深棕 + 金色框臉帶、chunky 棕 + 金色、block 黑 + 淺色（略帶綠）→ 合理。block_color 是淺棕混色
     （區域劃分本身把大半頭判成 base，橘 / 黑混在同一區）。
   - stats：在照片上外插失敗（藍、萊姆綠頭髮），雖然合成數字與 masknet 相近 → 樹模型對分布外特徵不穩，棄用。
+
+## 2026-11-12 02:04 （外部）多樣化合成訓練資料：generate_from_3D_models/recon_synth_data
+
+- 新子專案為本資料夾產生 HDRI 背景 / 光、臉型 / 膚色 / 衣服、多視角的影像（每張附相機 + 網格），以本資料夾的 `prep` 轉成同格式快取
+  （輸出在外接碟 `/media/kyh/新增磁碟區/P76154862/recon_synth_data`）。**未修改本資料夾任何程式**，經 runtime hook（`recon_synth_data/recon_run.py`）訓練。
+- 單 seed 比較（B 設定）：加合成資料在合成 test 上較好（iou_vis 0.692 → 0.726），原 test 略降（0.794 → 0.778），4 張真實照片無明顯改善。
+  細節見該資料夾 LOG.md / SUMMARY.md。
