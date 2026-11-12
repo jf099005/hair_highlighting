@@ -120,7 +120,76 @@
   - block_color 這類兩色各半的照片受區域劃分錯誤拖累。
   - retinex 只去掉低頻光照；學習式 intrinsic 模型（ordinal shading）尚未安裝。
 
+### 遮擋補全 `diff_prior40k`（`recon/complete/`，2026-11-09；隨機 mask 最佳）
+- 跑法：
+  - 資料：`bash run.sh complete.build`（一次，約 35 min）。
+  - 預測：`bash run.sh complete.run pred`（區域劃分在渲染樣本上的髮絲預測）。
+  - 訓練：`bash run.sh complete.run train --name diff_prior40k --model diff --prior --steps 40000`（約 55 min）。
+  - 評估：`bash run.sh complete.run eval --name diff_prior40k [--n_samples 4 | --n_samples 1 --repaint]`。
+  - 圖：`complete.run figs`、`complete.render`、`complete.views`。
+- **與其他部分的關係**：只吃區域劃分的輸出（每根髮絲機率 + 可見度），區域劃分 / 顏色都不依賴它。
+- **Input**：64² 頭皮 grid（約 5 mm / 格）4 個條件通道：
+  - 可見髮絲的平均挑染機率；
+  - 觀測旗標（該格有可見髮絲）；
+  - 頭髮覆蓋；
+  - 區域劃分對該格全部髮絲（含遮住的）的平均機率（先驗）。
+- **架構**：U-Net（64 / 32 / 16 三層 ResBlock + GroupNorm，8² 層 global attention，時間步 FiLM，~5 M 參數）當條件 DDPM：
+  - x0 = 2 × 挑染比例 − 1；
+  - ε 預測，cosine schedule 1000 步；
+  - DDIM 50 步取樣；
+  - 可選 RePaint：每步把觀測格換成加了同等級雜訊的觀測值。
+- **Output**：補全後的頭皮挑染比例圖。遮住的髮絲讀髮根所在格（≥ 0.5 = 挑染），可見髮絲保留區域劃分預測。
+- **Loss**：頭髮格上的 ε MSE，未觀測格權重 2。
+- **訓練資料**：
+  - 生成資料集的所有 mask（1453 train）。
+  - 可見度用固定相機 z-buffer 計算，不需渲染。
+  - 觀測 = GT 可見髮絲 + 不對稱翻轉。
+  - 先驗 = 模擬的區域劃分錯誤：條紋刪除 / 平移 / 粗細變化 / 假 blob，已校正到接近真實錯誤率；渲染過的 train 圖 30% 用真實預測。
+- **結果**（遮住髮絲 IoU，rendered test 71）：
+  - 4 樣本平均：dense 0.11 / money piece 0.44 / 隨機 **0.74**（全部髮絲 0.83；區域劃分本身 0.21 / 0.46 / 0.68，全部 0.80）。
+  - 單一樣本 + RePaint：0.13 / 0.43 / 0.74，dense 條紋數最接近 GT。
+- **缺點**：
+  - dense / money piece 輸給區域劃分本身。
+  - 單一樣本偶爾生成一大塊。
+  - IoU 無法評估「樣式對、位置不準」的補全。
+
+### 遮擋補全：生成器家族投影（`recon/complete/procedural.py`；money piece 最佳）
+- 把區域劃分的全髮預測投影到資料生成器自己的 mask 家族（`bezier_fit`），遮住的髮絲讀 Bezier 標籤。
+- 遮住髮絲 IoU：money piece **0.50**（區域劃分 0.46）、dense 0.19（0.21）。
+- dense 的四視角渲染中，補出的頭頂彎曲條紋最像 GT。
+- 只適用 dense / money piece；每 case 約 1 min（CPU）。
+
+### 風格預測 `style/model_scalp`（`recon/style/`，2026-11-09）
+- 跑法：
+  - 訓練 + 評估：`bash run.sh style.run eval`（模型 `data/style/model_scalp.pkl`）。
+  - 自動流程：`bash run.sh style.run auto --real <difflocks dir> ... [--render]` → 預測風格後呼叫 `postproc`，依風格選後處理。
+- **Input**：只用區域劃分的輸出——
+  - 32² 頭皮挑染比例圖（每格 8192 根髮絲的平均預測機率，與左右鏡像平均）；
+  - 6 個形狀統計（挑染比例、≥ 3 格連通區數、最大區比例、瘦長度、前後位置、挑染髮絲比例）。
+- **架構**：標準化 → PCA 64 → 多類 logistic regression（class-balanced）。
+- **Output**：dense / money piece / 隨機（機率）。
+- **結果**：
+  - test 正確率 **0.958**（dense 22/22、money piece 27/29、隨機 19/20）。
+  - 對照：DINOv2 影像特徵 0.690、兩者合併 0.915。
+  - 真實照片：money_piece ✓、chunky → dense、block → money piece（寬的框臉區塊）、block_color → dense ✗。
+- **缺點**：
+  - 只有三類。block / 兩色各半這類真實樣式不在生成器家族裡，會被硬分到最近的類別。
+  - 例：block 被當 money piece 後，Bezier 投影把一側的寬區塊變成兩側的窄片，比不後處理差。
+
 ## Experimental
+
+### dense 結構化預測 `structured`（`recon/complete/structured.py`）
+- 生成器候選 streamline + 鏡像配對（`pair=True` 規則）+ 間距規則 + 等距補洞；或 `binsK` = 把分線分 K 等份、每份選一對。
+- 結果見 LOG「dense 結構化預測」。
+- 結果（22 個 dense test，遮住髮絲 IoU / GT 條紋找回率）：
+  - 門檻選擇版 0.13 / 0.25，只選到 1–3 對。
+  - bins6 0.176 / **0.354**，比 bins4 好。
+  - 對照：區域劃分 0.186 / 0.348、bezier_fit 0.193 / 0.333。
+- 結論：結構先驗本身補不回遮住的條紋（缺證據）。保留做為學習式候選打分器的基礎。
+
+### 遮擋補全的其他版本（`recon/complete/`）
+- `diff_prior`（20000 步）：與 40k 相近，但 money piece 單一樣本掉到 0.30（較不穩定）。
+- `reg_prior`（U-Net 確定性 + 先驗）：0.13 / 0.45 / 0.65。與區域劃分 0.5 / 0.5 混合只回到區域劃分水準。
 
 ### 顏色 `stats` / `stats_alb`（每區域 Lab 百分位數 → gradient boosting）
 - 合成 test 與 masknet 接近：預測 mask 下 base 5.0 / 挑染 21.6。
@@ -149,6 +218,9 @@
 - `A_m1_hardvis`（只用 5 mm 內的點）、`A_m1_occ1`（遮住髮絲權重 1.0）、`A_m1_nocnn`（只 DINO）：都比 A_m1_aux2d 差（CNN 必要）。
 - `B_m1_aux2d_drg_obs`、`_n4k`（投影幾何雜訊）：test 0.73 / 0.72，DiffLocks 髮型上也沒幫助（已在幾何天花板）。
 - `B_m1_aux2d_dr_obs`（外觀色目標）：標籤與 dr 版相當，但轉回渲染輸入色 ΔE hl 59。
+- 遮擋補全 `reg` / `diff`（只用可見格子當條件，無區域劃分先驗）：遮住髮絲 IoU dense 0.04–0.09，遠低於區域劃分 0.21。
+  U-Net 把未觀測區塗成平均。DDPM 會畫出 dense 樣式的條紋，但位置隨機。
+- 遮擋補全 `nearest`（最近觀測格複製）：0.07 / 0.42 / 0.52。
 - 顏色 `curve`（區域中位數 → render curve 反查）：挑染 ΔE 41–47，渲染出的真實照片看不出挑染。被 `masknet_alb` 取代。
 - 顏色 `knn`（區域中位數 Lab → kNN）：挑染 32。
 - 後處理 FM（`fm_cell_lam1000`，從預測標籤開始）：DiffLocks 髮型上把 money piece / dense 的挑染幾乎刪光（2D IoU 0.28 → 0.02），

@@ -25,7 +25,7 @@ def write_filtered(out, threshold=0.3, stage="rlift_bf", sort=False, path=None):
     for r in kept:
         k = (r["length_class"], r["style"])
         counts[k] = counts.get(k, 0) + 1
-    tab = "".join(f"<tr><td>{c}</td><td>{counts.get((c, 'dense'), 0)}</td><td>{counts.get((c, 'chunky'), 0)}</td>"
+    tab = "".join(f"<tr><td>{c}</td><td>{counts.get((c, 'dense'), 0)}</td><td>{counts.get((c, 'money_piece'), 0)}</td>"
                   f"<td>{sum(r['length_class'] == c for r in rows)}</td></tr>" for c in ("short", "mid", "long"))
     n_rend = sum(rlift.render_ok(out, r["case"]) for r in kept)
     page = (f"<!doctype html><html lang=zh-Hant><head><meta charset=utf-8><meta name=viewport "
@@ -33,7 +33,7 @@ def write_filtered(out, threshold=0.3, stage="rlift_bf", sort=False, path=None):
             f"<style>{rlift.CSS}</style></head><body><main><h1>rlift_bf 資料集 · {stage} grid &lt; {threshold} "
             f"<span class=muted>{html.escape(os.path.basename(os.path.abspath(out)))}</span></h1>"
             f"<p class=muted>產生於 {common.now_str()} · 保留 {len(kept)} / {len(rows)} 個 ok 樣本"
-            f"（{n_rend} 個已渲染）</p><table><tr><th>長度</th><th>dense</th><th>chunky</th><th>ok 總數</th></tr>"
+            f"（{n_rend} 個已渲染）</p><table><tr><th>長度</th><th>dense</th><th>money piece</th><th>ok 總數</th></tr>"
             f"{tab}</table><div class=grid>{''.join(rlift.card_html(out, r) for r in kept)}</div></main>{rlift.LIGHTBOX}</body></html>")
     path = path or os.path.join(out, f"overview_grid_lt{threshold:g}.html")
     with open(path, "w", encoding="utf-8") as f:

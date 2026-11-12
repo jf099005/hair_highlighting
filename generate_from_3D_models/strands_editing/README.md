@@ -1,13 +1,13 @@
 # strands_editing：條紋塑形 + 補位（`rlift_bf`）
 
-讓挑染（chunky lock 或密集細條紋）從分線一路連續到髮尾、寬度一致，每條都保留。做法是移動挑染髮絲，不修剪、也不改標籤。
-chunky 與密集細條紋用同一套演算法，只差設計寬度（2 cm / 8 mm）。
+讓挑染（密集細條紋或 money piece）從分線一路連續到髮尾、寬度一致，每條都保留。做法是移動挑染髮絲，不修剪、也不改標籤。
+密集細條紋與 money piece 用同一套演算法，只差設計寬度（8 mm / 每個樣本 1.8–2.8 cm）。chunky 已於 2026-11-06 依使用者要求刪除。
 
 ```bash
 # 密集細條紋（96×96），輸出 data/runs/<name>/，最後重建 data/runs/report.html
 bash run.sh --out data/runs/<name> --style dense --n 96 --per_side 5,5 --no_projection --samples base_36_idx_42564
-# chunky（32×32）
-bash run.sh --out data/runs/<name> --no_projection --samples base_36_idx_42564
+# money piece（32×32；分線前端兩側框臉的兩片，initial_masks_generation/money_piece.py）
+bash run.sh --out data/runs/<name> --style money_piece --no_projection --samples base_36_idx_42564
 # 只算不渲染：加 --no_render；只重新渲染：python -m ...strands_editing.pipeline --rerender data/runs/<name>
 ```
 
@@ -18,7 +18,8 @@ bash run.sh --out data/runs/<name> --no_projection --samples base_36_idx_42564
 
 ## 方法
 
-1. **mask**（`bezier_mask.py`）：沿髮流畫 Bezier 區域。密集條紋只用分線旁的種子，以分線為軸左右成對挑選。
+1. **mask**（`bezier_mask.py`）：沿髮流畫 Bezier 區域。密集條紋只用分線旁的種子，以分線為軸左右成對挑選；money piece
+   是分線前端兩側各一片（`initial_masks_generation/money_piece.py`）。
    每根髮絲依髮根落在哪一條，決定它的條紋編號。
 2. **ribbon**：依 σ（髮根在條紋中心線上的位置 + 弧長）把每條條紋切成 20 段。每段把條紋髮絲的橫向位置做分位數映射，
    排成設計寬度的帶子。相鄰中心線至少相隔 2 倍寬，中心線經過平滑。
@@ -27,7 +28,7 @@ bash run.sh --out data/runs/<name> --no_projection --samples base_36_idx_42564
 5. **backfill（補位）**：條紋移去的位置上原本有 base 髮絲，讓它們移回條紋原來的位置，維持密度。
 
 程式在 `stripe_shape.rlift_bf`，由 `pipeline.rlift_bf` 呼叫。mask 由 `pipeline.build_mask` 產生；mask 子專案
-`initial_masks_generation`（`bezier_dense` / `bezier_chunky`）與 `gen_dataset` 的 `rlift` 模式都呼叫同一個函式。
+`initial_masks_generation`（`bezier_dense` / `bezier_money_piece`）與 `gen_dataset` 的 `rlift` 模式都呼叫同一個函式。
 有些側分髮型找不到左右對稱的條紋（例如 base_74），這時會用同一個 seed 放寬配對容許量（1.5 → 3 → 4.5 格）重畫。
 指標（`stripe_profile.py`）沿每條條紋切 20 段，量「看得見的髮絲中挑染 ≥ 50%」的寬度：`sp_fill`（覆蓋）、
 `sp_reach`（連續到達）、`sp_width_cv`、`sp_wiggle_mm`、`sp_merged`。另外還有 `dens_l1`（5 mm 體素的密度變化）、
@@ -43,7 +44,7 @@ grid score，以及可見度加權 score。
   $s_{i,m}$ 是從髮根量起的弧長，$\ell_i$ 是全長，$\ell^{seg}_{i,m}=\lVert p_{i,m+1}-p_{i,m}\rVert$ 是原始段長。
 - 條紋編號 $k_i$：0 = base，$k\ge1$ = 第 $k$ 條條紋（由髮根落在哪個 Bezier 區域決定，之後不再改變）。
 - 頭部中心 $o$：以每格髮根數加權的頭皮格點中心（`styles.head_center`）。徑向單位向量 $\hat r(p)=(p-o)/\lVert p-o\rVert$。
-- 設計寬度 $w_0$：chunky 2 cm、dense 8 mm（`pipeline.DEFAULT_WIDTH`）。
+- 設計寬度 $w_0$：dense 8 mm（`pipeline.DEFAULT_WIDTH`）、money piece 為該樣本抽到的片寬（`params["width"]`）。
 - smoothstep：$S(x)=x^2(3-2x)$，$x$ 先截到 $[0,1]$。
   髮根漸入權重 $\rho_{i,m}=S\!\left(s_{i,m}/(0.15\,\ell_i)\right)$：髮根處為 0，到全長 15% 時為 1。
 - $G_\sigma(\cdot)$：沿某一軸的一維高斯平滑（`ndi.gaussian_filter1d`，邊界 nearest）。
@@ -213,10 +214,10 @@ $G_8$ 是沿髮絲的 σ=8 點平滑。也就是條紋髮絲移進來的地方�
 
 | 模組 | 角色 |
 |---|---|
-| `pipeline.py` | `build_mask(style, ...)`（field → shell footprint → Bezier mask → 標籤 / 條紋 id；曲線 mask 的唯一建構，`initial_masks_generation.bezier` 與 `gen_dataset` 的 `rlift` 模式也用它）、`run_sample`（chunky）/ `run_dense`（dense）→ `init` / `rlift_bf` → 指標、檔案、圖、Blender 渲染（`RENDER_PRESETS`：`optical` 預設、`optical_rgb` = 同幾何但逐髮絲 RGB、`raw`）。另有只給 `bezier_mask_gui` 用的 `fm_region` |
+| `pipeline.py` | `build_mask(style, ...)`（field → shell footprint → Bezier mask → 標籤 / 條紋 id；曲線 mask 的唯一建構，`initial_masks_generation.bezier` 與 `gen_dataset` 的 `rlift` 模式也用它）、`run_money_piece`（money piece）/ `run_dense`（dense）→ `init` / `rlift_bf` → 指標、檔案、圖、Blender 渲染（`RENDER_PRESETS`：`optical` 預設、`optical_rgb` = 同幾何但逐髮絲 RGB、`raw`）。另有只給 `bezier_mask_gui` 用的 `fm_region` |
 | `stripe_shape.py` | `rlift_bf` = `shape_stripes`（`ribbon` + `lift` + FTL + `limit_kinks`）→ `backfill`；`density_change` |
 | `stripe_profile.py` | 條紋連續性 / 寬度指標（`sp_*`、`stripe_profile.json`）；`root_sigma`（條紋上的位置）也是 rlift_bf 的輸入 |
-| `bezier_mask.py` | Bezier lock / 密集條紋（`make_dense_bezier`，`pair=True`）與 `Region`（signed distance，每條一個 part）。`bezier_mask_gui` 也用 |
+| `bezier_mask.py` | Bezier 邊的建構（`build_lock`、`fit_side`）、密集條紋（`make_dense_bezier`，`pair=True`）與 `Region`（signed distance，每條一個 part）。`bezier_mask_gui` 也用 |
 | `shell.py` | `ShellMap`：(x, y, h) 頭皮 shell 座標，numba Newton 反解 |
 | `deform.py` | `Footprints`、`root_xy`、`arclength`、`follow_the_leader`、`turning_angles`、越界 / 變形指標 |
 | `visibility.py` | Beer–Lambert 體素穿透率（lift 用的 base 光學深度、`vis_grid_score`、`vis_cut`） |
@@ -237,8 +238,10 @@ $G_8$ 是沿髮絲的 σ=8 點平滑。也就是條紋髮絲移進來的地方�
   側分髮型一側的條紋離分線遠、沒有一對符合 `pair_tol` 1.5 格（base_74：0 條）時，`build_mask` 用同一 seed 以 `PAIR_TOLS` 3 / 4.5 重畫，
   直到至少 `MIN_PAIRS`（3）對，並記錄 `params["pair_tol"]`；仍 < 2 對（例如頭頂髮旋的短髮 base_73）時，若 unpaired（`pair=False`）
   條紋較多就用它。放得下 3 對的 mask 不變。`bezier_mask.dense_candidates` 先用線的 bounding box 預篩髮根（選擇相同，n = 96 時 mask 100 → 43 s）。
-- 下游使用者：`initial_masks_generation.bezier`（`bezier_dense` / `bezier_chunky`）與 `gen_dataset/rlift.py` 呼叫
-  `build_mask` / `rlift_bf` / `stripe_metrics` / `render`；改簽名要兩邊一起改。
+- 下游使用者：`initial_masks_generation.bezier`（`bezier_dense` / `bezier_money_piece`）與 `gen_dataset/rlift.py` 呼叫
+  `build_mask` / `rlift_bf` / `stripe_metrics` / `render`；改簽名要兩邊一起改。gen_dataset 的資料集直接採用這裡的預設
+  （mask、rlift_bf、`optical` 渲染），只用 `render(..., melanin_colors=((m, r), (m, r)))` 換成每個樣本隨機的 melanin 配對
+  （預設 `None` = `OPTICAL_COLORS`）。
 
 ## 檢查改動
 
@@ -255,7 +258,7 @@ mask 依 `--n` 而不同）。dense n = 96 長髮：不渲染 ~4 分鐘、峰值
 - rlift_bf 不改標籤、不修剪；FTL 後髮根精確還原；轉折 ≤ 30°。
 - 新的以格為單位的常數都乘 `n / 32`。
 - 新 run 資料夾加進 `report.EXPERIMENTS`，否則不會出現在 `data/runs/report.html`。
-- 記憶體：一個程序一個樣本，同時不跑別的（dense n = 96 長髮 ~22 GB；chunky 長髮要 `--no_projection`）。
+- 記憶體：一個程序一個樣本，同時不跑別的（dense n = 96 長髮 ~22 GB；長髮要 `--no_projection`）。
 - 驗證：先 `--no_render` 跑一個樣本，與之前 run 在同一個 `mask.pkl` 上的 `metrics.json` 比較（複製到新 run 資料夾；mask 依 `--n` 而不同），再渲染。
 
 ## 封存

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Generate initial highlight masks of a style for one hairstyle.
 
-    bash run.sh gen --npz <.../full_strands.npz> --style chunky [--n 4] [--seed 0] [--min_frac 0.08 --max_frac 0.12]
+    bash run.sh gen --npz <.../full_strands.npz> --style money_piece_gc [--n 4] [--seed 0] [--min_frac 0.03 --max_frac 0.07]
                     [--candidates 4]
                     [--target_frac 0.3] [--set alpha=8,band=3] [--out_dir out/] [--grid_n 32]
 
@@ -12,9 +12,9 @@ corridor, window, band, mu, max_depth, layouts); metric settings (alpha, beta, f
 style's metric. Then e.g.:
 
     PYTHON=~/anaconda3/envs/hair_exp/bin/python ../update_contour/run_update_contour.sh --npz <npz> \\
-        --mask <out_dir>/chunky_gc_0.npy --method fm --overlap projection --max_passes 3 --out refined.npz
+        --mask <out_dir>/money_piece_gc_0.npy --method fm --overlap projection --max_passes 3 --out refined.npz
 
-Curve-based styles (bezier.py: bezier_dense, bezier_chunky; grid n defaults to 96 / 32) also write
+Curve-based styles (bezier.py: bezier_dense, bezier_money_piece; grid n defaults to 96 / 32) also write
 <style>_<k>_strands.npz (labels (S,) bool and band (S,) stripe ids per strand of the npz): their stripes are finer
 than the grid, so the .npy grid mask is only the root-cell majority.
 """
@@ -35,7 +35,7 @@ from highlighting.generate_from_3D_models.initial_masks_generation import STYLES
 from highlighting.generate_from_3D_models.initial_masks_generation.bezier import BEZIER_STYLES, DEFAULT_GRID_N  # noqa: E402
 from highlighting.generate_from_3D_models.initial_masks_generation.styles import get_style  # noqa: E402
 
-DEFAULT_FRAC = {"money_piece": (0.03, 0.07), "watermelon": (0.20, 0.40), "chunky": (0.08, 0.12)}
+DEFAULT_FRAC = {"money_piece": (0.03, 0.07), "watermelon": (0.20, 0.40)}
 METRIC_KEYS = ("alpha", "beta", "flux_cap", "stencil", "use_coherence")
 
 
@@ -57,7 +57,7 @@ def parse_set(s, style_name):
 def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--npz", required=True)
-    p.add_argument("--style", default="chunky", help=f"one of {sorted(STYLES) + sorted(BEZIER_STYLES)}")
+    p.add_argument("--style", default="bezier_money_piece", help=f"one of {sorted(STYLES) + sorted(BEZIER_STYLES)}")
     p.add_argument("--n", type=int, default=1)
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--min_frac", type=float, default=None)
@@ -75,7 +75,7 @@ def main():
         return bezier_main(a)
     a.grid_n = a.grid_n or common.DEFAULT_GRID_N
 
-    dlo, dhi = DEFAULT_FRAC[next((k for k in DEFAULT_FRAC if a.style.startswith(k)), "chunky")]
+    dlo, dhi = DEFAULT_FRAC[next((k for k in DEFAULT_FRAC if a.style.startswith(k)), "money_piece")]
     lo = a.min_frac if a.min_frac is not None else dlo
     hi = a.max_frac if a.max_frac is not None else dhi
     attrs = parse_set(a.set, a.style)
@@ -102,15 +102,14 @@ def main():
 
 
 def bezier_main(a):
-    """--style bezier_dense / bezier_chunky (bezier.generate_bezier): one mask per seed [seed, k]"""
+    """--style bezier_dense / bezier_money_piece (bezier.generate_bezier): one mask per seed [seed, k]"""
     from highlighting.generate_from_3D_models.initial_masks_generation.bezier import generate_bezier
     from highlighting.generate_from_3D_models.strands_editing.pipeline import plot_mask
     grid = common.scalp_grid(a.grid_n or DEFAULT_GRID_N[a.style], a.dataset_path)
     hair = common.load_hairstyle(a.npz)
     os.makedirs(a.out_dir, exist_ok=True)
-    kw = dict(target_frac=a.target_frac) if a.style == "bezier_chunky" and a.target_frac is not None else {}
     for k in range(a.n):
-        b = generate_bezier(a.style, hair["positions"], hair["root_uv"], grid, seed=[a.seed, k], **kw)
+        b = generate_bezier(a.style, hair["positions"], hair["root_uv"], grid, seed=[a.seed, k])
         base = os.path.join(a.out_dir, f"{a.style}_{k}")
         np.save(base + ".npy", b["mask"])
         np.savez_compressed(base + "_strands.npz", labels=b["labels"], band=b["band"].astype(np.int16))

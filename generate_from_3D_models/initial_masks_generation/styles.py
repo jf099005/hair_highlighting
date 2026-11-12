@@ -10,16 +10,17 @@
 a target fraction. Metric settings (alpha, beta, ...) come from Style.metric (overridable per call / variant).
 
 Built-in styles
-    chunky       parallel stripes: a few locks, each a band around a streamline of the signed flow seeded next to
-                 the part (top layer, visible) and traced downstream to the front / side hairline. size = band width.
-    watermelon   (the first "chunky") K radial sectors around the crown (the head top, or a source cell next to it),
+    watermelon   K radial sectors around the crown (the head top, or a source cell next to it),
                  every other one highlighted. Each boundary is a live-wire (anisotropic shortest) path from the
                  crown to the hairline near its target azimuth, confined to a corridor; cells take the side of
                  the path they lie on (polar form).
                  size = angular share of each highlight sector.
-    money_piece  two face-framing sections at the front hairline on both sides of the part (or one centered /
-                 one-sided): seeds on the front hairline, highlight = cells within geodesic distance D of them,
-                 inside an azimuth corridor and within max_reach. size -> D.
+    money_piece  (grid version) two face-framing sections at the front hairline on both sides of the part (or one
+                 centered / one-sided): seeds on the front hairline, highlight = cells within geodesic distance D of
+                 them, inside an azimuth corridor and within max_reach. size -> D. The curve version used by the
+                 generation pipeline is money_piece.py.
+Shared helpers: part_line (the part, else the top midline; dense stripes and the curve money piece start there),
+strand_visibility (outer-layer share per strand).
 `*_iso` variants (registered below) use an isotropic metric with no |flux| wall: the same seeds and
 shapes, so comparing a style with its _iso twin isolates the effect of following the flow.
 """
@@ -141,7 +142,6 @@ def head_center(field):
     return (field.pos * w[..., None]).sum((0, 1)) / max(w.sum(), 1)
 
 
-# ---------------------------------------------------------------- chunky
 
 @register_style("watermelon")
 class Watermelon(Style):
@@ -394,7 +394,7 @@ register_style("watermelon_gc", refine="graphcut")(Watermelon)
 register_style("money_piece_gc", refine="graphcut")(MoneyPiece)
 
 
-# ---------------------------------------------------------------- chunky (parallel stripes)
+# ---------------------------------------------------------------- shared helpers (dense stripes, money piece)
 
 def strand_visibility(field, n_az=72, n_el=36, depth=0.008, stride=4):
     """(S,) share of each strand's samples on the outer layer of the hair (cached on the field). Directions from the
@@ -420,205 +420,16 @@ def strand_visibility(field, n_az=72, n_el=36, depth=0.008, stride=4):
     return vis
 
 
-@register_style("chunky")
-class Chunky(Style):
-    """Chunky highlights: a few bold locks dyed root to tip, spaced apart, that hang as parallel stripes (Wella /
-    Behind the Chair / Madison-Reed: thick high-contrast sections, spaced out, root to end, around the face and
-    on the top layer; not radial).
-
-    A lock is a band around a streamline of the signed flow, traced downstream for at most `max_len` cells from a
-    seed: the cells next to the part (the high-flux source line; the top midline when there is no part) and a
-    lattice over the scalp. Following the flow, neighboring locks are parallel and each lock's strands stay
-    together. On long hair the part-seeded locks all hang at the back / sides, so the front-hanging hair (front
-    hairline, temples) needs the lattice seeds. Locks that end at the front or the sides (|azimuth| <=
-    span / 2) are preferred (back_penalty): hair falling at the back is not seen in a front view and hangs through
-    many other columns (high grid score); on hair combed back they are the only ones, so they are not excluded.
-
-    Which locks: lock_table scores every candidate alone (grid score / strand fraction); a draw prefers the cheap
-    ones (temperature) and keeps seeds `min_sep` and hairline ends `min_sep_end` apart. How many: as many as fit
-    the target fraction at width 0 (at least n_bands[0]). size -> band width.
-
-    Trade-off (log [11]): the grid score punishes exactly the visible top-layer strands, so a chunky mask scores
-    ~0.1-0.2 on its own; the FM refinement afterwards brings it under 0.1 for most hairstyles."""
-    n_bands = (2, 6)              # locks (min, max); the count follows the target fraction
-    width = (0.012, 0.03)         # m: band width at size 0 / 1 (a cell is ~1.2 cm; 1-cell locks rendered as
-                                  # thin lines and got hidden under the hair around them)
-    ref_width = 0.012             # m: width at which each candidate lock is scored alone
-    temperature = 1.0             # sampling weight exp(-(ratio - best) / temperature), ratio = grid / frac
-    min_sep = 0.02                # m: chosen locks' seeds at least this far apart
-    min_sep_end = 0.03            # m: and their hairline ends
-    min_band_dist = 0.035         # m: two chosen locks may run closer than this ...
-    max_overlap = 0.25            # ... over at most this share of a lock's length (else they merge into one)
-    min_vis_gap = 0.3             # rad: chosen locks must hang at azimuths this far apart (where they are seen)
-    span = 3.8                    # rad: locks hanging within |azimuth| <= span / 2 of the face (front + sides) are
-    back_penalty = 2.0            # preferred; the others get weight x exp(-back_penalty) (hair combed back has
-                                  # few locks ending at the sides, so they are not excluded)
-    min_len = 5.0                 # cells (shorter: stubs near the part where the flow turns)
-    max_len = 10.0                # cells (~12 cm) from the part: the visible top layer grows there; roots
-                                  # further down are covered anyway, and a full part-to-hairline lock takes
-                                  # 4-5% of the strands, so only 2 fit a 10% target
-    flux_threshold = 0.3
-    midline_height = 0.05         # m: no part -> seed line = top midline cells within this height of the head top
-    lattice = 3                   # cells: candidate seeds also on every lattice-th row / col of the scalp
-    visible_quantile = 0.75       # only the candidates at least this visible (outer-layer share quantile) are drawn
-    visible_weight = 3.0          # and the sampling weight grows with visibility: x exp(visible_weight * vis / max)
-    band = 1.0
-    min_survival = 0.75
-    survive_frac = 0.5
-    select = "grid_score"
-    min_cells = 1                 # postprocess: a 1-cell-wide band is a feature, not noise
-    min_root_frac = 0.0
-
-    def seed_line(self, field):
-        """(n, n) bool: the part (source cells) if there is one, else the top midline; and how it was found"""
-        src = source_cells(field, self.flux_threshold)
-        if src.sum() >= 4:
-            return src, "part"
-        top = field.top_cell()
-        right = np.cross(HEAD_UP, HEAD_FRONT)
-        d = field.pos - field.pos[top]
-        spacing = 2 * field.grid.half_size
-        mid = field.hair & (np.abs(d @ right) < 0.75 * spacing) & (d @ HEAD_UP > -self.midline_height)
-        return mid, "midline"
-
-    def lock_table(self, field):
-        """every candidate lock (cached on the field): one per seed (hair cells next to the seed line, and the
-        lattice), traced downstream; kept if it is at least min_len long. Each is scored alone at ref_width and
-        gets the azimuth where its strands hang (_visible_azimuth)."""
-        from scipy import ndimage as ndi
-
-        from highlighting.generate_from_3D_models.initial_masks_generation import scores
-        from highlighting.generate_from_3D_models.initial_masks_generation import streamline as sl
-        if "_locks" in field.info:
-            return field.info["_locks"]
-        line, how = self.seed_line(field)
-        ring = ndi.binary_dilation(line, structure=np.ones((3, 3), bool)) & ~line & field.hair
-        # plus a lattice over the whole scalp: on long hair every lock seeded at the part hangs at the back or the
-        # sides; the hair seen from the front grows near the front hairline and the temples
-        rr, cc = np.mgrid[0:field.n, 0:field.n]
-        ring |= field.hair & ~line & (rr % self.lattice == 0) & (cc % self.lattice == 0)
-        center = head_center(field)
-        ang = field.azimuth(center)
-        V = sl.flow_2d(field)
-        svis = strand_visibility(field) if field.strands is not None else None
-        table = []
-        for r, c in zip(*np.nonzero(ring)):
-            pts = sl.trace(field, (r, c), direction=+1, max_len=self.max_len, V=V)
-            if 0.5 * len(pts) < self.min_len:
-                continue
-            er, ec = int(round(pts[-1, 1])), int(round(pts[-1, 0]))
-            band = sl.band_cells(field, pts, self.ref_width)
-            fr = field.strand_fraction(band)
-            vis_az = self._visible_azimuth(field, band, center)
-            if field.strands is not None:
-                sel = band[field.strands["row"], field.strands["col"]]
-                visible = float(svis[sel].mean()) if sel.any() else 0.0
-            else:
-                visible = 1.0
-            gs = scores.grid_score(field, band) if field.strands is not None else fr
-            table.append(dict(seed=[int(r), int(c)], end=[er, ec], end_azimuth=float(ang[er, ec]), vis_azimuth=vis_az, visible=visible,
-                              length=0.5 * len(pts), frac=fr,
-                              frac0=field.strand_fraction(sl.band_cells(field, pts, self.width[0])),
-                              grid=gs, ratio=gs / max(fr, 1e-6), pts=pts))
-        for k, t in enumerate(table):
-            t["_index"] = k
-        field.info["_locks"] = (how, table)
-        return field.info["_locks"]
-
-    def _visible_azimuth(self, field, band, center):
-        """circular median azimuth (around the head's vertical axis, 0 = face) of where the lock's strands hang:
-        their samples from 50% of the length to the tip. Locks whose roots are apart can still hang together
-        (long hair gathers at the back), and what is seen is where they hang, not where they grow."""
-        if field.strands is None:
-            return None
-        st = field.strands
-        sel = band[st["row"], st["col"]]
-        if not sel.any():
-            return None
-        idx = np.flatnonzero(sel)
-        if idx.size > 400:
-            idx = idx[:: idx.size // 400 + 1]
-        P = st["positions"][idx]
-        pts = P[:, P.shape[1] // 2:].reshape(-1, 3) - np.asarray(center)
-        right = np.cross(HEAD_UP, HEAD_FRONT)
-        a = np.arctan2(pts @ right, pts @ HEAD_FRONT)
-        return float(np.angle(np.exp(1j * a).mean()))
-
-    def sample_params(self, field, rng, target_frac=None):
-        how, table = self.lock_table(field)
-        if not table:
-            return dict(locks=[], seed_line=how)
-        K = self.n_bands[1] if target_frac is not None else int(rng.integers(self.n_bands[0], self.n_bands[1] + 1))
-        # keep the locks most visible from outside (outer-layer share >= the `visible_quantile` of the candidates):
-        # seeds in the middle of the scalp otherwise give under-layer locks that are dyed but never seen
-        visible = np.array([t.get("visible", 1.0) for t in table])
-        keep = visible >= np.quantile(visible, self.visible_quantile)
-        table = [t for t, k in zip(table, keep) if k]
-        ratio = np.array([t["ratio"] for t in table])
-        vis = np.array([t["end_azimuth"] if t.get("vis_azimuth") is None else t["vis_azimuth"] for t in table])
-        back = np.abs(vis) > self.span / 2
-        vsel = np.array([t.get("visible", 1.0) for t in table])
-        logits = (-(ratio - ratio.min()) / max(self.temperature, 1e-6) - self.back_penalty * back
-                  + self.visible_weight * vsel / max(vsel.max(), 1e-9))
-        seeds = np.array([field.pos[tuple(t["seed"])] for t in table])
-        ends = np.array([field.pos[tuple(t["end"])] for t in table])
-        lines3d = [field.pos[np.clip(np.rint(t["pts"][:, 1]).astype(int), 0, field.n - 1),
-                             np.clip(np.rint(t["pts"][:, 0]).astype(int), 0, field.n - 1)] for t in table]
-        near = np.zeros(len(table))                    # running max share of each lock close to a chosen one
-        avail = np.ones(len(table), bool)
-        chosen, base = [], 0.0
-        for _ in range(K):
-            if not avail.any():
-                break
-            p = np.exp(logits - logits[avail].max()) * avail
-            i = int(rng.choice(len(table), p=p / p.sum()))
-            if target_frac is not None and len(chosen) >= self.n_bands[0] and base + table[i]["frac0"] > target_frac:
-                break
-            base += table[i]["frac0"]
-            chosen.append(i)
-            avail &= (np.linalg.norm(seeds - seeds[i], axis=1) >= self.min_sep) \
-                & (np.linalg.norm(ends - ends[i], axis=1) >= self.min_sep_end)
-            # streamlines of neighboring seeds often converge downstream (e.g. toward the nape) and the two
-            # locks then render as one stripe: drop every lock that runs close to the chosen one for long
-            for j in np.flatnonzero(avail):
-                d = np.linalg.norm(lines3d[j][:, None] - lines3d[i][None], axis=-1).min(1)
-                near[j] = max(near[j], float((d < self.min_band_dist).mean()))
-            avail &= near <= self.max_overlap
-            # and where they hang must be apart, or the stripes render as one
-            avail &= np.abs(_wrap(vis - vis[i])) >= self.min_vis_gap
-        chosen = [t["_index"] for t in (table[i] for i in chosen)]
-        _, full = self.lock_table(field)
-        table = full
-        vis = np.array([t["end_azimuth"] if t.get("vis_azimuth") is None else t["vis_azimuth"] for t in table])
-        return dict(locks=chosen, seed_line=how, n_bands=len(chosen),
-                    seeds=[table[i]["seed"] for i in chosen], lock_ratio=[round(table[i]["ratio"], 3) for i in chosen],
-                    vis_azimuth=[round(float(vis[i]), 3) for i in chosen])
-
-    def build(self, field, params, size):
-        from highlighting.generate_from_3D_models.initial_masks_generation import streamline as sl
-        _, table = self.lock_table(field)
-        n = field.n
-        w = self.width[0] + size * (self.width[1] - self.width[0])
-        mask = np.zeros((n, n), bool)
-        core = np.zeros((n, n), bool)
-        bands, cores = [], []
-        for i in params["locks"]:
-            pts = table[i]["pts"]
-            b = sl.band_cells(field, pts, w)
-            c = sl.band_cells(field, pts, 0.0)
-            bands.append(b)
-            cores.append(c)
-            mask |= b
-            core |= c
-        return mask, dict(bands=bands, cores=cores, seeds=core, hard=core, width=w)
-
-    def accept(self, field, params, mask, info):
-        bands = info.get("bands") or []
-        if len(bands) < self.n_bands[0]:
-            return False
-        alive = sum(1 for b in bands if b.any() and mask[b].mean() >= self.survive_frac)
-        info["bands_alive"] = alive
-        return alive >= math.ceil(self.min_survival * len(bands))
-
-
-register_style("chunky_gc", refine="graphcut")(Chunky)
+def part_line(field, flux_threshold=0.3, midline_height=0.05):
+    """(n, n) bool: the part (source cells, flux > flux_threshold, >= 4 of them) if there is one, else the top midline
+    (hair cells within 0.75 cell sideways of the head top and at most midline_height (m) below it); and how it was
+    found ("part" | "midline"). The dense stripes and the curve money piece are seeded on it."""
+    src = source_cells(field, flux_threshold)
+    if src.sum() >= 4:
+        return src, "part"
+    top = field.top_cell()
+    right = np.cross(HEAD_UP, HEAD_FRONT)
+    d = field.pos - field.pos[top]
+    spacing = 2 * field.grid.half_size
+    mid = field.hair & (np.abs(d @ right) < 0.75 * spacing) & (d @ HEAD_UP > -midline_height)
+    return mid, "midline"

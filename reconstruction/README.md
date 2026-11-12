@@ -23,6 +23,7 @@ bash run.sh prep [--workers 3]         # 前處理快取 → data/cache/<id>.npz
 bash run.sh train --name <run> ...      # 區域劃分訓練（設定見 checkpoints.md）
 bash run.sh postproc --run <run> ...    # 區域劃分 + 後處理 + 渲染
 bash run.sh color.run eval|real ...     # 顏色還原（使用某個區域劃分 run 的標籤圖）
+bash run.sh complete.build | complete.run pred|train|eval|figs ... | complete.render | complete.views   # 遮擋補全
 ```
 
 ## 程式結構（`recon/`）
@@ -39,10 +40,12 @@ bash run.sh color.run eval|real ...     # 顏色還原（使用某個區域劃�
 | `dataset.py` / `models.py` / `losses.py` / `train.py` | 區域劃分：資料增強、模型與 loss（registry）、訓練 / 評估 |
 | `infer.py` / `postproc.py` / `bezier_fit.py` / `refine.py` | 推論、後處理（FM；投影到生成器的 Bezier mask + rlift_bf）、渲染 |
 | `color/` | **顏色還原**（獨立）：只吃區域劃分輸出的標籤圖；intrinsic 分解、各區域的顏色估計器、評估 / 真實照片 |
+| `style/` | **風格預測**（獨立）：從區域劃分的頭皮圖分類 dense / money piece / 隨機，並自動選後處理 |
+| `complete/` | **遮擋區域補全**（獨立）：頭皮空間資料（所有生成 mask + 幾何可見度）、U-Net / 條件 DDPM（RePaint、區域劃分先驗）、生成器家族投影、評估 / 渲染 |
 
 ## 開發守則
 
-- 區域劃分（`recon/*.py`）不可 import `recon/color/`；顏色只透過標籤圖使用區域劃分的結果。
+- 區域劃分（`recon/*.py`）不可 import `recon/color/`、`recon/complete/`、`recon/style/`；它們只使用區域劃分的輸出。
 - 不改此資料夾外的程式；需要時加預設關閉的 flag，並跑該子專案的 smoke test（根 README 規則）。
 - 輸出放 `data/`（不在 git）。寫大量資料前看 `df`；Blender 渲染與訓練同時跑時注意 RAM（Blender 峰值可達 ~18 GB）。
 - 不要在 test split 上挑 checkpoint 或調超參數。

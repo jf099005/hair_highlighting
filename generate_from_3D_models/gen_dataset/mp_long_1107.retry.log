@@ -1,0 +1,98 @@
+hairstyles per class: {'short': 436, 'mid': 237, 'long': 164}; quotas {'short': 0, 'mid': 0, 'long': 400}; colors melanin (melanin gap >= 0.3)
+engine: highlighting_generation (highlighting.generate_from_3D_models.highlighting_generation.pipeline)
+=== resume case_00092 (base_6_idx_9475, money_piece)
+=== resume case_00155 (base_6_idx_86504, money_piece)
+=== resume case_00156 (base_7_idx_34509, money_piece)
+=== resume case_00162 (base_22_idx_69011, money_piece)
+=== resume case_00177 (base_11_idx_27069, money_piece)
+=== resume case_00178 (base_23_idx_1963, money_piece)
+=== resume case_00207 (base_1_idx_84449, money_piece)
+=== resume case_00209 (base_6_idx_27287, money_piece)
+=== resume case_00239 (base_18_idx_3139, money_piece)
+=== resume case_00240 (base_36_idx_27103, money_piece)
+=== resume case_00279 (base_1_idx_61743, money_piece)
+=== resume case_00369 (base_6_idx_2900, money_piece)
+=== resume case_00370 (base_4_idx_1007, money_piece)
+=== resume case_00376 (base_18_idx_44359, money_piece)
+=== resume case_00433 (base_30_idx_67683, money_piece)
+=== resume case_00443 (base_1_idx_61743, money_piece)
+=== resume case_00532 (base_19_idx_27065, money_piece)
+=== resume case_00533 (base_6_idx_2900, money_piece)
+=== resume case_00607 (base_1_idx_61743, money_piece)
+=== resume case_00611 (base_23_idx_93182, money_piece)
+  case_00092 ok: 2 parts, 41.5 s (mask 14.4, rlift 5.1, metrics 9.1), peak 3.71 GB
+  case_00092 grid 0.045 -> 0.050, fill 0.63 -> 0.75, reach 0.62
+  [render] case_00092: base_6_idx_9475 (long, money_piece, melanin 0.88 / 0.18) rendering ...
+  [render] case_00092: render ok in 36 s
+  case_00155 ok: 2 parts, 47.8 s (mask 15.5, rlift 5.9, metrics 13.9), peak 3.53 GB
+  case_00155 grid 0.277 -> 0.198, fill 0.26 -> 0.37, reach 0.47
+  [render] case_00155: base_6_idx_86504 (long, money_piece, melanin 0.77 / 0.10) rendering ...
+  [render] case_00155: render ok in 33 s
+  case_00156 ok: 2 parts, 42.5 s (mask 14.8, rlift 5.6, metrics 11.3), peak 4.71 GB
+  case_00156 grid 0.127 -> 0.070, fill 0.30 -> 0.44, reach 0.38
+  [render] case_00156: base_7_idx_34509 (long, money_piece, melanin 0.78 / 0.13) rendering ...
+  [render] case_00156: render ok in 36 s
+  case_00162 ok: 2 parts, 47.5 s (mask 16.7, rlift 5.5, metrics 11.5), peak 3.8 GB
+  case_00162 grid 0.118 -> 0.099, fill 0.87 -> 0.83, reach 0.95
+  [render] case_00162: base_22_idx_69011 (long, money_piece, melanin 0.90 / 0.12) rendering ...
+  case_00177 unsuited: 0 parts, 0.5 s (mask None, rlift None, metrics None), peak 0.15 GB — hairstyle unsuited before (case_00669)
+  [render] case_00162: render ok in 34 s
+  case_00178 ok: 2 parts, 43.0 s (mask 14.6, rlift 6.3, metrics 11.3), peak 4.75 GB
+  case_00178 grid 0.093 -> 0.067, fill 0.90 -> 0.92, reach 0.85
+  [render] case_00178: base_23_idx_1963 (long, money_piece, melanin 0.83 / 0.16) rendering ...
+  [render] case_00178: render ok in 36 s
+  case_00207 ok: 2 parts, 48.8 s (mask 16.6, rlift 5.9, metrics 13.7), peak 3.32 GB
+  case_00207 grid 0.257 -> 0.204, fill 0.19 -> 0.43, reach 0.17
+  [render] case_00207: base_1_idx_84449 (long, money_piece, melanin 0.92 / 0.13) rendering ...
+  [render] case_00207: render ok in 36 s
+  case_00209 ok: 2 parts, 47.8 s (mask 16.6, rlift 6.1, metrics 12.5), peak 3.73 GB
+  case_00209 grid 0.173 -> 0.134, fill 0.30 -> 0.52, reach 0.20
+  [render] case_00209: base_6_idx_27287 (long, money_piece, melanin 0.81 / 0.07) rendering ...
+  [render] case_00209: render ok in 40 s
+  case_00239 ok: 2 parts, 41.2 s (mask 16.0, rlift 4.4, metrics 8.7), peak 3.63 GB
+  case_00239 grid 0.019 -> 0.017, fill 0.11 -> 0.54, reach 0.05
+  [render] case_00239: base_18_idx_3139 (long, money_piece, melanin 0.93 / 0.14) rendering ...
+  [render] case_00239: render ok in 31 s
+  case_00240 ok: 2 parts, 43.5 s (mask 15.8, rlift 5.3, metrics 9.7), peak 4.38 GB
+  case_00240 grid 0.065 -> 0.059, fill 0.70 -> 0.65, reach 0.28
+  [render] case_00240: base_36_idx_27103 (long, money_piece, melanin 0.80 / 0.06) rendering ...
+  [render] case_00240: render ok in 32 s
+  case_00279 ok: 2 parts, 45.7 s (mask 17.7, rlift 5.4, metrics 10.3), peak 4.48 GB
+  case_00279 grid 0.067 -> 0.043, fill 0.17 -> 0.42, reach 0.23
+  [render] case_00279: base_1_idx_61743 (long, money_piece, melanin 0.82 / 0.16) rendering ...
+  [render] case_00279: render ok in 34 s
+  case_00369 ok: 1 parts, 43.0 s (mask 15.9, rlift 5.0, metrics 9.7), peak 4.29 GB
+  case_00369 grid 0.035 -> 0.028, fill 0.95 -> 0.98, reach 1.00
+  [render] case_00369: base_6_idx_2900 (long, money_piece, melanin 0.86 / 0.15) rendering ...
+  case_00370 unsuited: 0 parts, 0.5 s (mask None, rlift None, metrics None), peak 0.15 GB — hairstyle unsuited before (case_00534)
+  [render] case_00369: render ok in 32 s
+  case_00376 ok: 2 parts, 41.5 s (mask 15.6, rlift 5.2, metrics 9.7), peak 3.72 GB
+  case_00376 grid 0.050 -> 0.056, fill 0.58 -> 0.52, reach 0.20
+  [render] case_00376: base_18_idx_44359 (long, money_piece, melanin 0.89 / 0.18) rendering ...
+  [render] case_00376: render ok in 33 s
+  case_00433 ok: 1 parts, 43.2 s (mask 17.1, rlift 4.7, metrics 8.2), peak 3.59 GB
+  case_00433 grid 0.029 -> 0.016, fill 0.46 -> 0.79, reach 0.80
+  [render] case_00433: base_30_idx_67683 (long, money_piece, melanin 0.83 / 0.13) rendering ...
+  [render] case_00433: render ok in 32 s
+  case_00443 ok: 2 parts, 45.0 s (mask 18.0, rlift 5.4, metrics 10.1), peak 4.12 GB
+  case_00443 grid 0.059 -> 0.037, fill 0.19 -> 0.40, reach 0.23
+  [render] case_00443: base_1_idx_61743 (long, money_piece, melanin 0.89 / 0.08) rendering ...
+  [render] case_00443: render ok in 34 s
+  case_00532 ok: 2 parts, 41.2 s (mask 13.8, rlift 5.4, metrics 10.8), peak 3.98 GB
+  case_00532 grid 0.081 -> 0.066, fill 0.26 -> 0.41, reach 0.05
+  [render] case_00532: base_19_idx_27065 (long, money_piece, melanin 0.86 / 0.13) rendering ...
+  [render] case_00532: render ok in 34 s
+  case_00533 ok: 2 parts, 45.5 s (mask 16.1, rlift 5.9, metrics 12.0), peak 3.53 GB
+  case_00533 grid 0.160 -> 0.106, fill 0.65 -> 0.75, reach 0.65
+  [render] case_00533: base_6_idx_2900 (long, money_piece, melanin 0.86 / 0.13) rendering ...
+  [render] case_00533: render ok in 33 s
+  case_00607 ok: 2 parts, 45.0 s (mask 17.7, rlift 5.2, metrics 10.5), peak 3.48 GB
+  case_00607 grid 0.064 -> 0.038, fill 0.17 -> 0.40, reach 0.23
+  [render] case_00607: base_1_idx_61743 (long, money_piece, melanin 0.94 / 0.15) rendering ...
+  [render] case_00607: render ok in 33 s
+  case_00611 ok: 2 parts, 39.5 s (mask 13.9, rlift 5.3, metrics 9.5), peak 4.84 GB
+  case_00611 grid 0.051 -> 0.057, fill 0.56 -> 0.80, reach 0.80
+waiting for 1 background render(s) ...
+  [render] case_00611: base_23_idx_93182 (long, money_piece, melanin 0.87 / 0.14) rendering ...
+  [render] case_00611: render ok in 31 s
+done in 0.23 h: short: 0/0 (0 dense, 0 cand.) | mid: 0/0 (0 dense, 0 cand.) | long: 321/400 (0 dense, 820 cand.)

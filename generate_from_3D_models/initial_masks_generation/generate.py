@@ -1,10 +1,10 @@
 """generate_mask: one random mask of a style whose highlight holds a target share of the strands.
 
-    mask, params = generate_mask("chunky", field, rng, min_frac=0.05, max_frac=0.40)
+    mask, params = generate_mask("money_piece_gc", field, rng, min_frac=0.03, max_frac=0.07)
 
 1. target = U(min_frac, max_frac) (or `target_frac`), shape parameters = style.sample_params(field, rng)
 2. bisect `size` in [0, 1] so that the cleaned mask's strand fraction (by root cell) is closest to the target
-3. accept if the fraction is in [min_frac, max_frac] and style.accept(...) (style fidelity, e.g. chunky: most
+3. accept if the fraction is in [min_frac, max_frac] and style.accept(...) (style fidelity, e.g. watermelon: most
    highlight sectors survived), else redraw the shape (up to max_tries)
 4. candidates > 1: repeat 1-3 (same target) and keep the best by style.select (coupling cut or grid score)
 

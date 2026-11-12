@@ -5,8 +5,9 @@ Variants (both start from the same DiffLocks hairstyle and the same Bezier mask,
     rlift_bf    every stripe / lock becomes a band of the design width (ribbon, neighbours >= 2 x width apart,
                 center line smoothed), lifted onto the base hair (lift) from the part to its tips, then the base
                 strands lying where the stripe went move back to where it came from (backfill); stripe_shape.py
-Styles: chunky (a few 2 cm Bezier locks, run_sample) and dense (5-10 thin 8 mm stripes per side, run_dense). The
-algorithm is the same for both; only the design width differs.
+Styles: dense (5-10 thin 8 mm stripes per side, run_dense) and money_piece (the front section of the part on each
+side, 1.8-2.8 cm wide, framing the face; initial_masks_generation.money_piece, run_money_piece). The algorithm is the
+same for both; only the design width differs.
 
 Every other variant of the earlier experiments (drag edit, FM, clumping, trimming FM, visibility-weighted FM,
 soft boundary, ...) is archived in strands_editing/archive/ (archive/pipeline.py runs them unchanged).
@@ -257,11 +258,13 @@ def plot_footprints(path, region, fp0, fp1, labels, edited, title, k=160, seed=0
 # ---------------------------------------------------------------- render
 
 def render(out_dir, positions, labels, root_uv, root_normal, preset="optical", meta=None, colors=None, multiview=True,
-           samples=None, seed=0, device=None):
+           samples=None, seed=0, device=None, melanin_colors=None):
     """Blender render (front + RENDER_VIEWS composite unless multiview=False) of the given geometry and per-strand
     bool labels through the coloring_by_strand trimmed renderer (GPU, see run_highlight_render.sh), RENDER_PRESETS.
     colors: (S, 3) RGB per strand instead of the labels' colors (COLOR parametrization; preset without melanin).
     device: CYCLES_DEVICE for Blender (default OptiX; "CUDA" when OptiX crashes with a misaligned address).
+    melanin_colors: ((melanin, redness) base, (melanin, redness) highlight) for a melanin preset instead of
+    OPTICAL_COLORS (gen_dataset's rlift mode draws a random pair per sample).
     -> seconds"""
     from highlighting.generate_from_3D_models.update_contour.masks import mask_to_rgb
     cfg = RENDER_PRESETS[preset]
@@ -275,7 +278,8 @@ def render(out_dir, positions, labels, root_uv, root_normal, preset="optical", m
     tmpl = os.path.join(out_dir, "template.npz")
     extra = {}
     if cfg.get("melanin"):
-        extra["melanin"], extra["melanin_redness"] = melanin_mix(labels.astype(np.float64))
+        mb, mh = melanin_colors or (None, None)
+        extra["melanin"], extra["melanin_redness"] = melanin_mix(labels.astype(np.float64), mb, mh)
     np.savez(tmpl, highlighted=np.ones(len(labels), bool), highlight_color=colors,
              root_uv=root_uv.astype(np.float32), **extra)
     cmd = ["bash", RUN_SH, BLENDER, RENDER_PY, "--input_npz", hair, "--out_path", os.path.join(out_dir, "front.png"),
@@ -365,18 +369,20 @@ def _load(name, n):
     return P0, raw["root_uv"], raw["root_normal"], common.scalp_grid(n, DATASET)
 
 
-MASK_STYLES = ("chunky", "dense")
-DEFAULT_WIDTH = dict(chunky=0.02, dense=0.008)
+MASK_STYLES = ("dense", "money_piece")
+DEFAULT_WIDTH = dict(dense=0.008, money_piece=None)    # money piece: None = drawn per sample (money_piece.WIDTH)
 
 
 PAIR_TOLS = (1.5, 3.0, 4.5)     # dense pairing tolerance (cells), loosened only while fewer than MIN_PAIRS pairs fit
 MIN_PAIRS = 3
 
 
-def build_mask(style, P0, root_uv, grid, seed=0, width=None, target_frac=0.12, per_side=(5, 10), pair=True,
-               mask_pkl=None, pair_tols=PAIR_TOLS):
+def build_mask(style, P0, root_uv, grid, seed=0, width=None, per_side=(5, 10), pair=True, mask_pkl=None,
+               pair_tols=PAIR_TOLS, **mp_kw):
     """the curve-based (Bezier) initial mask of a style on one hairstyle, and what rlift_bf needs with it.
-        chunky  a few 2 cm Bezier locks seeded on the part (bezier_mask.make_chunky_bezier); ids = nearest lock
+        money_piece  the front section of the part on each side (or one side), framing the face
+                (initial_masks_generation.money_piece.make_money_piece_bezier; mp_kw: reach / gap / layout); width =
+                the piece width (None: drawn per sample, params["width"]); ids = piece ids (left / right)
         dense   5-10 thin (8 mm) stripes per side as mirrored part-seeded pairs (bezier_mask.make_dense_bezier,
                 pair=True); ids = stripe ids. Every cell-unit constant (flow smoothing, hair closing) scales with
                 n / 32, so n = 96 keeps the physical sizes. On side-swept hair the stripes of one side start far
@@ -389,7 +395,6 @@ def build_mask(style, P0, root_uv, grid, seed=0, width=None, target_frac=0.12, p
     -> dict(field, shell, fp0, rxy, locks, region, params, ids0 (S,) int, labels0 (S,) bool, center, width, t_mask)"""
     from highlighting.generate_from_3D_models.initial_masks_generation.field import build_field
     from highlighting.generate_from_3D_models.initial_masks_generation.styles import head_center
-    from highlighting.generate_from_3D_models.strands_editing.stripe_profile import assign_ids
     if style not in MASK_STYLES:
         raise ValueError(f"unknown mask style {style!r}: {MASK_STYLES}")
     width = width or DEFAULT_WIDTH[style]
@@ -397,12 +402,12 @@ def build_mask(style, P0, root_uv, grid, seed=0, width=None, target_frac=0.12, p
     t0 = time.time()
     dense = style == "dense"
     sc = n / 32
-    # dense: flow smoothing of the same physical width at any n (chunky ran at n = 32 with the default)
-    field = build_field(P0, root_uv, grid, coupling=False, **(dict(sigma=sc) if dense else {}))
+    # flow smoothing of the same physical width at any n
+    field = build_field(P0, root_uv, grid, coupling=False, sigma=sc)
     shell = ShellMap(grid)
     # only footprints over rooted cells are checked (deform.Footprints); at n > 32 a hair cell holds ~10 roots and
     # the rooted set has holes: close them (dense)
-    shell.hair = ndi_close(field.hair, round(sc)) if dense and n > 32 else field.hair
+    shell.hair = ndi_close(field.hair, round(sc)) if n > 32 else field.hair
     fp0 = dfm.Footprints(shell, P0)
     rxy = dfm.root_xy(fp0, shell, root_uv, grid)
     if mask_pkl and os.path.exists(mask_pkl):
@@ -429,16 +434,15 @@ def build_mask(style, P0, root_uv, grid, seed=0, width=None, target_frac=0.12, p
                     best = (locks, region, params)
             locks, region, params = best
         else:
-            locks, region, params = bm.make_chunky_bezier(field, np.random.default_rng(seed), width=width,
-                                                          target_frac=target_frac)
+            from highlighting.generate_from_3D_models.initial_masks_generation.money_piece import (
+                make_money_piece_bezier)
+            locks, region, params = make_money_piece_bezier(field, np.random.default_rng(seed), rxy, width=width,
+                                                            **mp_kw)
         if mask_pkl:
             pickle.dump((locks, region, params), open(mask_pkl, "wb"))
-    if dense:
-        ids0 = bm.stripe_ids(region, rxy)
-        labels0 = ids0 > 0
-    else:
-        labels0 = region.phi_at(*rxy) > 0
-        ids0 = assign_ids(locks, *rxy, labels0)
+    ids0 = bm.stripe_ids(region, rxy)            # one Region part per stripe / piece
+    labels0 = ids0 > 0
+    width = params.get("width", width)
     return dict(field=field, shell=shell, fp0=fp0, rxy=rxy, locks=locks, region=region, params=params, ids0=ids0,
                 labels0=labels0, center=head_center(field), width=width, t_mask=round(time.time() - t0, 1))
 
@@ -453,19 +457,19 @@ def _sample(name, out_root, style, n, seed, width, do_render, do_projection, var
         print(f"[{name}] field + dense mask {m['t_mask']:.0f} s, {len(locks)} stripes {params['per_side']}")
         title = f"{name}: {len(locks)} stripes {params['per_side']}, |sin(side, flow)| = {params['flow_alignment']:.3f}"
     else:
-        print(f"[{name}] field + mask {m['t_mask']:.0f} s, {len(locks)} locks")
-        title = (f"{name}: {len(locks)} Bezier locks, {sum(l['n_ctrl'] for l in locks)} control points, "
+        print(f"[{name}] field + money piece {m['t_mask']:.0f} s, {len(locks)} pieces ({params['layout']}, "
+              f"width {params['width'] * 100:.1f} cm)")
+        title = (f"{name}: money piece, {len(locks)} pieces, width {params['width'] * 100:.1f} cm, "
                  f"|sin(side, flow)| = {params['flow_alignment']:.3f}")
     plot_mask(os.path.join(out, "mask.png"), field, m["region"], locks, title)
     ctx = dict(m, name=name, out=out, style=style, grid=grid, P0=P0, root_uv=root_uv, root_normal=root_normal)
     return _run_variants(ctx, variants, do_render, do_projection)
 
 
-def run_sample(name, out_root, seed=0, n=32, width=0.02, target_frac=0.12, do_render=True, do_projection=True,
-               variants=VARIANTS):
-    """chunky: a few 2 cm Bezier locks (build_mask)"""
-    return _sample(name, out_root, "chunky", n, seed, width, do_render, do_projection, variants,
-                   target_frac=target_frac)
+def run_money_piece(name, out_root, seed=0, n=32, width=None, do_render=True, do_projection=False,
+                    variants=VARIANTS, **mp_kw):
+    """money piece: the front section of the part on each side (build_mask)"""
+    return _sample(name, out_root, "money_piece", n, seed, width, do_render, do_projection, variants, **mp_kw)
 
 
 def run_dense(name, out_root, seed=0, n=32, width=0.008, per_side=(5, 10), pair=True, do_render=True,
@@ -480,7 +484,7 @@ def _run_variants(c, variants, do_render, do_projection):
     unknown = [v for v in variants if v not in VARIANTS]
     if unknown:
         raise ValueError(f"unknown variants {unknown}: only {VARIANTS} (the others are in strands_editing/archive)")
-    name, P0, ids0, dense = c["name"], c["P0"], c["ids0"], c["style"] == "dense"
+    name, P0, ids0 = c["name"], c["P0"], c["ids0"]          # ids0: stripe / piece id per strand (0 = base)
     res = {}
     if "init" in variants:
         res["init"] = dict(P=P0, info={}, fp=c["fp0"])
@@ -490,9 +494,8 @@ def _run_variants(c, variants, do_render, do_projection):
         res["rlift_bf"] = dict(P=P, info=info, fp=dfm.Footprints(c["shell"], P))
     summary = dict(sample=name, n_strands=int(len(P0)), locks=len(c["locks"]),
                    params={k: v for k, v in c["params"].items() if k != "locks"}, variants={},
-                   render="optical" if RENDER_OUT["optical"] else "raw", vis_density=vz.DENSITY_SCALE)
-    if dense:
-        summary["style"] = "dense"
+                   render="optical" if RENDER_OUT["optical"] else "raw", vis_density=vz.DENSITY_SCALE,
+                   style=c["style"])
     grid, region, labels = c["grid"], c["region"], c["labels0"]
     for vname in [v for v in variants if v in res]:
         v = res.pop(vname)                       # freed after this variant (hair copy, footprints)
@@ -500,22 +503,19 @@ def _run_variants(c, variants, do_render, do_projection):
         os.makedirs(vd, exist_ok=True)
         edited = v["info"].get("edited", np.zeros(len(P0), bool))
         met = dict(hl_frac=float(labels.mean()))
-        if dense:
-            met.update(stripes=len(c["locks"]), stripes_kept=stripes_kept(ids0, labels))
-        else:
-            met["regions"] = region_components(region, c["field"].hair)
+        met.update(stripes=len(c["locks"]), stripes_kept=stripes_kept(ids0, labels))
         gs, smg = grid_score(grid, v["P"], labels)
         met["grid_score"] = gs
         vm, vis = vis_metrics(grid, v["P"], v["fp"], labels.astype(np.float32), c["center"], smg, do_projection)
         met.update(vm)
-        # violations against each strand's own root-space region (dense: its own stripe)
-        met.update(dfm.violation_stats(region, ids0 if dense else labels, v["fp"], v["P"], vis=vis))
+        # violations against each strand's own root-space region (its own stripe / piece)
+        met.update(dfm.violation_stats(region, ids0, v["fp"], v["P"], vis=vis))
         del vis
         if do_projection:
             met["cut_pairs"], met["cut_weight"] = projection_cut(grid, v["P"], smg, labels)
         met.update(dfm.deformation_stats(P0, v["P"], edited))
         # does every stripe reach its tips with a steady visible width; hair density kept (stripe_profile.py)
-        met.update(stripe_metrics(vd, P0, v["P"], labels, ids0 if dense else None, ids0, c["locks"], c["rxy"], grid,
+        met.update(stripe_metrics(vd, P0, v["P"], labels, ids0, ids0, c["locks"], c["rxy"], grid,
                                   c["center"], c["width"]))
         met.update({k: x for k, x in v["info"].items() if k != "edited" and np.isscalar(x)})
         summary["variants"][vname] = met
@@ -523,12 +523,9 @@ def _run_variants(c, variants, do_render, do_projection):
         idx = np.flatnonzero(edited)
         np.savez_compressed(os.path.join(vd, "edited.npz"), idx=idx, positions=v["P"][idx])
         json.dump(met, open(os.path.join(vd, "metrics.json"), "w"), indent=1)
-        if not dense:
-            plot_mask(os.path.join(vd, "mask.png"), c["field"], region, c["locks"] if vname == "init" else None,
-                      f"{vname}: highlight {met['hl_frac']:.1%} of strands, {met['regions']} region(s)")
         if edited.any():
             plot_footprints(os.path.join(vd, "footprints.png"), region, c["fp0"], v["fp"],
-                            ids0 if dense else labels, edited, f"{vname}: footprints of edited strands (grey = before)")
+                            ids0, edited, f"{vname}: footprints of edited strands (grey = before)")
         print(f"[{name}] {vname}: " + ", ".join(f"{k}={x:.3g}" if isinstance(x, float) else f"{k}={x}"
                                                 for k, x in met.items()))
         if do_render:
@@ -547,10 +544,10 @@ if __name__ == "__main__":
     ap.add_argument("--n", type=int, default=32, help="scalp grid resolution (dense: everything runs on it)")
     ap.add_argument("--no_render", action="store_true")
     ap.add_argument("--no_projection", action="store_true")
-    ap.add_argument("--style", default="chunky", choices=["chunky", "dense"])
+    ap.add_argument("--style", default="dense", choices=list(MASK_STYLES))
     ap.add_argument("--variants", default=",".join(VARIANTS), help="comma list, subset of init,rlift_bf")
     ap.add_argument("--per_side", default="5,10", help="dense: stripes per head side, min,max (e.g. 5,5)")
-    ap.add_argument("--width", type=float, default=None, help="design width (m); default chunky 0.02, dense 0.008")
+    ap.add_argument("--width", type=float, default=None, help="design width (m); default dense 0.008, money_piece drawn 0.018-0.028")
     ap.add_argument("--no_pair", action="store_true",
                     help="dense: old mask (sides picked independently, lattice seeds) instead of mirrored part pairs")
     ap.add_argument("--render_optical", default="yes", choices=["yes", "no"],
@@ -570,5 +567,5 @@ if __name__ == "__main__":
                       do_projection=not a.no_projection, per_side=tuple(int(x) for x in a.per_side.split(",")),
                       pair=not a.no_pair, variants=vs)
         else:
-            run_sample(s, a.out, seed=a.seed, n=a.n, width=a.width or 0.02, do_render=not a.no_render,
-                       do_projection=not a.no_projection, variants=vs)
+            run_money_piece(s, a.out, seed=a.seed, n=a.n, width=a.width, do_render=not a.no_render,
+                            do_projection=not a.no_projection, variants=vs)

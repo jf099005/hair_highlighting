@@ -1,12 +1,11 @@
 #!/usr/bin/env bash
 # initial_masks_generation entry point (sets PYTHONPATH to the project root, hair_exp env, CPU only).
-#   bash run.sh gen   --npz <.../full_strands.npz> --style chunky_gc [--n 4] [...]     (cli.py; also bezier_dense / bezier_chunky)
-#   bash run.sh build --out <dir> [--from_bench <contour_algo_test benchmark>] [...]   (build_bench.py)
+#   bash run.sh gen   --npz <.../full_strands.npz> --style bezier_money_piece [--n 4] [...]   (cli.py; also bezier_dense
+#                     and the grid styles money_piece_gc / watermelon_gc ...)
+#   bash run.sh build --out <dir> [--from_bench <contour_algo_test benchmark>] [...]   (build_bench.py, grid styles)
 #   then: bash ../contour_algo_test/bench.sh run <dir> --run_name <name> --methods mask_only,fm_proj_lam1000
-#   bash run.sh protect <run_dir> [--lams 1000,100]   (run_protected.py: FM that cannot eat a chunky stripe)
-#   bash run.sh trim <run_dir> [--ns 500,2000]         (run_trim.py: update_contour.trim before / after FM)
-#   bash run.sh local <run_dir> [--lams 100,1000]       (run_local.py: one FM per stripe, then trim)
-#   bash run.sh stripes <run_dir> --variants a,b [--trim 2000 --trim_of a]   (stripe_report.py: stripe survival)
+#   bash run.sh check_dense save <prefix> | compare <prefix_a> <prefix_b>   (dense curve mask unchanged?)
+#   bash run.sh mp_filter <gen_dataset folder> [--workers 4] [--rescore --set mix_max=0.12]   (money piece look filter)
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/../../.." && pwd)"
@@ -18,9 +17,7 @@ cmd="${1:-}"; shift || true
 case "$cmd" in
   gen)   exec "$PYTHON" -m highlighting.generate_from_3D_models.initial_masks_generation.cli "$@" ;;
   build) exec "$PYTHON" -m highlighting.generate_from_3D_models.initial_masks_generation.build_bench "$@" ;;
-  protect) exec "$PYTHON" -m highlighting.generate_from_3D_models.initial_masks_generation.run_protected "$@" ;;
-  trim)  exec "$PYTHON" -m highlighting.generate_from_3D_models.initial_masks_generation.run_trim "$@" ;;
-  local) exec "$PYTHON" -m highlighting.generate_from_3D_models.initial_masks_generation.run_local "$@" ;;
-  stripes) exec "$PYTHON" -m highlighting.generate_from_3D_models.initial_masks_generation.stripe_report "$@" ;;
-  *) echo "usage: bash run.sh gen|build|protect|trim|local|stripes [options]  (--help for each)"; exit 1 ;;
+  mp_filter) exec "$PYTHON" -m highlighting.generate_from_3D_models.initial_masks_generation.money_piece_filter "$@" ;;
+  check_dense) exec "$PYTHON" -m highlighting.generate_from_3D_models.initial_masks_generation.check_dense "$@" ;;
+  *) echo "usage: bash run.sh gen|build|mp_filter|check_dense [options]  (--help for each)"; exit 1 ;;
 esac

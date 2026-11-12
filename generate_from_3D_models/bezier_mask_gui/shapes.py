@@ -181,12 +181,12 @@ def _smooth_closed(xy, w):
 
 
 def shapes_from_locks(locks, spacing=1.5):
-    """strands_editing Bezier locks (bezier_mask.make_chunky_bezier) -> closed shapes along their outlines"""
+    """Bezier locks / pieces (e.g. money_piece.make_money_piece_bezier) -> closed shapes along their outlines"""
     out = []
     for lk in locks:
         P = lk["polygon"]
         per = np.sum(np.linalg.norm(np.diff(P, axis=0), axis=1))
         k = max(4, int(round(per / spacing)))
         idx = np.linspace(0, len(P) - 1, k, endpoint=False).astype(int)
-        out.append(Shape("closed", P[idx], meta=dict(src="auto_chunky", seed=lk.get("seed"))))
+        out.append(Shape("closed", P[idx], meta=dict(src="auto", seed=lk.get("seed"))))
     return out

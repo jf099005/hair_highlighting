@@ -12,15 +12,16 @@
 | [`joint_contour/`](joint_contour/README.md) | 雙頭版本（base head A + donor head B，mask = B 長的區域），只有 FM。被 `../../NCKU_3D_hair_reconstruction/inference/img2hair_tsai_1.py` 使用 |
 | [`mask_analysis/`](mask_analysis/README.md) | notebook 工具：grid score、matplotlib 圖（`plots.py`，回傳 `Figure`）、把 per-strand mask 存成 `coloring_by_strand` 模板並渲染（`render.py`） |
 | [`contour_algo_test/`](contour_algo_test/README.md) | `update_contour` 方法的 CPU benchmark：`bash bench.sh build|run|summarize|render|compare`，mask / method / metric 都是 registry，有 HTML 報告 |
-| [`gen_dataset/`](gen_dataset/README.md) | 產生過濾後的挑染資料集：抽髮型 + 隨機 mask、經 `contour_algo_test` 的 worker 精修、通過品質過濾才保留、渲染。`rlift` 模式（`rlift.py`）：曲線 mask + `strands_editing` rlift_bf，不過濾。一律用 `bash gen.sh ...` |
+| [`gen_dataset/`](gen_dataset/README.md) | 產生挑染資料集。**預設 / SOTA = `rlift` 模式**：曲線 mask + `strands_editing` rlift_bf，用 strands_editing 的 `optical` 渲染（樣本 BSDF、隨機 melanin 配對），不過濾。舊 `generate` 模式：隨機 mask → `contour_algo_test` 精修 → grid-score 過濾。一律用 `bash gen.sh ...` |
 | `coloring_by_grid/` | 渲染流程：與髮型無關的黑白 UV 模板（`templates/manifest.json`），渲染時逐髮絲查表。`run_batch_generate.sh` |
 | `coloring_by_strand/` | 渲染流程：每個髮型的模板（每根髮絲一個 `highlighted` flag + 顏色）。它的 `run_highlight_render.sh` / `generate_highlight_render_by_strand_trimmed.py`（`--ignore_npz` 藏髮絲；`--hair_radius` / `--max_bounces` / `--views` 預設關閉）是 `mask_analysis`、`joint_contour/render.py`、`contour_algo_test`、`gen_dataset`、`strands_editing` 共用的渲染器 |
-| [`initial_masks_generation/`](initial_masks_generation/README.md) | 依風格產生初始 mask（`chunky` 平行條紋、`money_piece_gc`、`watermelon`、Bezier `bezier_dense` / `bezier_chunky`）。`bash run.sh gen|build`；用 `contour_algo_test` 測試 |
+| [`initial_masks_generation/`](initial_masks_generation/README.md) | 依風格產生初始 mask：曲線 `bezier_money_piece`（分線前端兩側框臉，`money_piece.py`）/ `bezier_dense`，與格子 `money_piece_gc`、`watermelon`。chunky 已於 2026-11-06 刪除。`bash run.sh gen|build` |
 | [`highlight_diffusion/`](highlight_diffusion/README.md) | diffusion 模型（DiffLocks HDiT + LoRA，mask encoder 取代 DINOv2）同時編輯 scalp texture 與 mask；SFT → DiffusionNFT / Diffusion-DPO。GPU，import NCKU repo 的 `k_diffusion` / strand VAE。已放棄（underfit） |
 | [`highlight_vae/`](highlight_vae/README.md) | 同任務，改用 strand↔cell transformer 調整 strand-VAE SIREN decoder（FiLM、latent offset、flip，可選旋轉場與 clump operator），用可微 column-rule cut 做 reward backprop。推薦 `data/runs/bp12b/ckpt_500.pt`。`HL_GRID_N=96` 整個流程改 96×96 |
 | [`bezier_mask_gui/`](bezier_mask_gui/README.md) | Tk GUI：用 Bezier 形狀畫挑染 mask，FM / \|flux\| active contour / flow 對齊調整，並排比較 grid score 與 Blender 渲染。`bash run.sh [--sample ...]` |
-| [`strands_editing/`](strands_editing/README.md) | 移動髮絲（而非只改 mask）做 chunky / 密集條紋：Bezier mask 沿 `flow_field`，再 `rlift_bf`（條紋塑形成設計寬度的帶子、抬到 base 上、base 補位；標籤不變）。`bash run.sh`。早期方法都在 `strands_editing/archive/`（可執行的凍結副本） |
+| [`strands_editing/`](strands_editing/README.md) | **目前 SOTA。** 移動髮絲（而非只改 mask）做密集條紋 / money piece：Bezier mask 沿 `flow_field`，再 `rlift_bf`（條紋塑形成設計寬度的帶子、抬到 base 上、base 補位；標籤不變）。`bash run.sh`。早期方法都在 `strands_editing/archive/`（可執行的凍結副本） |
 | [`recon_synth_data/`](recon_synth_data/README.md) | 給 `../reconstruction` 的多樣化合成訓練影像：沿用其 index 的挑染樣本，加 HDRI 背景 / 光、臉型 / 膚色 / 衣服、補光、相機變化重新渲染；每張附 scene.npz（相機 + 網格），用 reconstruction 自己的 prep 轉成訓練快取，經 runtime hook 訓練（不改 reconstruction）。輸出在外接碟 |
+| [`highlighting_generation/`](highlighting_generation/README.md) | **挑染樣本產生流程的新家**（2026-11-06）：單樣本 = strands_editing mask → rlift_bf → 指標 → 配色 → 渲染（`pipeline.py`）；批次用 gen_dataset rlift driver 加 `--engine highlighting_generation`（`bash run.sh one|batch`）。之後的生成作法在這裡開發 |
 | [`archive/`](archive/README.md) | 舊的 melanin 參數化渲染流程，保持原樣 |
 
 ## 相依關係
@@ -31,6 +32,7 @@ scalp_uv_grid.py ─┬─ scalp_grid_volume_sample ── update_contour.grid �
                   │                              flow_field ──────────────────────────┘
                   └─ coloring_by_grid / coloring_by_strand (Blender)
 contour_algo_test ← update_contour, mask_analysis, coloring_by_strand
+highlighting_generation ← strands_editing, initial_masks_generation.bezier, gen_dataset (rlift driver + 配色工具)；gen_dataset rlift --engine highlighting_generation ← highlighting_generation
 gen_dataset       ← contour_algo_test (subprocess + 輸出檔), coloring_by_strand；rlift 模式 ← strands_editing, initial_masks_generation.bezier
 initial_masks_generation ← flow_field, update_contour.grid, contour_algo_test (common, masks；用它的 bench.sh 測試)；bezier.py ← strands_editing (lazy)
 recon_synth_data         ← reconstruction (recon.data_index / render_data / prep / crop, runtime hook), coloring_by_strand (renderer helpers + run_highlight_render.sh), initial_masks_generation.money_piece_filter (scene format, projection), strands_editing (sample_meta)

@@ -1,14 +1,13 @@
-"""Chunky initial masks made of a few closed Bezier regions (one per lock), and the continuous Region they define.
+"""Curve (Bezier) initial masks: closed Bezier regions along the hair flow, and the continuous Region they define.
 
-A lock is bounded by
+A stripe / piece is bounded by
     left / right side   one Bezier curve each (cubic; quintic if a cubic is off the flow line by > fit_tol cells),
                         fit to a streamline of the signed hair flow (flow_field via initial_masks_generation.field)
                         traced downstream from a point on the part: the sides run WITH the hair, never across it
     root cap            a straight segment on the part line (the growth line), where the hair flows away anyway
-    tip cap             a quadratic bulge at the hairline end (or nothing when the two sides meet)
-Which locks: initial_masks_generation's Chunky lock picker (visible, spaced apart, low grid score), restricted to
-seeds next to the part and traced to the hairline (root-to-tip locks: nothing upstream or downstream of a lock
-can hang over it, so only the sides can conflict).
+    tip cap             a quadratic bulge at the end (or nothing when the two sides meet)
+Styles: dense (make_dense_bezier: 5-10 thin mirrored stripes per side, here) and money piece
+(initial_masks_generation.money_piece: the front section of the part on each side, framing the face).
 
 Coordinates: continuous grid coordinates x = col, y = row, cell (r, c) centered at (c, r) (as streamline.py and
 shell.py). Region keeps a signed distance phi (grid cells, > 0 inside) on an f-times finer raster.
@@ -22,7 +21,7 @@ from matplotlib.path import Path
 from scipy import ndimage as ndi
 
 from highlighting.generate_from_3D_models.initial_masks_generation import streamline as sl
-from highlighting.generate_from_3D_models.initial_masks_generation.styles import Chunky
+from highlighting.generate_from_3D_models.initial_masks_generation.styles import part_line
 
 
 # ---------------------------------------------------------------- Bezier helpers
@@ -175,17 +174,7 @@ class Region:
         return x, y
 
 
-# ---------------------------------------------------------------- lock selection and construction
-
-class PartChunky(Chunky):
-    """Chunky's lock picker, but only seeds next to the part, traced all the way to the hairline"""
-    max_len = 40.0
-    min_len = 6.0
-    lattice = 10 ** 6            # (r % lattice == 0 and c % lattice == 0) -> only cell (0, 0): no lattice seeds
-    n_bands = (2, 4)
-    width = (0.016, 0.016)
-    ref_width = 0.016
-
+# ---------------------------------------------------------------- stripe construction
 
 def _trace_side(field, V, start_xy, line):
     """streamline from start (x, y): back up to the part (<= 3 cells), then downstream to the hairline"""
@@ -263,21 +252,7 @@ def flow_alignment(field, V, locks):
     return float(np.mean(out)) if out else float("nan")
 
 
-def make_chunky_bezier(field, rng, width=0.02, target_frac=0.12):
-    """-> locks (list of dicts), Region, params. width in metres."""
-    style = PartChunky()
-    params = style.sample_params(field, rng, target_frac=target_frac)
-    _, table = style.lock_table(field)
-    line, _ = style.seed_line(field)
-    V = sl.flow_2d(field)
-    wc = width / field.grid.cell_spacing
-    locks = [build_lock(field, V, table[i]["seed"], line, wc) for i in params["locks"]]
-    region = Region.from_polygons([lk["polygon"] for lk in locks], field.n)
-    params.update(width=width, width_cells=wc, flow_alignment=flow_alignment(field, V, locks))
-    return locks, region, params
-
-
-# ---------------------------------------------------------------- dense chunky: many thin Bezier stripes
+# ---------------------------------------------------------------- dense: many thin Bezier stripes
 
 def _polyline_dist(Q, L):
     """(N, 2) points to polyline L (K, 2), grid units"""
@@ -301,8 +276,7 @@ def dense_candidates(field, root_xy, lattice=None, min_len=None):
     sc = field.n / 32                       # defaults are for n = 32 (2-cell lattice, 6-cell minimum length)
     lattice = max(1, round(2 * sc)) if lattice is None else lattice
     min_len = 6.0 * sc if min_len is None else min_len
-    style = PartChunky()
-    line, how = style.seed_line(field)
+    line, how = part_line(field)
     V = sl.flow_2d(field)
     ring = ndi.binary_dilation(line, structure=np.ones((3, 3), bool)) & ~line & field.hair
     rr, cc = np.mgrid[0:field.n, 0:field.n]
@@ -345,7 +319,7 @@ def _part_frame(line):
 def make_dense_bezier(field, rng, root_xy, per_side=(5, 10), width=0.008, min_gap=0.016, max_near=0.3,
                       min_vis_gap=0.04, max_frac=0.35, part_bonus=1.0, visible_weight=3.0, pair=True, pair_tol=1.5):
     """many thin stripes (width m, constant), each a Bezier band along the flow, 5-10 per head side (side = where it
-    hangs). Selection as initial_masks_generation.dense_chunky: random with the visible / part-seeded candidates
+    hangs). Selection: random with the visible / part-seeded candidates
     first, centerlines at least min_gap apart over >= (1 - max_near) of their length (parallel, never merged), hang
     azimuths min_vis_gap apart, strand fraction <= max_frac.
     pair (default): only part-seeded stripes, picked as mirrored left / right pairs (seeds within pair_tol cells of

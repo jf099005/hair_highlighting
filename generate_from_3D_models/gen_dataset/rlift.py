@@ -2,19 +2,20 @@
 
     bash gen.sh rlift <dataset_dir> --n_samples N [--ratio 1:2:2] [--dense_share 0.8] [--max_hours H] [...]
     bash gen.sh rlift_overview <dataset_dir>          # rewrite overview.html / summary.json
-    bash gen.sh rlift_calibrate                       # measure RENDER_CURVE / the reference contrast (once)
+    bash gen.sh rlift_calibrate                       # color_mode random only: measure the RGB render curve (once)
 
 A sample = one DiffLocks hairstyle + one curve-based (Bezier) initial mask (initial_masks_generation.bezier:
-`bezier_dense` = 5-10 thin mirrored part-seeded stripes per side at n = 96, `bezier_chunky` = a few 2 cm locks at
-n = 32), then rlift_bf (strands_editing.stripe_shape: every stripe shaped into a band of the design width, lifted
+`bezier_dense` = 5-10 thin mirrored part-seeded stripes per side at n = 96, `bezier_money_piece` = the front section
+of the part on each side, 1.8-2.8 cm wide, framing the face, at n = 32), then rlift_bf (strands_editing.stripe_shape: every stripe shaped into a band of the design width, lifted
 onto the base hair, base strands backfilled; labels never change). There is no quality filter: every candidate
 whose mask has stripes is kept. Length classes and quotas are the generate mode's (dataset.quotas, class_members,
 the class furthest behind its quota draws next); within a class, a candidate is dense while fewer than
-dense_share of the class's kept samples are dense.
+dense_share of the class's kept samples are dense, else a money piece; money pieces only in the classes
+money_piece_classes (default long: a money piece frames the face only on long hair), every other class is all dense.
 
 Per candidate <out>/samples/<case>/ (computed in a memory-guarded child process, `_worker`):
     case.json        hairstyle, length class, style, grid n, mask seed
-    result.json      status (ok | no_mask | failed | skipped_oom), timings, peak RSS, metrics:
+    result.json      status (ok | no_mask | unsuited (money piece, highlighting_generation engine) | failed | skipped_oom), timings, peak RSS, metrics:
                      init / rlift_bf: grid_score (grid n of the style), sp_* stripe profile, dens_l1; rlift_bf also
                      displacement / kink stats and the rlift_bf info (lift, backfill pairs, ...)
     labels.npy       (S,) bool highlight per strand of the full strands npz;  stripe_ids.npy (S,) int16 (0 = base)
@@ -28,12 +29,13 @@ Per candidate <out>/samples/<case>/ (computed in a memory-guarded child process,
     hair_highlight.npz  highlighted, stripe_id, strand_color (S, 3), base_color, highlight_color, root_uv
     meta.json           everything above + colors and their rendered contrast
     render/front.png, render/front_multiview.png (front, top, left, back), render/template.npz
-Renders: strands_editing's optical geometry (every strand, the sample's DiffLocks hair radius, 32 bounces, 256
-samples) with random RGB colors in the hair BSDF's COLOR parametrization (render_samples.pick_colors: natural base
-+ random highlight). Contrast: CIELAB ΔE of the two colors AS RENDERED, predicted per channel by CURVE_JSON
-(measured by `rlift_calibrate` on these renders, like render_samples.RENDER_CURVE on the generate mode's);
-min_delta_e defaults to the rendered ΔE of strands_editing's dark brown / golden blonde melanin pair (the
-reference look), at least 20.
+Renders (color_mode melanin, the default): strands_editing's default `optical` preset (every strand, the sample's
+DiffLocks hair radius and BSDF roughness / radial roughness / coat, 32 bounces, 256 samples, MELANIN
+parametrization) with a random (melanin, redness) pair per sample (pick_melanin: a natural base, a lighter
+highlight). Contrast rule (no calibration renders): highlight melanin <= base melanin - min_melanin_gap (0.3; the
+strands_editing reference pair OPTICAL_COLORS has 0.65).
+color_mode random (rlift_450 and older): random RGB in the COLOR parametrization (`optical_rgb`, no per-sample
+BSDF), contrast = rendered CIELAB ΔE from CURVE_JSON (`rlift_calibrate`).
 """
 from __future__ import annotations
 
@@ -57,23 +59,42 @@ from highlighting.generate_from_3D_models.gen_dataset import runner
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 CURVE_JSON = os.path.join(HERE, "rlift_render_curve.json")
+COLOR_MODES = ("melanin", "random", "bw", "fixed")
 MODE = "rlift"
-STYLES = {"dense": "bezier_dense", "chunky": "bezier_chunky"}
+STYLES = {"dense": "bezier_dense", "money_piece": "bezier_money_piece"}
+MIN_PARTS = {"dense": 2, "money_piece": 1}
+MONEY_PIECE_CLASSES = ["long"]                        # length classes that may draw a money piece (user, 2026-11-07)          # fewer stripes / pieces -> no_mask (a money piece may be one-sided)
 # settings that decide which candidates exist: fixed once the dataset has candidates
-LOCKED = ("seed", "grid_n", "per_side", "width", "target_frac", "min_hair_length", "max_hair_length",
+LOCKED = ("seed", "grid_n", "per_side", "width", "min_hair_length", "max_hair_length",
           "max_masks_per_hairstyle", "strands_file")
+# --engine (default off = this module): which module computes / renders a case. highlighting_generation is the
+# strands_editing-based sample pipeline that new generation work goes into; the driver here stays shared
+ENGINES = {"gen_dataset": "highlighting.generate_from_3D_models.gen_dataset.rlift",
+           "highlighting_generation": "highlighting.generate_from_3D_models.highlighting_generation.pipeline"}
 CALIB_HAIR = ("base_36_idx_42564", "base_15_idx_1144")
+
+
+def engine(cfg):
+    return cfg.get("engine") or "gen_dataset"
+
+
+def _render_fn(cfg):
+    if engine(cfg) == "gen_dataset":
+        return render_case
+    import importlib
+    return importlib.import_module(ENGINES[engine(cfg)]).render_case
 
 
 def defaults():
     ram = os.sysconf("SC_PAGE_SIZE") * os.sysconf("SC_PHYS_PAGES") / 2**30
     return dict(mode=MODE, n_samples=None, ratio=ds.parse_ratio("1:2:2"), dense_share=0.8, seed=0,
-                strands_file=common.DEFAULT_STRANDS_FILE, grid_n=dict(dense=96, chunky=32), per_side=[5, 10],
-                width=dict(dense=0.008, chunky=0.02), target_frac=0.12, min_hair_length=0.0, max_hair_length=None,
+                strands_file=common.DEFAULT_STRANDS_FILE, grid_n=dict(dense=96, money_piece=32), per_side=[5, 10],
+                money_piece_classes=list(MONEY_PIECE_CLASSES),
+                width=dict(dense=0.008, money_piece=None), min_hair_length=0.0, max_hair_length=None,
                 max_masks_per_hairstyle=3, max_candidates=None, max_hours=None, max_mem_gb=round(0.75 * ram, 1),
                 min_free_gb=3.0, refine_threads=None, overlap=True, workers=2,
-                render=dict(enabled=True, color_mode="random", base_color=None, highlight_color=None,
-                            min_contrast=0.25, min_delta_e=None, samples=256, resolution=512))
+                render=dict(enabled=True, color_mode="melanin", base_color=None, highlight_color=None,
+                            min_contrast=0.25, min_delta_e=None, min_melanin_gap=0.3, samples=256, resolution=512))
 
 
 # ---------------------------------------------------------------- contrast (render curve)
@@ -88,53 +109,41 @@ def load_curve():
 
 
 def min_delta_e(rcfg):
+    """color_mode random: the rendered-ΔE threshold (default: the reference pair's ΔE, at least 20)"""
+    if rcfg.get("min_delta_e") is not None:
+        return rcfg["min_delta_e"]
     _, ref = load_curve()
-    return rcfg["min_delta_e"] if rcfg.get("min_delta_e") is not None else max(20.0, round(ref, 1))
+    return max(20.0, round(ref, 1))
 
 
-def _png_rgb(path):
-    import cv2
-    im = cv2.imread(path, cv2.IMREAD_COLOR)
-    return im[..., ::-1].astype(np.float64) / 255.0
+# Chiang et al. 2016 / Cycles: absorption per unit eumelanin / pheomelanin (linear RGB)
+_EU, _PHEO = np.array([0.419, 0.697, 1.37]), np.array([0.187, 0.4, 1.05])
 
 
-def calibrate(tmp, names=CALIB_HAIR, samples=128):
-    """render each hairstyle (front only) in every RENDER_CURVE input gray level (optical_rgb) and in
-    strands_editing's two melanin colors (optical); hair pixels = where the brightest and darkest gray renders
-    differ. -> writes CURVE_JSON: mean displayed value per input level, and the rendered ΔE of the melanin pair"""
-    from highlighting.generate_from_3D_models.strands_editing import pipeline as pl
-    levels = rs.RENDER_CURVE[0]
-    shown, refs = [], []
-    for name in names:
-        P0, root_uv, root_normal, _ = pl._load(name, 32)
-        meta = pl.sample_meta(name)
-        S = len(P0)
-        img = {}
-        for lv in levels:
-            d = os.path.join(tmp, name, f"gray_{lv:.2f}")
-            sec = pl.render(d, P0, np.zeros(S, bool), root_uv, root_normal, "optical_rgb", meta,
-                            colors=np.full((S, 3), lv, np.float32), multiview=False, samples=samples)
-            img[lv] = _png_rgb(os.path.join(d, "front.png"))
-            print(f"{name} gray {lv:.2f}: {sec} s", flush=True)
-        for key, lab in (("base", False), ("highlight", True)):
-            d = os.path.join(tmp, name, f"melanin_{key}")
-            pl.render(d, P0, np.full(S, lab), root_uv, root_normal, "optical", meta, multiview=False,
-                      samples=samples)
-            img[key] = _png_rgb(os.path.join(d, "front.png"))
-        hair = np.abs(img[levels[-1]] - img[levels[0]]).mean(-1) > 0.15
-        print(f"{name}: {hair.mean():.1%} hair pixels", flush=True)
-        shown.append([float(img[lv][hair].mean()) for lv in levels])
-        refs.append(float(np.linalg.norm(rs._lab(img["base"][hair].mean(0)) - rs._lab(img["highlight"][hair].mean(0)))))
-    res = dict(inputs=list(levels), shown=[round(float(x), 4) for x in np.mean(shown, 0)],
-               per_hairstyle={n: dict(shown=[round(x, 4) for x in s], reference_delta_e=round(r, 2))
-                              for n, s, r in zip(names, shown, refs)},
-               reference_delta_e=round(float(np.mean(refs)), 2),
-               reference="strands_editing optical: base melanin (0.8, 0.3) dark brown, highlight (0.15, 0.45) "
-                         "golden blonde", render="pipeline.RENDER_PRESETS optical_rgb / optical, front view",
-               samples=samples, measured=common.now_str())
-    common.write_json(res, CURVE_JSON)
-    print(json.dumps(res, indent=1))
-    return res
+def melanin_swatch(c):
+    """(melanin, redness) -> rough display sRGB, for overview swatches and meta only (not a render prediction):
+    transmittance exp(-4 sigma_a) of the Cycles melanin absorption (x4 ~ light crossing several strands), gamma-encoded"""
+    q = -np.log(max(1 - float(c[0]), 1e-4))
+    lin = np.exp(-4 * (q * (1 - c[1]) * _EU + q * c[1] * _PHEO))
+    return np.where(lin <= 0.0031308, 12.92 * lin, 1.055 * lin ** (1 / 2.4) - 0.055).astype(np.float32)
+
+
+def min_melanin_gap(rcfg):
+    return float(rcfg.get("min_melanin_gap") if rcfg.get("min_melanin_gap") is not None else 0.3)
+
+
+def pick_melanin(rcfg, rng):
+    """random (melanin, redness) base + highlight: a natural base (medium to dark brown, any warmth) and a highlight
+    at least min_melanin_gap lighter (30 %: blonde, else any redness: caramel, copper, red, ash).
+    -> (base, highlight) as float tuples"""
+    gap = min_melanin_gap(rcfg)
+    base = (float(rng.uniform(max(0.5, gap), 0.97)), float(rng.uniform(0.05, 0.6)))
+    top = max(0.0, base[0] - gap)
+    if rng.random() < 0.3:
+        hl = (float(rng.uniform(0.0, min(0.25, top))), float(rng.uniform(0.2, 0.5)))
+    else:
+        hl = (float(rng.uniform(0.0, top)), float(rng.uniform(0.0, 1.0)))
+    return base, hl
 
 
 # ---------------------------------------------------------------- config / state
@@ -155,9 +164,15 @@ def load_or_init(out, args):
             v = ds.parse_ratio(v)
         elif k == "per_side":
             v = [int(x) for x in v.split(",")]
-        if k in ("samples", "resolution", "min_delta_e", "min_contrast"):
+        if k == "color_mode" and v not in COLOR_MODES:
+            raise SystemExit(f"--color_mode {v!r}: one of {COLOR_MODES}")
+        if k in ("samples", "resolution", "min_delta_e", "min_contrast", "color_mode", "min_melanin_gap"):
             cfg["render"][k] = v
             continue
+        if k == "engine" and v not in ENGINES:
+            raise SystemExit(f"--engine {v!r}: one of {sorted(ENGINES)}")
+        if k == "engine" and has and v != engine(cfg):
+            raise SystemExit(f"--engine is fixed once there are candidates ({engine(cfg)!r}); use a new folder")
         if has and k in LOCKED and v != cfg.get(k):
             raise SystemExit(f"--{k} is fixed once there are candidates ({cfg.get(k)!r}); use a new folder")
         cfg[k] = v
@@ -229,11 +244,13 @@ def next_candidate(cfg, rows, members):
     name = members[c][k % len(members[c])]
     p = prog[c]
     n_dense, n_all = p["dense"] + p["pending_dense"], p["ok"] + p["pending"]
-    style = "dense" if n_dense < round(cfg["dense_share"] * (n_all + 1)) else "chunky"
+    style = "dense" if n_dense < round(cfg["dense_share"] * (n_all + 1)) else "money_piece"
+    if c not in cfg.get("money_piece_classes", MONEY_PIECE_CLASSES):
+        style = "dense"
     idx = len(rows)
     return dict(case=f"case_{idx:05d}", index=idx, hairstyle=name, length_class=c, mask_round=k // len(members[c]),
                 style=style, mask_style=STYLES[style], grid_n=cfg["grid_n"][style], width=cfg["width"][style],
-                per_side=cfg["per_side"], target_frac=cfg["target_frac"], mask_seed=[cfg["seed"], 20, idx],
+                per_side=cfg["per_side"], mask_seed=[cfg["seed"], 20, idx],
                 npz_path=os.path.join(common.DEFAULT_DATASET_PATH, "generated_hairstyles", name,
                                       cfg["strands_file"]), created=common.now_str())
 
@@ -248,7 +265,7 @@ def worker(cdir):
     t0 = time.time()
     P0, root_uv, _, grid = pl._load(case["hairstyle"], case["grid_n"])
     t_load = time.time() - t0
-    kw = dict(per_side=tuple(case["per_side"])) if case["style"] == "dense" else dict(target_frac=case["target_frac"])
+    kw = dict(per_side=tuple(case["per_side"])) if case["style"] == "dense" else {}
     b = generate_bezier(case["mask_style"], P0, root_uv, grid, seed=case["mask_seed"], width=case["width"], **kw)
     t_mask = time.time() - t0 - t_load
     res = dict(case=case["case"], status="ok", n_strands=int(len(P0)), n_parts=len(b["locks"]),
@@ -261,9 +278,9 @@ def worker(cdir):
     common.write_json(dict(params=res["mask_params"],
                            locks=[dict(polygon=np.round(lk["polygon"], 3).tolist(), side=lk.get("side"),
                                        src=lk.get("src")) for lk in b["locks"]]), os.path.join(cdir, "mask.json"))
-    if len(b["locks"]) < 2 or b["labels"].sum() < 100:
+    if len(b["locks"]) < MIN_PARTS[case["style"]] or b["labels"].sum() < 100:
         res["status"] = "no_mask"
-        res["error"] = f"{len(b['locks'])} stripes / locks, {int(b['labels'].sum())} highlight strands"
+        res["error"] = f"{len(b['locks'])} stripes / pieces, {int(b['labels'].sum())} highlight strands"
         common.write_json(res, os.path.join(cdir, "result.json"))
         return
     t1 = time.time()
@@ -271,14 +288,13 @@ def worker(cdir):
     P, info = pl.rlift_bf(P0, ids0, b["locks"], rxy, grid, center, width)
     res["seconds"]["rlift_bf"] = round(time.time() - t1, 1)
     t2 = time.time()
-    dense = case["style"] == "dense"
     met = {}
     for tag, PP in (("init", P0), ("rlift_bf", P)):
         vd = os.path.join(cdir, tag)
         os.makedirs(vd, exist_ok=True)
         gs, smg = pl.grid_score(grid, PP, labels)
         del smg
-        met[tag] = dict(grid_score=gs, **pl.stripe_metrics(vd, P0, PP, labels, ids0 if dense else None, ids0,
+        met[tag] = dict(grid_score=gs, **pl.stripe_metrics(vd, P0, PP, labels, ids0, ids0,
                                                             b["locks"], rxy, grid, center, width))
     edited = info.pop("edited")
     met["rlift_bf"].update(pl.dfm.deformation_stats(P0, P, edited))
@@ -324,8 +340,7 @@ def _run_guarded_once(cfg, cdir):
     if os.path.exists(rp):
         os.remove(rp)
     t0 = time.time()
-    proc = subprocess.Popen([sys.executable, "-m", "highlighting.generate_from_3D_models.gen_dataset.rlift",
-                             "_worker", cdir], env=env)
+    proc = subprocess.Popen([sys.executable, "-m", ENGINES[engine(cfg)], "_worker", cdir], env=env)
     _PROCS.add(proc)
     peak, reason, low_sys = 0.0, None, False
     try:
@@ -388,31 +403,46 @@ def render_case(out, cfg, row, s, tag="", on_start=None):
         return "rendered"
     case = common.read_json(os.path.join(cdir, "case.json"))
     rcfg = dict(cfg["render"])
-    rcfg["min_delta_e"] = min_delta_e(rcfg)
-    curve, _ = load_curve()
+    mel = rcfg["color_mode"] == "melanin"
+    if not mel:
+        rcfg["min_delta_e"] = min_delta_e(rcfg)
     rng = np.random.default_rng([cfg["seed"], 30, case["index"]])
-    for _ in range(50):     # a light-brown base cannot reach a high min_delta_e with any highlight: draw both again
-        base, hl = rs.pick_colors(rcfg, rng, curve)
-        if rs.render_delta_e(base, hl, curve) >= rcfg["min_delta_e"]:
-            break
     h = load_hair(cdir)
     labels = h["labels"]
-    colors = np.where(labels[:, None], hl[None], base[None]).astype(np.float32)
+    if mel:                 # strands_editing's optical preset, random melanin pair
+        mb, mh = pick_melanin(rcfg, rng)
+        de = None
+        base, hl = melanin_swatch(mb), melanin_swatch(mh)          # rough display colors (swatches only)
+        strand_mel = np.where(labels[:, None], np.float32(mh), np.float32(mb)).astype(np.float32)
+        extra = dict(strand_melanin=strand_mel, base_melanin=np.float32(mb), highlight_melanin=np.float32(mh))
+        preset, colors, mcol = "optical", None, (mb, mh)
+    else:
+        curve, _ = load_curve()
+        for _ in range(50):
+            base, hl = rs.pick_colors(rcfg, rng, curve)
+            if rs.render_delta_e(base, hl, curve) >= rcfg["min_delta_e"]:
+                break
+        de = round(rs.render_delta_e(base, hl, curve), 1)
+        extra, preset, mcol = {}, "optical_rgb", None
+    colors_rgb = np.where(labels[:, None], hl[None], base[None]).astype(np.float32)
+    colors = None if mel else colors_rgb
     np.savez_compressed(os.path.join(cdir, "hair_highlight.npz"), highlighted=labels, stripe_id=h["stripe_ids"],
-                        strand_color=colors, base_color=base, highlight_color=hl, root_uv=h["root_uv"])
-    de = round(rs.render_delta_e(base, hl, curve), 1)
-    meta = dict(case, result=row, base_color=base.tolist(), highlight_color=hl.tolist(), render_delta_e=de,
-                min_delta_e=rcfg["min_delta_e"], render=dict(preset="optical_rgb", samples=rcfg["samples"],
-                                                              resolution=rcfg["resolution"], views=pl.RENDER_VIEWS))
+                        strand_color=colors_rgb, base_color=base, highlight_color=hl, root_uv=h["root_uv"], **extra)
+    meta = dict(case, result=row, color_mode=rcfg["color_mode"], base_color=base.tolist(), highlight_color=hl.tolist(),
+                render_delta_e=de, min_delta_e=rcfg.get("min_delta_e"),
+                render=dict(preset=preset, samples=rcfg["samples"], resolution=rcfg["resolution"], views=pl.RENDER_VIEWS))
+    if mel:
+        meta.update(base_melanin=list(mb), highlight_melanin=list(mh), min_melanin_gap=min_melanin_gap(rcfg))
     rd = os.path.join(cdir, "render")
-    print(f"{tag}{cid}: {case['hairstyle']} ({case['length_class']}, {case['style']}, ΔE {de}) rendering ...", flush=True)
+    cinfo = f"melanin {mb[0]:.2f} / {mh[0]:.2f}" if mel else f"ΔE {de}"
+    print(f"{tag}{cid}: {case['hairstyle']} ({case['length_class']}, {case['style']}, {cinfo}) rendering ...", flush=True)
     t0 = time.time()
     ok, err, device = False, None, None
     for device in (None, "CUDA"):    # OptiX sometimes dies on a hair scene ("misaligned address"): retry on CUDA
         try:
-            pl.render(rd, h["positions"], labels, h["root_uv"], h["root_normal"], "optical_rgb",
+            pl.render(rd, h["positions"], labels, h["root_uv"], h["root_normal"], preset,
                       pl.sample_meta(case["hairstyle"]), colors=colors, samples=rcfg["samples"],
-                      seed=case["index"] % 2**31, device=device)
+                      seed=case["index"] % 2**31, device=device, melanin_colors=mcol)
             ok, err = True, None
             break
         except Exception as e:                   # noqa: BLE001  (one bad render must not stop the dataset)
@@ -485,7 +515,9 @@ def card_html(out, r, busy=None):
     if os.path.exists(mp):
         mt = common.read_json(mp)
         sw = (f" · <span class=sw style='background:{_hex(mt['base_color'])}'></span>"
-              f"<span class=sw style='background:{_hex(mt['highlight_color'])}'></span> ΔE {mt['render_delta_e']}")
+              f"<span class=sw style='background:{_hex(mt['highlight_color'])}'></span> "
+              + (f"melanin {mt['base_melanin'][0]:.2f} / {mt['highlight_melanin'][0]:.2f}" if "base_melanin" in mt
+                 else f"ΔE {mt['render_delta_e']}"))
     dv, dj = "", os.path.join(cdir, "div.json")
     if os.path.exists(dj):
         d = common.read_json(dj)
@@ -522,7 +554,7 @@ def write_overview(out, cfg=None, renderer=None):
                 f"<body><main><h1>rlift_bf 資料集 <span class=muted>{html.escape(os.path.basename(os.path.abspath(out)))}"
                 f"</span></h1><p class=muted>更新 {common.now_str()} · 每 60 秒重新載入 · 狀態 {html.escape(json.dumps(cnt))}"
                 f" · 渲染佇列 {len(busy['queued'])}</p><table><tr><th>長度</th><th>完成 / 配額</th><th>dense</th>"
-                f"<th>chunky</th><th>候選</th></tr>{tab}</table><div class=grid>{''.join(cards)}</div></main>"
+                f"<th>money piece</th><th>候選</th></tr>{tab}</table><div class=grid>{''.join(cards)}</div></main>"
                 f"{LIGHTBOX}<script>(function rl(){{setTimeout(()=>document.getElementById('lb').classList.contains('on')"
                 "?rl():location.reload(),60000)})()</script></body></html>")
         tmp = os.path.join(out, ".overview.html.tmp")
@@ -542,12 +574,16 @@ def generate(out, cfg):
     lengths = ds.hairstyle_lengths(out, common.DEFAULT_DATASET_PATH, cfg["strands_file"])
     members = ds.class_members(cfg, lengths)
     print(f"hairstyles per class: {({c: len(v) for c, v in members.items()})}; quotas "
-          f"{ds.quotas(cfg['n_samples'], cfg['ratio'])}; min ΔE {min_delta_e(cfg['render'])}", flush=True)
+          f"{ds.quotas(cfg['n_samples'], cfg['ratio'])}; colors {cfg['render']['color_mode']} "
+          + (f"(melanin gap >= {min_melanin_gap(cfg['render'])})" if cfg["render"]["color_mode"] == "melanin"
+             else f"(min ΔE {min_delta_e(cfg['render'])})"), flush=True)
+    if engine(cfg) != "gen_dataset":
+        print(f"engine: {engine(cfg)} ({ENGINES[engine(cfg)]})", flush=True)
     render_on = cfg["render"]["enabled"]
     renderer = None
     if render_on and cfg["overlap"]:
         renderer = rs.BackgroundRenderer(out, cfg, on_change=lambda: write_overview(out, cfg, renderer),
-                                         process=render_case)
+                                         process=_render_fn(cfg))
     t_start = time.time()
 
     def queue_render(r):
@@ -611,7 +647,7 @@ def generate(out, cfg):
         elif render_on:
             for r in read_state(out):
                 if r["result"] and r["result"]["status"] == "ok":
-                    render_case(out, cfg, r["result"], dict(case=r["case"]))
+                    _render_fn(cfg)(out, cfg, r["result"], dict(case=r["case"]))
     except KeyboardInterrupt:
         print("interrupted: killing the workers and the running render; rerun the same command to resume", flush=True)
         for p in list(_PROCS):
@@ -632,7 +668,7 @@ def main(argv=None):
     g.add_argument("out")
     g.add_argument("--n_samples", type=int, default=None)
     g.add_argument("--ratio", default=None, help='short:mid:long, default "1:2:2"')
-    g.add_argument("--dense_share", type=float, default=None, help="share of dense-stripe samples per class (0.8)")
+    g.add_argument("--dense_share", type=float, default=None, help="share of dense-stripe samples per class (0.8); the rest are money pieces")
     g.add_argument("--seed", type=int, default=None)
     g.add_argument("--per_side", default=None, help="dense: stripes per side, min,max (5,10)")
     g.add_argument("--max_masks_per_hairstyle", type=int, default=None)
@@ -650,8 +686,15 @@ def main(argv=None):
                    help="render the samples (default on; --no-render: compute only, render later with --render)")
     g.add_argument("--samples", type=int, default=None, help="Cycles samples (256)")
     g.add_argument("--resolution", type=int, default=None)
-    g.add_argument("--min_delta_e", type=float, default=None, help="default: the reference pair's ΔE (>= 20)")
-    g.add_argument("--min_contrast", type=float, default=None)
+    g.add_argument("--min_delta_e", type=float, default=None,
+                   help="color_mode random: rendered ΔE threshold (default: the reference pair's ΔE, >= 20)")
+    g.add_argument("--min_melanin_gap", type=float, default=None,
+                   help="color_mode melanin: highlight melanin <= base melanin - gap (0.3)")
+    g.add_argument("--min_contrast", type=float, default=None, help="color_mode random only (HLS lightness gap)")
+    g.add_argument("--engine", default=None, help="who computes / renders a case: gen_dataset (default, this "
+                   "module) | highlighting_generation (../highlighting_generation/pipeline.py); fixed per folder")
+    g.add_argument("--color_mode", default=None, help="melanin (default: optical preset, random melanin pair) | "
+                   "random (RGB, optical_rgb) | bw | fixed")
     o = sub.add_parser("rlift_overview")
     o.add_argument("out")
     c = sub.add_parser("rlift_calibrate")

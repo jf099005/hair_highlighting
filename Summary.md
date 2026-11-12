@@ -8,19 +8,20 @@
 |---|---|
 | contour 精修 benchmark（FM、2-stage、depth、trim） | [`contour_algo_test/Summary.md`](generate_from_3D_models/contour_algo_test/Summary.md) |
 | 雙頭融合 | [`joint_contour/Summary.md`](generate_from_3D_models/joint_contour/Summary.md) |
-| 風格初始 mask | [`initial_masks_generation/Summary.md`](generate_from_3D_models/initial_masks_generation/Summary.md) |
+| 風格初始 mask | [`initial_masks_generation/SUMMARY.md`](generate_from_3D_models/initial_masks_generation/SUMMARY.md) |
 | 移動髮絲（rlift_bf） | [`strands_editing/Summary.md`](generate_from_3D_models/strands_editing/Summary.md)、封存方法 [`strands_editing/archive/Summary.md`](generate_from_3D_models/strands_editing/archive/Summary.md) |
 | 資料集 | [`gen_dataset/Summary.md`](generate_from_3D_models/gen_dataset/Summary.md) |
 | 學習式 | [`highlight_diffusion/Summary.md`](generate_from_3D_models/highlight_diffusion/Summary.md)、[`highlight_vae/Summary.md`](generate_from_3D_models/highlight_vae/Summary.md) |
 
-## 目前狀態（2026-11-05，分支 `rlift_bf`）
+## 目前狀態（2026-11-06，分支 `rlift_bf`）
 
 - **目前目標**：條紋保留、等寬、連續到髮尾。SOTA = `strands_editing` 的 `rlift_bf`（ribbon → lift → FTL → backfill）；
   其他移動髮絲的方法 2026-11-04 封存到 `strands_editing/archive/`。
 - 只看 grid score 的 SOTA：chunky `vfm_edit_A_soft`、dense `clumpK2_vsfm300_t50_soft`（封存）。
 - 初始 mask 推薦：`chunky` / `money_piece_gc` best-of-4；最新為 Bezier `bezier_dense` / `bezier_chunky`（下游要用 per-strand labels）。
 - 學習式：highlight_diffusion 放棄（underfit）；highlight_vae 推薦 `data/runs/bp12b/ckpt_500.pt`，評分 / FM 用 96 grid。
-- 資料集：舊 grid-filter 資料集 `hl_1000` 只留 144/1000；rlift 模式資料集 `rlift_450` 產生中（11-05 14:28 時 41 ok）。
+- 資料集：預設改為 gen_dataset 的 `rlift` 模式（strands_editing 預設的 mask / rlift_bf / `optical` 渲染，隨機 melanin 配對）。
+  `rlift_450` 完成：294 ok（4.5 h，舊的 RGB 渲染）；舊 grid-filter 資料集 `hl_1000` 只留 144/1000。
 
 ## 核心結論 [已驗證，多次重現]
 
@@ -51,7 +52,8 @@
 | 2026-10-27 | mask_gen log [18] | dense chunky（每側 5–10 條） |
 | 2026-11-03 | `b08a2823` | Bezier 曲線 mask、node-moving editing（strands_editing、bezier_mask_gui） |
 | 2026-11-04 | `ddbb5bbf`, `93ecb58a` | `rlift_bf`；其他 strands_editing 方法封存 |
-| 2026-11-04/05 | 未 commit | `initial_masks_generation/bezier.py`、`gen_dataset/rlift.py`、`rlift_450` 產生中 |
+| 2026-11-04/05 | `8dc88b5f` | `initial_masks_generation/bezier.py`、`gen_dataset/rlift.py`、`rlift_450`（294 ok） |
+| 2026-11-06 | 未 commit | gen_dataset 以 rlift 模式為預設，渲染改用 strands_editing 的 `optical` preset（隨機 melanin 配對） |
 
 ## 失敗總表（避免重複踩坑）
 

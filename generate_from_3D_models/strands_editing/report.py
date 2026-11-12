@@ -19,11 +19,11 @@ RUNS = os.path.join(HERE, "data", "runs")
 VARIANTS = ("init", "rlift_bf")
 
 DESC = dict(
-    chunky={"init": "Bezier lock 初始 mask（每條 2 cm），髮型未動",
-            "rlift_bf": "每個 lock 排成設計寬度（2 cm）的帶子、中心線平滑 → 抬到 base 上 → base 補位（不改標籤）"},
     dense={"init": "密集細條紋 Bezier mask（每條 8 mm），髮型未動",
            "rlift_bf": "每段把條紋髮絲排成 8 mm 帶子（分位數對應、相鄰 ≥ 1.6 cm、中心線平滑）→ 抬到 base 上 → "
                        "base 補位（密度維持）；不修剪、不改標籤"},
+    money_piece={"init": "money piece 曲線 mask（分線前端兩側各一片，寬 1.8–2.8 cm），髮型未動",
+                 "rlift_bf": "每片排成設計寬度的帶子 → 抬到 base 上 → base 補位（不改標籤）"},
 )
 
 EXPERIMENTS = [
@@ -38,11 +38,6 @@ EXPERIMENTS = [
          what="第一次的 rlift_bf 結果，mask 為舊版（左右各自挑、可用分線以外的種子）。",
          result="fill ~0.45 → 0.80，可見寬度 base_36 4.6 → 7.2 mm、base_15 3.7 → 9.1 mm，寬度 CV 0.84 → 0.37 / "
                 "0.91 → 0.66；所有條紋保留。grid 0.188 / 0.320。"),
-    dict(id="stripe-shape-chunky", run="stripe_shape_chunky", style="chunky", title="3. 同一演算法套用到 chunky（32×32）",
-         grid="32×32",
-         what="與密集條紋完全相同的 rlift_bf，只是寬度改成 lock 的 2 cm。",
-         result="base_36：grid 0.216 → 0.103，連續到達 0.95、fill 0.98、寬度 CV 0.14。長髮 base_15：grid 0.254 → 0.145，"
-                "兩束都保留，抖動 15.4 → 8.1 mm。"),
 ]
 
 COLS = [
@@ -209,7 +204,7 @@ INTRO = """
 <a href='report_archive.html'>封存報告</a>。</p>
 <div class=box><b>rlift_bf</b>：依髮根在條紋中心線上的位置 + 弧長把每條條紋切 20 段 → 每段把條紋髮絲的橫向位置做分位數映射，
 排成設計寬度的帶子（相鄰中心線 ≥ 2 倍寬、中心線平滑）→ 抬到 base 頭髮上方 → FTL 保長、轉折增加 ≤ 30° →
-讓條紋移去位置上的 base 髮絲移回條紋原位（補位）。標籤不變、不修剪；chunky 與密集細條紋共用。<br>
+讓條紋移去位置上的 base 髮絲移回條紋原位（補位）。標籤不變、不修剪；密集細條紋與 money piece 共用。<br>
 <b>指標</b>：fill = 平均 min(可見寬 / 設計寬, 1)、連續到達 = 第一次寬度 &lt; 一半的位置、寬度 CV、抖動、合併、
 密度變化 dens_l1（5 mm 體素）。</div>
 """

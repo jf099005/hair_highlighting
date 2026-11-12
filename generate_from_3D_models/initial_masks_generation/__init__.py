@@ -1,16 +1,17 @@
-"""initial_masks_generation: initial highlight masks of a given style (chunky, money piece, ...) whose boundaries
+"""initial_masks_generation: initial highlight masks of a given style (money piece, dense stripes, ...) whose boundaries
 follow the hair flow, so that highlight and base strands cross as little as possible from the start.
 
     field     HairField: flux (flow_field), smoothed sign-free flow direction + coherence, head frame
     geodesic  flow-aligned anisotropic metric on the scalp grid + multi-source Dijkstra (geodesic Voronoi)
-    styles    style registry (@register_style): seeds + labels per style; chunky, money_piece (+ *_iso twins)
+    styles    style registry (@register_style): grid styles watermelon, money_piece (+ *_iso / *_gc twins)
     generate  generate_mask(style, field, rng, min_frac, max_frac): random shape, size fitted to a strand fraction
     postprocess  BFS clean-up (small islands / holes, unrooted cells)
     viz       debug figure (flux, flow, seeds, mask)
     build_bench  writes a contour_algo_test benchmark folder from these styles (then `bench.sh run`)
-    bezier    curve-based (Bezier) masks bezier_dense / bezier_chunky (per strand; strands_editing.pipeline.build_mask)
+    bezier    curve-based (Bezier) masks bezier_dense / bezier_money_piece (per strand; strands_editing.pipeline.build_mask)
+    money_piece  the curve money piece (make_money_piece_bezier)
 
-See README.md for the algorithm and conventions, Summary.md for results.
+See README.md for the concepts and usage, SUMMARY.md / LOG.md for results.
 """
 import os
 import sys

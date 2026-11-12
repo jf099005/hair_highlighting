@@ -40,3 +40,11 @@ chunky（`stripe_shape_chunky`，32×32）：base_36 的 grid score 0.216 → 0.
 - `rlift_bf` 的 grid score 仍高於封存的 FM 家族（那些方法會修剪或刪掉條紋，例如新 mask 上 `clumpK2_vsfm300_t50_soft` 0.085 / 0.184，但條紋只到半路）；下一步提議：之後接窄軟邊界 **[假設]**。
 - 長髮：lift 撞到 25 mm 上限、backfill 配對少（merged 0.16、dens_l1 0.17）。
 - dense 長髮 grid score 到不了 0.1。
+
+## 2026-11-06：刪除 chunky、加入 money piece
+- 使用者要求刪除所有 chunky：`bezier_mask.PartChunky` / `make_chunky_bezier`、`pipeline` 的 `chunky` 樣式與 `run_sample`、report 的 chunky 節。
+  上表的 chunky 結果保留為歷史紀錄。
+- 新樣式 `money_piece`（`build_mask` 呼叫 `initial_masks_generation.money_piece`，`run_money_piece`，`--style money_piece`），
+  與 dense 一樣以片編號（Region part）標記髮絲，rlift_bf 的設計寬度 = 該樣本抽到的片寬。
+- dense 不受影響：刪除前後 `bezier_dense`（n = 96）在 base_36 / base_15 / base_74 上逐位元相同（`initial_masks_generation` LOG 實驗 0）。
+- money piece 的結果與限制見 `initial_masks_generation/LOG.md`、`SUMMARY.md`。

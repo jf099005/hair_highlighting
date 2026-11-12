@@ -1,284 +1,211 @@
-# gen_dataset: high-quality highlighting dataset
+# gen_dataset: highlighting datasets
 
-Generates highlighted 3D hair samples with `contour_algo_test`, keeps only the good ones, renders them in
-Blender, and writes a report.
+Generates "DiffLocks hairstyle + highlight" samples and renders them in Blender. Two modes:
 
-1. **Generate candidates.** A candidate is one DiffLocks hairstyle plus one random initial mask from
-   `contour_algo_test/masks.py`. Every candidate is refined by each variant in `--methods`, using
-   `contour_algo_test` `run_benchmark` (CPU, memory-guarded child process per case).
-2. **Filter.** A variant passes when every rule of the filter spec holds. A candidate passes when at least one of
-   its variants passes, and the passing variant with the lowest `--rank_by` (default `grid_score.mean_all`) is kept.
-3. **Keep and render.** Per length class, the first passing candidates up to the class quota are kept. The quota
-   is `--n_samples` split by `--ratio`. Candidates are drawn **one at a time**, always from the class furthest
-   behind its quota (kept / quota), so the kept samples follow the ratio while the run goes. This stops when every quota is met,
-   `--max_candidates` is reached, or a class runs out of hairstyles. Then `report.html` / `report.md` are written.
+| mode | how | status |
+|---|---|---|
+| **`rlift` (default, SOTA)** | curve (Bezier) mask → `strands_editing` `rlift_bf` moves the highlight strands → render. No filter | Recommended. Every setting follows the `strands_editing` defaults |
+| `generate` (legacy) | random mask → `contour_algo_test` FM refinement → `grid_score_abc` filter → render | Still works; no longer the recommended way |
 
-## Live overview
+Always run through `bash gen.sh ...`: it sets `PYTHONPATH`, uses the `hair_exp` env and hides CUDA from Python
+(Blender gets the GPU back through `coloring_by_strand/run_highlight_render.sh`). Results and measurements:
+[`Summary.md`](Summary.md).
 
-While `generate` runs, `<dataset>/overview.html` (and `overview.md`) lists every accepted sample so far, newest
-first, with its render (click it to open the 6-view composite over the page; Esc or a click outside closes it) or its state: queued, rendering, rendered, failed.
-It also shows progress per length class. The page is rewritten after every candidate and every finished render,
-and the HTML reloads itself every 30 s (not while an enlarged render is open), so it can stay open in a browser. `report.html` (score plots, rejection
-reasons) is written when generation ends. `gen.sh report <dataset>` rewrites both at any time, even while a
-`generate` from before this feature is still running.
-
-**Mean-only samples** (config `mean_only`, `mean_only_render`, both on by default; `--no-mean_only`,
-`--no-mean_only_render`). `generate` also collects the candidates whose refined `grid_score.mean_all < a` passes
-but whose per-black / per-white area checks fail into `<dataset>_mean_only/` (refined variants only, no
-`mask_only`; accepted cases are left out), and renders them in the background at a lower priority: a mean-only
-render starts only when no accepted sample is waiting. `render`, `filter` and `report` refresh that folder too.
-`overview.html` shows both kinds, marked **all pass** (accepted) and **mean only**, with a filter for each, and
-`overview_all_pass.html` / `overview_mean_only.html` (+ `.md`) show each kind alone. For a `generate` started
-before this feature, `bash render_mean_only.sh [<dataset> [<out>]]` builds the same folder from outside
-(`--wait_for_blender`: each render waits until no other Blender runs).
-
-## CPU and GPU at the same time
-
-Refinement uses only the CPU: `contour_algo_test` hides CUDA from Python on purpose, so the GPU is idle while
-candidates are refined. When a candidate passes and fits its quota, it is queued and rendered in a **background
-thread** (Blender on the GPU, one sample at a time) while the next candidates are refined. When generation stops,
-the run waits for the render queue, then writes the report. `--no-overlap` renders everything at the end instead.
-
-- `runner.py` is this package's copy of `contour_algo_test`'s memory-guarded case runner. Each case still runs
-  through `run_benchmark`'s own command line in a child process, so its results are the same; `contour_algo_test`
-  is not modified.
-- The refinement child gets `NUMBA_NUM_THREADS` = all cores but the 4 Blender uses (`--refine_threads` to change).
-- Blender also uses system RAM. The memory guard counts free system memory (`--min_free_gb`, default 4), so a
-  render running at the same time can make it kill a large long-hair refinement (`skipped_oom`). If that happens
-  often, lower `--min_free_gb` or use `--no-overlap`.
-- `contour_algo_test`'s projection-graph cache is off by default here (a dataset rarely reuses a hairstyle, and
-  a graph takes ~3 GB of disk); `--graph_cache <dir>` turns it on.
-- Ctrl-C kills the running refinement child and the running Blender. Rerunning `generate` resumes and re-queues
-  kept samples that were not rendered yet.
-
-## Commands
+## rlift mode (`rlift.py`)
 
 ```bash
-# 300 samples, short:mid:long = 1:2:2, default filter (a=0.1, b=0.25, c=0.1)
-nohup bash gen.sh generate data/hl_v1 --n_samples 300 --ratio 1:2:2 > data/hl_v1.log 2>&1 &
+nohup bash gen.sh rlift data/rlift_v2 --n_samples 450 --ratio 1:2:2 --dense_share 0.8 --max_hours 10 > data/rlift_v2.log 2>&1 &
+bash gen.sh rlift data/rlift_v2                       # resume (saved settings); --no-render computes only, --render renders the rest later
+bash gen.sh rlift_overview data/rlift_v2              # rewrite overview.html / summary.json
+bash gen.sh rlift_filter_overview data/rlift_v2 --threshold 0.3 [--stage rlift_bf|init] [--sort]   # only grid score < threshold
+bash gen.sh rlift_div data/rlift_v2 [--overwrite]     # |div| (flow divergence) before / after, shown in the overviews
+bash gen.sh rlift_calibrate                           # color_mode random only: measure the RGB render curve
+```
 
-# other thresholds / extra rules / your own expression
-bash gen.sh generate data/hl_v1 --n_samples 300 --a 0.08 --b 0.3 --c 0.1
+### `--engine` (default off)
+
+`--engine highlighting_generation` makes the driver run each case through
+[`../highlighting_generation/pipeline.py`](../highlighting_generation/README.md) (`_worker` child process,
+`render_case`) instead of this module's `worker` / `render_case`; same folder layout and tools. New generation work
+goes there. Default (`gen_dataset`, not written to the config) = the behavior before the flag existed. Fixed once a
+folder has candidates. Shortcut: `bash ../highlighting_generation/run.sh batch <dir> ...`.
+
+### One sample
+
+1. **Draw.** Hairstyles are split into short / mid / long; quotas = `--n_samples` split by `--ratio`. The next
+   candidate comes from the class furthest behind its quota (kept / quota), up to `max_masks_per_hairstyle` = 3 masks
+   per hairstyle. In each class `dense_share` of the samples are dense thin stripes, the rest money pieces (chunky was removed
+   2026-11-06; old datasets with chunky cases can still be viewed but not resumed). Money pieces only in
+   `money_piece_classes` (default `["long"]`, 2026-11-07); every other class is all dense. With
+   `--engine highlighting_generation` a money piece whose pieces do not frame the face or whose hair is curly becomes
+   `unsuited` (no edit, no render; the hairstyle is then skipped in that folder, `unsuited_money_piece.json`), and
+   money pieces get a high-contrast melanin pair (dark brown base, blonde highlight).
+2. **Mask.** `initial_masks_generation.bezier.generate_bezier` → `strands_editing.pipeline.build_mask` (the single
+   builder of curve masks).
+3. **Edit.** `strands_editing.pipeline.rlift_bf` (ribbon → lift → FTL → backfill; labels unchanged, nothing trimmed,
+   roots restored, kinks ≤ 30°).
+4. **Metrics.** init and rlift_bf: grid score, the `sp_*` stripe profile, `dens_l1`; rlift_bf also displacement / kink
+   stats. **No filter**: a mask with ≥ 2 stripes (dense) / ≥ 1 piece (money piece) and ≥ 100 highlight strands is kept (else `no_mask`); the
+   metrics are recorded for filtering later.
+5. **Render** in a background thread (GPU, one at a time) while the next cases are computed.
+
+### Defaults (= the strands_editing defaults)
+
+| setting | dense | money piece | from |
+|---|---|---|---|
+| grid `n` | 96 | 32 | the two standard commands of the strands_editing README |
+| design `width` | 8 mm | drawn 1.8–2.8 cm per sample | `pipeline.DEFAULT_WIDTH`, `money_piece.WIDTH` |
+| stripes per side `per_side` | 5–10 | — | `build_mask` default |
+| mirrored pairs | `pair=True`, loosened through `PAIR_TOLS` 1.5 / 3 / 4.5 cells when needed | — | `build_mask` default |
+| reach / gap / layout | — | 3–4.5 cm / 3–6 mm / 85 % pair | `money_piece.REACH` / `GAP` / `ONE_SIDE` |
+| rlift_bf parameters | all `stripe_shape.rlift_bf` defaults | same | strands_editing README, parameter table |
+| render | `optical` preset, random melanin pair | same | `pipeline.RENDER_PRESETS` |
+
+Changes to the strands_editing defaults reach this mode by themselves (it calls those functions); only grid n /
+width / per_side in `rlift.defaults()` are copies and must be kept in sync by hand.
+
+### Rendering
+
+- **`color_mode melanin` (default)**: strands_editing's `optical` preset: every strand, the sample's metadata hair
+  radius and BSDF roughness / radial roughness / coat, 32 bounces, 256 samples, 512², MELANIN parametrization. Each
+  sample gets a random (melanin, redness) pair (`rlift.pick_melanin`): a natural medium-to-dark base (melanin
+  0.5–0.97, redness 0.05–0.6) and a lighter highlight (30 % blonde, else any redness: caramel, copper, red, ash).
+  Colors come from `rng([seed, 30, case_index])`, so they are reproducible. Melanin cannot make blue / pink / green
+  highlights; use `color_mode random` for those.
+- **Contrast**: a rule on the melanin values, no calibration renders: highlight melanin ≤ base melanin −
+  `min_melanin_gap` (default 0.3; strands_editing's reference pair, dark brown (0.8, 0.3) / golden blonde
+  (0.15, 0.45), has 0.65). It does not guarantee a rendered contrast: two light colors 0.3 apart can look close.
+  The RGB fields in `hair_highlight.npz` / `meta.json` and the overview swatches are a rough color from the melanin
+  absorption (`rlift.melanin_swatch`), not the rendered color.
+- `color_mode random` (the older way, used by rlift_450): random RGB in the COLOR parametrization (`optical_rgb`,
+  without the sample's BSDF), contrast = rendered ΔE ≥ `min_delta_e` through `rlift_render_curve.json` (`rlift_calibrate`). Also `bw` / `fixed`. An existing
+  dataset keeps the `color_mode` saved in its config.
+- Views: front + a 2×2 composite (front / top / left / back, `pipeline.RENDER_VIEWS`).
+- Blender 5.0's OptiX sometimes crashes on hair scenes (`misaligned address`, CUDA error 716): retried on CUDA.
+
+### Output `<dataset>/samples/<case>/`
+
+| file | content |
+|---|---|
+| `case.json` | hairstyle, length class, style, grid n, mask seed |
+| `result.json` | status (ok / no_mask / failed / skipped_oom), seconds per step, peak RSS, init / rlift_bf metrics |
+| `labels.npy`, `stripe_ids.npy` | (S,) bool highlight, (S,) int16 stripe id (0 = base), aligned with the full strands npz |
+| `edited.npz` | `idx` and new `positions` of the moved strands; `rlift.load_hair(dir)` rebuilds the edited hairstyle |
+| `init_mask.npy`, `mask.png`, `mask.json` | (n, n) root-majority grid mask, its plot, mask params and lock polygons |
+| `init/`, `rlift_bf/` | `stripe_profile.json` |
+| `div.json`, `div.png`, `div.npz` | \|div\| of the original / edited hair (`rlift_div.py`) |
+| `hair_highlight.npz` | `highlighted`, `stripe_id`, `root_uv`, `strand_color` (S, 3), `base_color` / `highlight_color`; melanin mode adds `strand_melanin` (S, 2), `base_melanin` / `highlight_melanin` (the rendered values), and the RGB fields are rough swatch colors |
+| `meta.json` | all of the above + `color_mode`, colors, `min_melanin_gap` (melanin) or rendered ΔE (random), render settings |
+| `render/front.png`, `render/front_multiview.png` | renders |
+
+Per dataset: `dataset_config.json`, `overview.html` (reloads every 60 s; click an image to enlarge), `summary.json`,
+`hairstyle_lengths.json`. About 20–60 MB per sample.
+
+### Cost and memory
+
+- Two cases at once (`--workers 2`, numba threads = (cores − 4) / workers). ~130–165 s per case per worker, ~80 s per
+  kept sample overall; peak RSS p95 ~5.5 GB. Render 25–55 s.
+- Memory guard: a child is killed above `max_mem_gb` RSS (default 75 % of RAM) or below `min_free_gb` free system
+  memory; the latter (caused by the other worker / Blender) is retried up to 2 times once memory is back.
+- `--max_hours` stops drawing new candidates; `--max_candidates` defaults to 3 × `n_samples`. Ctrl-C kills the
+  workers and Blender; rerun the same command to resume.
+
+### Code
+
+- `rlift.py` is not built on `contour_algo_test`'s benchmark. Reused: `dataset.quotas` / `class_members` /
+  `hairstyle_lengths`, `render_samples.BackgroundRenderer` (`process=render_case`), `render_samples._lab` /
+  `pick_colors` / `render_delta_e`.
+- Each case runs in a **new** child process, `rlift.py _worker <case_dir>` (own memory guard, copied from `runner`).
+  Cases being computed count as kept for the quota and the dense share.
+- `cli.main` hands `rlift|rlift_overview|rlift_calibrate` to `rlift.main`, and `rlift_div` / `rlift_filter_overview`
+  to their modules.
+- `rlift.LOCKED` (seed, grid_n, per_side, width, target_frac, hair length range, `max_masks_per_hairstyle`,
+  strands_file) is fixed once there are candidates. Render settings (`--color_mode`, `--min_melanin_gap`, `--samples`,
+  `--resolution`, `--min_delta_e`) can change and apply to samples rendered afterwards.
+
+## Legacy mode: grid-filter datasets (`generate`)
+
+A candidate is one hairstyle + one random mask from `contour_algo_test/masks.py`, refined by every variant in
+`--methods` (through `contour_algo_test` `run_benchmark`'s command line, a child process per case). It is kept when a
+variant passes the filter (the passing variant with the lowest `--rank_by`, default `grid_score.mean_all`). Quotas
+and drawing as in rlift. Refinement is CPU only; kept samples render in a background thread (`--no-overlap`: at the end).
+
+```bash
+nohup bash gen.sh generate data/hl_v1 --n_samples 300 --ratio 1:2:2 > data/hl_v1.log 2>&1 &   # default filter a=0.1, b=0.25, c=0.1
 bash gen.sh generate data/hl_v1 --n_samples 300 --filter 'grid_score_abc:a=0.1,b=0.25,c=0.1+min_retention:min=0.3'
-bash gen.sh generate data/hl_v1 --n_samples 300 --filter my_filter.json
-
-# re-filter the existing candidates (nothing is recomputed), then render the newly kept samples
-bash gen.sh filter data/hl_v1 --b 0.4
-bash gen.sh render data/hl_v1 [--render_device cpu] [--color_mode bw]
-bash gen.sh generate data/hl_v1          # resume / top up the quotas after a stricter filter or larger n_samples
+bash gen.sh filter data/hl_v1 --b 0.4          # re-filter the saved results (nothing recomputed)
+bash gen.sh render data/hl_v1 [--render_device cpu] [--color_mode bw] [--overwrite --min_delta_e 30]
 bash gen.sh report data/hl_v1
-
-# color contrast of random colors: min difference of base / highlight as rendered (CIELAB ΔE, default 20, 0 = off)
-bash gen.sh generate data/hl_v1 --min_delta_e 30
-bash gen.sh render data/hl_v1 --overwrite --min_delta_e 30   # re-pick colors of rendered samples and re-render
-
-# use an existing contour_algo_test run as the candidates (e.g. for testing)
 bash gen.sh import_run ../contour_algo_test/data/hl_n50_s0/runs/run --out data/from_hl_n50 --n_samples 12 --no_render
 ```
 
-Options given again on an existing folder replace the saved ones. Settings that decide which candidates exist
-(`--seed`, `--grid_n`, `--mask_generators`, `--min_frac/--max_frac`, hair length range, `--max_strands`, ...)
-are fixed once there are candidates; use a new folder to change them.
+- **Filter** (`filters.py`, a registry): default `grid_score_abc` = `mean_all < a` (0.1), `max(per_black, per_white)
+  <= b` (0.25), `min(per_black, per_white) <= c` (0.1). Others: `threshold:key=..,max=..,min=..`,
+  `min_retention:min=0.3`, `expr:rule=<python expression>`, combined with `+`, or a JSON spec. To add one, decorate
+  `fn(m, **params) -> [Check]` with `@register_filter("name")`.
+- **Mean-only**: candidates passing only `mean_all < a` go to `<dataset>_mean_only/`, rendered at a lower priority
+  (`--no-mean_only`, `--no-mean_only_render`; for an older run, `bash render_mean_only.sh [<dir> [<out>]]`).
+- **Overview**: `overview.html` (reloads every 30 s) lists the kept samples and their render state; `report.html` /
+  `report.md` are written at the end.
+- **Colors**: `color_mode random` = natural base + random highlight RGB; both `min_contrast` (HLS lightness gap 0.25)
+  and `min_delta_e` (default 20, rendered ΔE through `render_samples.RENDER_CURVE`, measured on gray renders at
+  `env_light_strength` 2.0) must pass.
+- **Output**: `dataset_config.json`, `candidates/` (a normal `contour_algo_test` benchmark), `evaluation.json/.csv`,
+  `selection.json`, `samples/<case>/` (`hair_highlight.npz`, `template.npz`, masks, `meta.json`, `render/`),
+  `unselected_samples/` (dropped by a later stricter filter: moved, never deleted), `overview.*`, `report.*`, `figures/`.
+- **Cost**: 30–60 s per candidate (3 variants; long hair peaks at ~13 GB), render 20–30 s; about 1 in 5 candidates
+  passes the default filter; `--max_candidates` defaults to 20 × `n_samples`. The memory guard counts free system
+  memory (`--min_free_gb` 4), so a render at the same time can get a long-hair refinement killed (`skipped_oom`).
+- **Code**: `dataset.py` (config, candidates, evaluation, selection; candidates are only appended, so a kept sample is
+  never displaced), `cli.py` (`generate` loop; `merge_config`: command line overrides the saved config, `LOCKED`
+  cannot change), `filters.py`, `render_samples.py` (`process_sample`, `BackgroundRenderer`: one Blender at a time, a
+  priority queue), `mean_only.py`, `report.py` (`write_overview` runs on two threads: cheap, plot-free, locked,
+  atomic; plots only in `write_report` on the main thread), `runner.py` (local copy of `contour_algo_test`'s guarded runner).
+- **Coupling with `contour_algo_test`**: uses its `build_benchmark.build_case`, `masks`, `common`, `methods`,
+  `metrics`, and the **command line** of `run_benchmark ... --_worker` (broke once when it gained `--graph_cache`).
+  When it changes, check `runner.worker_argv` and the `case.json` / `result.json` / `maps.npz` keys read in
+  `dataset.py` / `render_samples.py`. The graph cache is off here by default (`--graph_cache <dir>` turns it on).
 
-## The filter
+## Pitfalls
 
-The default spec is `grid_score_abc` (`filters.py`):
-
-| rule | default |
-|---|---|
-| `grid_score.mean_all < a` | a = 0.1 |
-| `max(per_black_area, per_white_area) <= b` | b = 0.25 |
-| `min(per_black_area, per_white_area) <= c` | c = 0.1 |
-
-Other built-in filters, which can be combined with `+`:
-
-- `threshold:key=<metric>,max=..,min=..`: a bound on one metric.
-- `min_retention:min=0.3`: guards against FM or trim wiping out one of the colors.
-- `expr:rule=<python expression>`: a rule written over metric names, e.g.
-  `grid_score.mean_all < 0.08 and shape.components <= 3`.
-
-A JSON spec is a list of `{"name": ..., "params": {...}}`. The metric names are the `contour_algo_test`
-metrics flattened (`grid_score.*`, `strands.*`, `cell.*`, `projection.*`, `shape.*`), plus the `derived.*`
-values from `filters.flatten_metrics`.
-
-To add a filter, write a function `fn(m, **params) -> [Check(label, value, ok), ...]` in `filters.py`, decorate
-it with `@register_filter("name")`, and use the name in the spec.
-
-## Output
-
-```
-<dataset>/dataset_config.json         all settings (quotas, filter spec, variants, render settings)
-<dataset>/candidates/                 contour_algo_test benchmark of the candidates (+ runs/gen/: results, roots.png)
-<dataset>/evaluation.json / .csv      per candidate: status, kept variant, scores, every filter check
-<dataset>/selection.json              kept samples
-<dataset>/samples/<case_id>/          hair_highlight.npz (per-strand highlighted flag + RGB, aligned with
-                                      meta.json strands_npz), template.npz (coloring_by_strand template),
-                                      init_mask.npy, grid_mask.npy, grid_score.npy, roots.png, meta.json,
-                                      render/front.png, render/front_multiview.png, render/render_info.json
-<dataset>/unselected_samples/         samples a later, stricter filter dropped (moved here, not deleted)
-<dataset>/overview.html, overview.md        live gallery of the accepted samples (updated during generate)
-<dataset>/report.html, report.md, figures/
-```
-
-## Cost
-
-- Refining one candidate with the 3 default variants takes about 30–60 s on full strands, most of it building
-  the projection graph. Long hair can peak at ~13 GB.
-- One render (front + 6-view) takes about 20–30 s on the GPU. Before `coloring_by_strand/run_highlight_render.sh`
-  dropped the empty `CUDA_VISIBLE_DEVICES` that `gen.sh` sets, Blender silently rendered on the CPU (~5 min); the
-  "5.6 min" test render of the first version was such a CPU render. With the background render, rendering is
-  hidden behind refinement (~5 candidates × 30–60 s per kept sample).
-- With the default filter, about 1 in 5 candidates passed on `contour_algo_test/data/hl_n50_s0`, so plan for
-  about 5 candidates per kept sample. The usual failing rule is `max(per_black, per_white) <= 0.25`.
-- `--max_candidates` defaults to 20 × `--n_samples`.
-
-## rlift mode: curve masks + strand editing (`rlift.py`)
-
-A separate dataset kind: each sample is a DiffLocks hairstyle with a **curve-based (Bezier) mask** from
-`initial_masks_generation.bezier` (`bezier_dense`: 5–10 thin mirrored stripes per side, 96×96; `bezier_chunky`: a
-few 2 cm locks, 32×32), then **`strands_editing` rlift_bf** moves the highlight strands (each stripe a band of the
-design width, lifted onto the base hair, base strands backfilled). There is **no filter**: every candidate whose
-mask has ≥ 2 stripes / locks is kept (metrics are recorded for filtering later).
-
-```bash
-nohup bash gen.sh rlift rlift_450 --n_samples 450 --ratio 1:2:2 --dense_share 0.8 --max_hours 10 > rlift_450.log 2>&1 &
-bash gen.sh rlift rlift_450                 # resume (same settings); --render after a --no-render run renders the rest
-bash gen.sh rlift_overview rlift_450        # rewrite overview.html / summary.json
-bash gen.sh rlift_calibrate                 # once: measure the render curve / reference contrast (rlift_render_curve.json)
-```
-
-- Quotas per length class as in `generate` (the class furthest behind draws next); in each class `dense_share` of
-  the samples are dense stripes, the rest chunky. `--max_hours` stops drawing new candidates after that long.
-- Two cases are computed at once (`--workers 2`, ~4–5 GB each, numba threads split), and renders run in a background
-  thread meanwhile. Measured: ~130 s per case per worker, ~80 s per kept sample overall; render 25–55 s.
-- Colors: `pick_colors` (natural base + random highlight), redrawn until the **rendered** contrast is at least that of
-  strands_editing's dark-brown / golden-blonde melanin pair, ΔE 45.2 (`rlift_render_curve.json`, measured on these
-  renders; `--min_delta_e` overrides). Renders use strands_editing's optical geometry (every strand, the sample's
-  DiffLocks hair radius, 32 bounces, 256 samples) with RGB colors; OptiX crashes are retried on CUDA.
-- Output per sample `<dataset>/samples/<case>/`: `case.json`, `result.json` (status, timings, metrics init / rlift_bf:
-  grid_score, `sp_*` stripe profile, `dens_l1`, displacement / kinks), `labels.npy`, `stripe_ids.npy`, `edited.npz`
-  (moved strands only; `rlift.load_hair(dir)` rebuilds the edited hair from the dataset npz), `init_mask.npy`,
-  `mask.png`, `mask.json`, `hair_highlight.npz` (labels, stripe ids, per-strand RGB), `meta.json`,
-  `render/front.png`, `render/front_multiview.png` (front / top / left / back). ~20–60 MB per sample.
-- `overview.html` (live, reloads every 60 s) and `summary.json` list every sample with its metrics.
-
-## Color contrast
-
-With `color_mode random`, each sample gets a natural base color and a random highlight color. Two checks must
-pass: the old `min_contrast` (HLS lightness gap, 0.25) and `min_delta_e` (default 20), the CIELAB ΔE of the two
-colors **as rendered**. The render squeezes the input range a lot: every input value above ~0.3 comes out about
-equally bright, so two light colors look the same however different their numbers are. `render_samples.RENDER_CURVE`
-(measured on gray renders at `env_light_strength` 2.0) predicts the displayed color; judged on 150 renders,
-ΔE >= 20 is clearly visible, 7-11 weak, below 7 invisible. Each sample's value is saved as `render_delta_e` in
-`meta.json`. If you change the lighting, the curve should be measured again.
-
-## How the code fits together
-
-Always run through `gen.sh`: it sets `PYTHONPATH` to the project root, uses the `hair_exp` env, hides CUDA from
-Python, and runs `python -m ...gen_dataset.cli`. `render_mean_only.sh [<dir> [<out>]] [--no_render]` builds the
-mean-only folder for a `generate` started before `mean_only.py` existed.
-
-**Relation to `contour_algo_test`.** This package is a separate variant of `contour_algo_test` and does not modify it.
-Code that needs changed behavior gets a local copy here (`runner.py` is the guarded case runner copied from
-`run_benchmark.run_case_guarded`). What it uses from `contour_algo_test`: `build_benchmark.build_case`, `masks`,
-`common`, `methods.VARIANTS` / `load_variants`, `metrics.DEFAULT_METRICS`, and the **command line** of
-`run_benchmark ... --_worker` (each case runs as a child process through it, so results match `bench.sh run`).
-This coupling broke once already (`run_benchmark` gained `--graph_cache`); when `contour_algo_test` changes, check
-`runner.worker_argv` and the `case.json` / `result.json` / `maps.npz` keys read in `dataset.py` and `render_samples.py`.
-
-- **`dataset.py`**: config, candidates, evaluation and selection.
-  - The candidates are a normal `contour_algo_test` benchmark under `<dir>/candidates/`, run in `candidates/runs/gen/`,
-    so `bench.sh summarize` works on it. `import_run` instead points `candidates_bench` / `candidates_run` at an
-    existing run (nothing copied; `generate` refuses such a folder).
-  - `evaluate_candidates`: **pass** if any variant in `methods` passes (kept = the passing one with the lowest
-    `rank_by`); **reject** otherwise (its "closest" variant = fewest failed checks, then `rank_by`, is shown);
-    **pending / failed** when results are missing or every variant failed.
-  - `select` keeps, per length class, the first passing candidates in case order up to the quota (`n_samples` split
-    by `ratio`, largest remainder). Candidates are only appended, so a kept sample is never displaced later; the
-    background renderer relies on that.
-- **`cli.py generate`**: draws one candidate at a time from the class furthest behind its quota (lowest kept / quota;
-  ties go to the class with fewer candidates). An earlier rule ("most expected candidates left" = deficit / pass rate)
-  kept feeding the class that failed most and starved the others. New kept samples are queued on
-  `render_samples.BackgroundRenderer`: one Blender process at a time on a thread, a priority queue (accepted 0,
-  mean-only 1, ties in submit order); each job carries its own folder and config; `status(out)` / `pending(out)` /
-  `is_submitted(case, out)` are per folder.
-- **Config merge (`cli.merge_config`)**: options on the command line override `dataset_config.json`; others keep
-  their saved value, or `defaults()` for a new folder. Settings in `LOCKED` decide which candidates exist and cannot
-  change once candidates exist. The draw is reproducible: `rng([seed, 20, case_idx])` for the case and
-  `rng([seed, 10, class])` for the hairstyle order.
-- **`filters.py`**: a registry; `@register_filter(name)` functions take the flat metrics (`flatten_metrics`:
-  `<metric>.<key>` plus `derived.*`) and return `Check`s. Specs come from JSON or the short `name:k=v,...+name2:...`
-  form. `expr` evaluates a restricted Python expression. `filter` re-evaluates saved results without recomputing.
-- **`render_samples.py`**: `process_sample` writes `hair_highlight.npz` (a `coloring_by_strand` template, every strand
-  "highlighted" with its own RGB), the masks and `meta.json`; maps back to the full npz strand order through
-  `maps.npz["strand_idx"]` (strands outside `max_strands` and trimmed strands go to `--ignore_npz`); calls the trimmed
-  render script directly. Colors per sample come from `rng([seed, 30, case_idx])`. A sample that a stricter
-  re-filter drops is moved to `unselected_samples/`, never deleted.
-- **`mean_only.py`**: the companion folder `<out>_mean_only/` is an import_run-style dataset over the same candidates
-  (read only) with an `expr` filter built from the dataset's `grid_score_abc` params, `keep_surplus`, and no
-  `mask_only`. `cli.queue_renders` refreshes it after every candidate; `_finish` / `filter` / `report` refresh it too.
-  A mean-only folder never gets its own (`mean_only_of`, name suffix). `--wait_for_blender`
-  (`render_samples.wait_for_other_blender`) makes each render wait until no other Blender runs.
-- **`report.py`**: `report.md`, `report.html`, `figures/overview.png` from `evaluation.json` / `selection.json`
-  (threshold lines only when the spec contains `grid_score_abc`). `write_overview` writes the live
-  `overview.html` / `overview.md`; it runs from two threads (generate loop and render thread), so it stays cheap and
-  plot-free (matplotlib is not thread-safe), takes a lock and writes atomically (tmp + `os.replace`). Keep
-  `write_report` (with plots) on the main thread. The 30 s reload is a script timer (waits while the lightbox is
-  open; the class filter is kept in the URL hash). On the mean-only folder, `write_overview` also rewrites the
-  dataset's pages (paired by name only).
-- **`rlift.py`**: not built on `contour_algo_test`. Candidates are `initial_masks_generation.bezier.generate_bezier`
-  → `strands_editing.pipeline.build_mask`, refined by `strands_editing.pipeline.rlift_bf`, computed by
-  `rlift.py _worker <case_dir>` in a memory-guarded child (own copy of runner's guard). `cli.main` hands
-  `rlift|rlift_overview|rlift_calibrate` to `rlift.main` before its own argparse. Reused: `dataset.quotas` /
-  `class_members` / `hairstyle_lengths`, `render_samples.pick_colors` / `render_delta_e` (`curve=` argument) and
-  `BackgroundRenderer` (`process=` job function). Status `no_mask` when a mask has < 2 stripes / locks. Pending cases
-  count as kept for the quota and the dense share. Different render settings need a new `rlift_calibrate`.
-
-### Pitfalls
-
-- A running `generate` is one long process and keeps the code it was started with: edits to `cli.py` / `report.py`
-  apply only after a restart (Ctrl-C and rerun; it resumes); until then its old `write_overview` keeps overwriting
-  the overview in the old format. A running `rlift` starts a **new** process per case, so edits to strands_editing /
-  initial_masks_generation / `rlift.worker` reach the cases started after the edit, mid-run.
-- Memory: a long-hair projection graph peaks at ~13 GB on a 30 GB machine. The guard counts free system memory, so a
-  Blender render at the same time can get a refinement killed (`skipped_oom`).
-- The graph cache is off here by default (`graph_cache=None` → `--no_graph_cache`).
-- `refilter` re-reads every `result.json` after each candidate; cache the reads if it gets slow.
-- `pgrep -f "gen_dataset.cli generate"` also matches the waiting shell's own command line; wait on the PID or grep the
+- A running `generate` is one long process: edits to `cli.py` / `report.py` apply after Ctrl-C and rerun (it
+  resumes). A running `rlift` starts a **new** process per case, so edits to `strands_editing` /
+  `initial_masks_generation` / `rlift.worker` reach the cases started after the edit, mid-run.
+- Don't wait on `pgrep -f "gen_dataset.cli generate"` (it matches the waiting shell too); wait on the PID or grep the
   log for `report:`.
 
-### Checking changes
+## Checking changes
 
 No test suite. Put outputs in a scratch folder, not in the repo:
 
 ```bash
-# filter / report on existing results (seconds; 9/48 cases pass the default filter, 7 kept at quota 4/4/4)
+# rlift: a tiny dataset with small renders (~2-3 min per case)
+bash gen.sh rlift /tmp/x/rl --n_samples 2 --ratio 0:1:1 --samples 32 --resolution 256
+# generate: filter / report on existing results (seconds; 9/48 pass, 7 kept at quota 4/4/4), then end to end (~2 min)
 bash gen.sh import_run ../contour_algo_test/data/hl_n50_s0/runs/run --out /tmp/x/imp --n_samples 12 --no_render
-# end to end with the background render (~2 min): loose filter, small strands subset, tiny renders
 bash gen.sh generate /tmp/x/gen --n_samples 3 --max_strands 20000 --a 0.2 --b 2 --c 0.5 \
     --samples 16 --resolution 256 --strands_subsample 0.2 --no-multiview --seed 5
 ```
 
-In the second run's log a `[render] ... rendering` line should appear between a candidate's `=== candidate` line and
-its refinement output (render overlapping refinement). Its `--b 2 --c 0.5` makes every candidate pass; drop them
-(keep `--a 0.2`, add `--max_candidates 8`) to see `[render <dir>_mean_only]` lines and the three overview pages.
-
-Results and measurements of the datasets built so far: [`Summary.md`](Summary.md).
+In the generate log a `[render] ... rendering` line should appear between a candidate's `=== candidate` line and
+its refinement output (render overlapping refinement).
 
 ## Development rules
 
-- **Do not modify `../contour_algo_test/`.** The user wants this package to be a separate variant of it; behavior that
-  needs to differ gets a local copy here (as `runner.py` is). When `contour_algo_test` changes, check
-  `runner.worker_argv` and the keys read in `dataset.py` / `render_samples.py`.
-- The default filter stays `grid_score_abc` with a=0.1, b=0.25, c=0.1 (the user's spec); other rules are opt-in.
-- Always run through `bash gen.sh ...`; renders only through `coloring_by_strand/run_highlight_render.sh`.
-- Settings in `cli.LOCKED` cannot change once a folder has candidates; a new setting that changes which candidates
-  exist must be added to `LOCKED`.
+- **The rlift mode follows the strands_editing defaults**: masks only through `pipeline.build_mask`, editing only
+  through `pipeline.rlift_bf`, renders only through `pipeline.render` with the `optical` preset. Don't set algorithm
+  parameters here; change strands_editing instead (and sync the values copied in `rlift.defaults()`).
+- `color_mode random` only: after changing its render (lighting, BSDF; anything but samples / resolution) rerun
+  `rlift_calibrate`, or the ΔE threshold is off.
+- While `rlift` runs, don't edit `strands_editing`, `initial_masks_generation` or `rlift.worker` (check `ps` first),
+  or the dataset mixes two code versions. A running `generate` keeps its old code until restarted.
+- **Do not modify `../contour_algo_test/`.** This package is a separate variant of it; behavior that needs to differ
+  gets a local copy here (as `runner.py` is).
+- The legacy default filter stays `grid_score_abc` with a=0.1, b=0.25, c=0.1 (the user's spec); other rules are opt-in.
+- Renders only through `coloring_by_strand/run_highlight_render.sh`.
+- Settings in `cli.LOCKED` / `rlift.LOCKED` are fixed once a folder has candidates; a new setting that decides which
+  candidates exist must be added there.
 - Kept samples are never displaced and never deleted: a stricter re-filter moves them to `unselected_samples/`.
-- `write_overview` runs on two threads: keep it cheap, plot-free, locked and atomic. Plots only in `write_report`, on
-  the main thread.
-- Don't kill the user's own `run_benchmark` processes; don't wait with `pgrep -f "gen_dataset.cli generate"`.
-- While a dataset is being generated: a running `generate` keeps its old code (edits apply after Ctrl-C and rerun; it
-  resumes). A running `rlift` starts a new process per case: do not edit `strands_editing`, `initial_masks_generation`
-  or `rlift.worker` until it finishes, or the dataset mixes two code versions. Check with `ps` first.
-- Verify with the two quick runs in "Checking changes", outputs in a scratch folder, not in the repo.
+- `write_overview` runs on two threads: keep it cheap, plot-free, locked and atomic.
+- Don't kill the user's own `run_benchmark` processes.
+- Verify with the small runs in "Checking changes", outputs in a scratch folder.

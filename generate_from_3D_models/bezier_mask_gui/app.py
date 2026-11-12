@@ -126,7 +126,7 @@ class App:
             ttk.Button(bf, text=t, command=c, width=9).grid(row=i // 2, column=i % 2, sticky="ew")
         af = ttk.Frame(f)
         af.grid(row=5, column=0, columnspan=2, sticky="ew")
-        ttk.Button(af, text="自動 chunky", command=self.on_auto).pack(side=tk.LEFT)
+        ttk.Button(af, text="自動 money piece", command=self.on_auto).pack(side=tk.LEFT)
         ttk.Label(af, text=" seed").pack(side=tk.LEFT)
         self.v_seed = tk.IntVar(value=0)
         ttk.Spinbox(af, from_=0, to=9999, textvariable=self.v_seed, width=5).pack(side=tk.LEFT)
@@ -361,7 +361,7 @@ class App:
             self.shapes += new
             self.mask_changed()
         seed = int(self.v_seed.get())
-        self.run_bg("自動 chunky (strands_editing.bezier_mask)", lambda: self.S.auto_chunky(seed=seed), done)
+        self.run_bg("自動 money piece (initial_masks_generation.money_piece)", lambda: self.S.auto_money_piece(seed=seed), done)
 
     def _mode_changed(self):
         if self.drawing is not None:

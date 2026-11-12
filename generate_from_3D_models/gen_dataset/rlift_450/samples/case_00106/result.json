@@ -1,8 +1,0 @@
-{
-  "case": "case_00106",
-  "status": "skipped_oom",
-  "error": "free memory 1.7 GB < min_free_gb 2.0 (RSS 3.4 GB)",
-  "peak_rss_gb": 3.45,
-  "wall_seconds": 61.2,
-  "low_system_memory": true
-}

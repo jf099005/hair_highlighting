@@ -20,7 +20,7 @@ bash run.sh --sample base_36_idx_42564 --n 32 # 直接載入
 
 曲線：每兩個錨點之間是一段 cubic Bezier，內側控制點由相鄰錨點決定 (Catmull-Rom 切線)，選取時灰色方塊為控制點。
 mask = 所有形狀的聯集 − 減去形狀，存成 `strands_editing.bezier_mask.Region`（細網格 signed distance）；
-髮絲標籤 = 髮根是否落在區域內。「自動 chunky」用 `strands_editing` 的 Bezier lock 產生初始形狀。
+髮絲標籤 = 髮根是否落在區域內。「自動 money piece」用 `initial_masks_generation.money_piece` 的曲線 money piece 產生初始形狀。
 
 ## 調整方法
 

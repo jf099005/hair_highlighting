@@ -3,7 +3,7 @@
 from contour_algo_test's own generators), then test it with the unchanged `contour_algo_test/bench.sh run`.
 
     bash run.sh build --out <dir> [--n_hairstyles 12 | --names a,b,...] [--from_bench <contour_algo_test benchmark>]
-                      [--length_classes mid,long] [--generators chunky_gc,chunky,blobs,money_piece_gc,money_piece,stripe]
+                      [--length_classes mid,long] [--generators money_piece_gc,money_piece,stripe,blobs]
                       [--masks_per_generator 1] [--candidates 4] [--seed 0] [--grid_n 32]
     bash ../contour_algo_test/bench.sh run <dir> --run_name <name> --methods mask_only,fm_proj_lam1000 [--no_render]
 
@@ -14,9 +14,10 @@ cases/<id>/{case.json, mask.npy, mask.png}); `case.json["mask_generator"]` is th
 existing contour_algo_test benchmark (its pool), so their projection graphs are probably in the on-disk graph
 cache already. Per hairstyle also writes masks_<hairstyle>.png (flux + flow + every generated mask).
 
-Strand-fraction ranges per style family (--frac_chunky, --frac_watermelon, --frac_money_piece): by default
-0.08-0.12 for chunky (parallel stripes) / blobs, 0.20-0.40 for watermelon and 0.03-0.07 for money piece / stripe, i.e. the baselines are drawn in the same range as the style they
-stand in for.
+Strand-fraction ranges per style family (--frac_other, --frac_watermelon, --frac_money_piece): by default
+0.08-0.12 for the other contour_algo_test generators (blobs, polygon, half_plane), 0.20-0.40 for watermelon and
+0.03-0.07 for money piece / stripe, i.e. a baseline is drawn in the same range as the style it stands in for.
+(The curve money piece of money_piece.py is per strand, not a grid mask: test it through highlighting_generation.)
 """
 import argparse
 import os
@@ -34,7 +35,7 @@ from highlighting.generate_from_3D_models.initial_masks_generation import STYLES
 
 BENCHMARK_VERSION = 2
 # baseline generator of contour_algo_test -> the style family whose fraction range it uses
-FAMILY = {"blobs": "chunky", "polygon": "chunky", "half_plane": "chunky", "stripe": "money_piece"}
+FAMILY = {"blobs": "other", "polygon": "other", "half_plane": "other", "stripe": "money_piece"}
 
 
 def family(gen):
@@ -43,7 +44,7 @@ def family(gen):
     for fam in ("money_piece", "watermelon"):
         if gen.startswith(fam):
             return fam
-    return "chunky"
+    return "other"
 
 
 def parse_range(s):
@@ -58,11 +59,11 @@ def main():
     p.add_argument("--names", default=None, help="comma list of hairstyle names (overrides the pool draw)")
     p.add_argument("--from_bench", default=None, help="take the hairstyle pool from this contour_algo_test benchmark")
     p.add_argument("--length_classes", default="mid,long")
-    p.add_argument("--generators", default="chunky,blobs,money_piece_gc,stripe")
+    p.add_argument("--generators", default="money_piece_gc,stripe")
     p.add_argument("--masks_per_generator", type=int, default=1)
     p.add_argument("--candidates", type=int, default=4,
                    help="styles only: best-of-M, keep the lowest normalized coupling cut of M valid masks (1 = off)")
-    p.add_argument("--frac_chunky", type=parse_range, default=(0.08, 0.12))
+    p.add_argument("--frac_other", type=parse_range, default=(0.08, 0.12))
     p.add_argument("--frac_watermelon", type=parse_range, default=(0.20, 0.40))
     p.add_argument("--frac_money_piece", type=parse_range, default=(0.03, 0.07))
     p.add_argument("--seed", type=int, default=0)
@@ -82,7 +83,7 @@ def main():
     if os.path.exists(os.path.join(out, "benchmark.json")) and not args.force:
         p.error(f"{out} already holds a benchmark (use --force to overwrite)")
     classes = [c.strip() for c in args.length_classes.split(",") if c.strip()]
-    fr = {"chunky": args.frac_chunky, "watermelon": args.frac_watermelon, "money_piece": args.frac_money_piece}
+    fr = {"other": args.frac_other, "watermelon": args.frac_watermelon, "money_piece": args.frac_money_piece}
 
     rng = np.random.default_rng(args.seed)
     if args.names:

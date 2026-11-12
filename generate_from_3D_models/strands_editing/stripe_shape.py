@@ -3,7 +3,7 @@
 stripe_profile.py showed why stripes break before the tips: their strands DO reach the tips, but below 30-40 % of
 the length they sink under base hair (visibility T of the stripe points 0.00-0.05 on long hair). rlift_bf
 (rlift_bf() below) = ribbon -> lift -> follow-the-leader -> backfill. Labels never change, nothing is trimmed, roots
-stay fixed. Chunky locks and dense stripes run the same code; only the design width w0 differs.
+stay fixed. Dense stripes and money pieces run the same code; only the design width w0 differs.
 
 ribbon (lateral, stripe strands only)
     Per stripe and station of the position along the stripe (sigma = root position along the stripe + arc

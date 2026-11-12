@@ -1,7 +1,0 @@
-{
-  "case": "case_00081",
-  "status": "failed",
-  "error": "worker exited with code 1",
-  "peak_rss_gb": 2.83,
-  "wall_seconds": 75.9
-}

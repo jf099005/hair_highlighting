@@ -1,5 +1,9 @@
 #!/bin/bash
-# High-quality highlighting dataset (contour_algo_test candidates -> filter -> render the good ones -> report).
+# Highlighting datasets (README.md). Default / SOTA: the rlift mode (curve masks + strands_editing rlift_bf,
+# strands_editing's optical render with random melanin pairs):
+#   bash gen.sh rlift      <dataset_dir> --n_samples N [--ratio 1:2:2] [--dense_share 0.8] [--max_hours H]
+#   bash gen.sh rlift_overview | rlift_div | rlift_filter_overview <dataset_dir>;  bash gen.sh rlift_calibrate
+# Legacy grid-filter mode (contour_algo_test candidates -> filter -> render the good ones -> report):
 #   bash gen.sh generate   <dataset_dir> --n_samples N [--ratio 1:1:1] [--a 0.1 --b 0.25 --c 0.1] [...]
 #   bash gen.sh import_run <contour_algo_test run_dir> --out <dataset_dir> --n_samples N [...]
 #   bash gen.sh filter     <dataset_dir> [--filter SPEC] [--a/--b/--c] [--n_samples N] [--ratio R]

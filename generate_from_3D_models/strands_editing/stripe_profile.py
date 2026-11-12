@@ -23,7 +23,7 @@ sinks under the base is invisible however its strands lie.
 Per stripe: reach = (first station >= 1 with w_j < 0.5 w0) / n_st (1 = continuous down to its tips; station 0 at
 the root is skipped: there the scalp, not hair, is seen), fill = mean_j min(w_j / w0, 1), width_cv = std / mean of
 w_j over stations 1..n_st-1 (breaks count as 0), jump = mean |w_j+1 - w_j| / w0. w0 = the design width (dense 8 mm,
-chunky 20 mm). wiggle = RMS sideways distance (mm) of the visible center line from its best parabola (0 = a convex /
+money piece 25-40 mm). wiggle = RMS sideways distance (mm) of the visible center line from its best parabola (0 = a convex /
 concave stripe, no S-wiggles). Summary = mean over stripes, plus the CV of the stripes' mean widths (are all stripes alike).
 """
 from __future__ import annotations
@@ -269,7 +269,7 @@ def load_case(run_dir, sample):
     shell = ShellMap(grid)
     fp = dfm.Footprints(shell, P0[:, :2])
     rx, ry = dfm.root_xy(fp, shell, raw["root_uv"], grid)
-    dense = params.get("style") == "dense_bezier"
+    dense = params.get("style") in ("dense_bezier", "money_piece_bezier")      # one Region part per stripe / piece
     ids0 = bm.stripe_ids(region, (rx, ry)) if dense else assign_ids(locks, rx, ry, region.phi_at(rx, ry) > 0)
     pl.set_density(sample)
     w0 = params["width"] * 1e3

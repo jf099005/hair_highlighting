@@ -200,10 +200,9 @@ class Session:
                     vals.append(abs(t[0] * fv[1] - t[1] * fv[0]) / (nt * nf))
         return float(np.mean(vals)) if vals else float("nan")
 
-    def auto_chunky(self, seed=0, width=0.02, target_frac=0.12):
-        from highlighting.generate_from_3D_models.strands_editing import bezier_mask as bm
-        locks, _, _ = bm.make_chunky_bezier(self.field, np.random.default_rng(seed), width=width,
-                                            target_frac=target_frac)
+    def auto_money_piece(self, seed=0, width=None):
+        from highlighting.generate_from_3D_models.initial_masks_generation.money_piece import make_money_piece_bezier
+        locks, _, _ = make_money_piece_bezier(self.field, np.random.default_rng(seed), (self.rx, self.ry), width=width)
         return shp.shapes_from_locks(locks)
 
     # ---------------------------------------------------------------- metrics

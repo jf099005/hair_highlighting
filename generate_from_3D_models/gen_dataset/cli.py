@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
-"""High-quality highlighting dataset: generate candidates with contour_algo_test, filter, render the good ones.
+"""Highlighting datasets. Default (SOTA): the rlift mode, curve masks + strands_editing rlift_bf, rendered with
+strands_editing's optical preset (rlift.py). Legacy: contour_algo_test candidates, filtered, the good ones rendered.
 
+    gen.sh rlift      <dataset_dir> --n_samples N [--ratio 1:2:2] [--dense_share 0.8] [--max_hours H] [--color_mode melanin] [--min_melanin_gap 0.3]
+    gen.sh rlift_overview <dataset_dir>  |  gen.sh rlift_calibrate   (color_mode random only)
+    gen.sh rlift_div <dataset_dir> [--overwrite]   (|div| before / after rlift_bf, shown in the overviews)
+    gen.sh rlift_filter_overview <dataset_dir> [--threshold 0.3] [--stage rlift_bf|init] [--sort]
+  legacy grid-filter mode:
     gen.sh generate   <dataset_dir> --n_samples N [--ratio 1:1:1] [--filter SPEC | --a 0.1 --b 0.25 --c 0.1] ...
     gen.sh import_run <contour_algo_test run_dir> --out <dataset_dir> --n_samples N [...]   (reuse a benchmark run)
     gen.sh filter     <dataset_dir> [--filter SPEC] [--a/--b/--c] [--n_samples] [--ratio] [--keep_surplus]
     gen.sh render     <dataset_dir> [render options] [--overwrite] [--limit K]
     gen.sh report     <dataset_dir>
-    gen.sh rlift      <dataset_dir> --n_samples N [--ratio 1:2:2] [--dense_share 0.8] [--max_hours H]
-                      (curve masks + strands_editing rlift_bf, no filter; rlift.py)
-    gen.sh rlift_overview <dataset_dir>  |  gen.sh rlift_calibrate
-    gen.sh rlift_div <dataset_dir> [--overwrite]   (|div| before / after rlift_bf, shown in the overviews)
-    gen.sh rlift_filter_overview <dataset_dir> [--threshold 0.3] [--stage rlift_bf|init] [--sort]
 
 generate: per length class, draw candidates (hairstyle + random mask), refine each with every --methods variant
 (contour_algo_test run_benchmark, CPU, memory-guarded child per case), filter them, and repeat until every class

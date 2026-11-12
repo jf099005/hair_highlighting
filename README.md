@@ -7,7 +7,7 @@
 2. **mask / 輪廓 / 髮絲修正**：給一張 n×n 頭皮 mask（哪些區域是顏色 B，或哪些區域來自 head B），移動邊界或髮絲，
    讓不同標籤的髮絲在 3D 中盡量不互相穿插（`update_contour/`、`joint_contour/`、`strands_editing/` 等）。
 
-`gt_examples/` 是目標風格的真實參考照片（block color、money piece、chunky）。
+`gt_examples/` 是目標風格的真實參考照片（block color、money piece；chunky 的照片保留但該風格已刪除）。
 
 - 各子專案的地圖與相依關係：[`generate_from_3D_models/README.md`](generate_from_3D_models/README.md)
 - 跨子專案的實驗結論、失敗總表、未解問題：[`Summary.md`](Summary.md)
@@ -18,7 +18,7 @@
 |---|---|
 | `README.md` | 設計、演算法、用法、慣例（每個子專案一份） |
 | `Summary.md` | 精簡後的實驗結果與結論（有做過實驗的子專案才有） |
-| 原始逐步紀錄 | 實驗進行時即時追加，不精簡：`highlight_vae/PROGRESS.md`、`initial_masks_generation/mask_gen__chunky__money_piece.log`、各 benchmark 的 `data/**/summary.md`、`gen_dataset/<dir>/report.md`（後兩者由程式產生，`data/` 不在 git） |
+| 原始逐步紀錄 | 實驗進行時即時追加，不精簡：`highlight_vae/PROGRESS.md`、`initial_masks_generation/LOG.md`、各 benchmark 的 `data/**/summary.md`、`gen_dataset/<dir>/report.md`（後兩者由程式產生，`data/` 不在 git） |
 | `CLAUDE.md`（根目錄與長期開發的子專案） | 只寫該專案目標的簡要概念，不放任何檔案、演算法或程式細節；具體規則一律寫在 README 的「開發守則」 |
 
 ## 環境與 import
@@ -111,8 +111,9 @@ COLOR mode，可用任意 RGB。
 - `joint_contour/`（雙頭）：兩顆頭的髮絲合併成一個 index（A 在前），髮絲的標籤 = 髮根格的 mask 值，標籤與所屬頭相同時才顯示，
   只有 visible-A / visible-B 同柱的配對算交叉。用稀疏 CSR membership（256×256 時 dense 版一顆頭要 ~6 GB）。
 - `contour_algo_test/`：單頭精修的 CPU benchmark。
-- `gen_dataset/`：在 `contour_algo_test` 之上產生過濾後的挑染資料集，以及 rlift 模式（Bezier mask + `strands_editing`）。
-- `initial_masks_generation/`：依風格產生初始 mask（chunky、money piece、Bezier 曲線 mask）。
+- `gen_dataset/`：產生挑染資料集。預設是 rlift 模式（Bezier mask + `strands_editing` rlift_bf + 其 `optical` 渲染）；
+  舊模式在 `contour_algo_test` 之上產生過濾後的資料集。
+- `initial_masks_generation/`：依風格產生初始 mask（money piece、Bezier 曲線 mask）。
 - `strands_editing/`：移動髮絲（不只改 mask）讓條紋可見、等寬、連續到髮尾（`rlift_bf`）。
 - `flow_field/`：髮流場、每格 3D flux（散度）、|flux| 邊緣。
 - `mask_analysis/`：notebook 用的分析 / 畫圖 / Blender 渲染工具。
@@ -128,7 +129,7 @@ COLOR mode，可用任意 RGB。
 - README、Summary 與實驗 log 用繁體中文（`gen_dataset/README.md`、`flow_field/README.md`、`scalp_grid_volume_sample/README.md`
   是英文，維持各檔原本的語言）。新增模組或 flag 時更新 README 的模組表與 CLI 選項。
 - 做實驗時即時追加到原始 log（含單位與每個指標的解釋）：`highlight_vae/PROGRESS.md`、
-  `initial_masks_generation/mask_gen__chunky__money_piece.log`，或子專案 Summary.md 的新小節；之後把結論（不是過程）寫進
+  `initial_masks_generation/LOG.md`（2026-11-06 前為 `mask_gen__chunky__money_piece.log`），或子專案 Summary.md 的新小節；之後把結論（不是過程）寫進
   Summary.md，標 [已驗證] / [假設]。
 - 改子專案前先讀它的 README；重提舊點子前先讀它的 Summary.md 與根目錄 Summary.md 的失敗總表。
 - 以渲染、p99 尾部與條紋數判斷結果，不要只看平均分數。風格取捨（看得見的條紋 vs 低 grid score）由使用者決定：攤開數字讓使用者選。
