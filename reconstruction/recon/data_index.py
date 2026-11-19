@@ -24,6 +24,9 @@ FILTERS = dict(
     dense=dict(datasets=["rlift_450"], grid_score_max=0.3),                  # rlift_bf grid score < 0.3
     money_piece=dict(datasets=["mp_long_1107", "mp_long_1107b"]),           # money_piece_filter.json kept_cases
     random=dict(datasets=["hl_1000"], a=0.1, b=0.25, c=0.1),                 # grid_score_abc (legacy generate)
+    # 2026-11-14 large-area highlights (30-65 % of strands, half_plane / polygon / blobs, mask_only = root sections,
+    # no FM, mid + long hair); kept as style "random" so style balancing stays 3-way
+    random_big=dict(datasets=["hl_big"], a=10.0, b=10.0, c=10.0),
 )
 TEST_FRAC = 0.15          # share of hairstyles held out (split by hairstyle, the same for every style)
 
@@ -68,8 +71,8 @@ def _money_piece():
                        grid_score=r["metrics"]["rlift_bf"]["grid_score"])
 
 
-def _random():
-    f = FILTERS["random"]
+def _random(key="random"):
+    f = FILTERS[key]
     for ds in f["datasets"]:
         root = os.path.join(GEN, ds, "samples")
         for c in sorted(os.listdir(root)):
@@ -85,7 +88,7 @@ def _random():
 
 def build_index():
     rows = []
-    for gen in (_dense, _money_piece, _random):
+    for gen in (_dense, _money_piece, _random, lambda: _random("random_big")):
         for r in gen():
             r["id"] = f"{r['style']}/{r['dataset']}/{r['case']}"
             r["split"] = "test" if is_test(r["hairstyle"]) else "train"
@@ -94,6 +97,30 @@ def build_index():
     with open(INDEX, "w") as f:
         json.dump(rows, f, indent=0)
     return rows
+
+
+# color variants of the same samples (same hair / labels, other renders): id "<variant>/<original id>",
+# index data/index_<variant>.json, renders data/renders_<variant>/, cache data/cache_<variant>/
+VARIANTS = ("nat", "dl")     # nat: natural melanin colors (strands_editing `optical` preset, gen_dataset pick_melanin)
+#                              dl: DiffLocks-reconstructed hair of a rendered sample (recon/dl_data.py; index written there)
+
+
+def variant_of(rid):
+    v = rid.split("/", 1)[0]
+    return v if v in VARIANTS else None
+
+
+def build_variant_index(variant):
+    rows = [dict(r, id=f"{variant}/{r['id']}", orig_id=r["id"]) for r in _read(INDEX)]
+    with open(os.path.join(DATA, f"index_{variant}.json"), "w") as f:
+        json.dump(rows, f, indent=0)
+    return rows
+
+
+def load_variant(variant, split=None, styles=None):
+    p = os.path.join(DATA, f"index_{variant}.json")
+    rows = _read(p) if os.path.exists(p) else ([] if variant == "dl" else build_variant_index(variant))
+    return [r for r in rows if (split is None or r["split"] == split) and (styles is None or r["style"] in styles)]
 
 
 def load_index(split=None, styles=None):
@@ -119,6 +146,9 @@ def load_hair(row, positions=True):
 
 
 def render_dir(row):
+    v = variant_of(row["id"])
+    if v:
+        return os.path.join(DATA, f"renders_{v}", row["id"].split("/", 1)[1].replace("/", "__"))
     return os.path.join(RENDERS, row["id"].replace("/", "__"))
 
 

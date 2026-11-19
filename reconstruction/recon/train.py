@@ -153,6 +153,13 @@ def main():
     ap.add_argument("--balance", type=float, default=0.0,
                     help="style-balanced sampling: weight per sample = (1 / style count) ** balance (0 = uniform, 1 = equal styles)")
     ap.add_argument("--train_list", default=None, help="json list of train ids (a frozen snapshot, so runs compare)")
+    ap.add_argument("--variants", default=None,
+                    help="comma-separated color variants (data_index.VARIANTS, e.g. nat) whose TRAIN rows are added")
+    ap.add_argument("--test_variant", default=None,
+                    help="evaluate on this color variant's test rows instead of the default test split")
+    ap.add_argument("--variant_weight", default="{}",
+                    help='sampling weight multiplier per row variant, e.g. \'{"dl": 3}\' (needs --balance > 0)')
+    ap.add_argument("--init", default=None, help="checkpoint (.pt path) to start from (fine-tuning); default: random init")
     ap.add_argument("--train_split", default="train", help="debug only: 'test' trains on the test split")
     a = ap.parse_args()
     torch.manual_seed(a.seed)
@@ -162,6 +169,7 @@ def main():
         model, cfg = load_model(a.name, dev)
         a.steps, styles = 0, cfg.get("styles")
         a.train_list, a.train_split = cfg.get("train_list"), cfg.get("train_split", "train")
+        a.variants = None          # eval only: the train rows are just the train-eval subset
     else:
         styles = a.styles.split(",") if a.styles else None
         cfg = dict(vars(a), model_kw=json.loads(a.model_kw), loss_kw=json.loads(a.loss_kw), styles=styles,
@@ -170,9 +178,17 @@ def main():
         os.makedirs(out, exist_ok=True)
         json.dump(cfg, open(os.path.join(out, "config.json"), "w"), indent=1)
         model = models.build(a.model, **cfg["model_kw"]).to(dev)
+        if a.init:
+            miss = model.load_state_dict(torch.load(a.init, map_location=dev), strict=False)
+            print(f"init from {a.init}: missing {len(miss.missing_keys)} unexpected {len(miss.unexpected_keys)}", flush=True)
     tr_rows, te_rows = dset.splits(styles)
     tr_rows = [r for r in tr_rows if dset._has_cache(r)]
     te_rows = [r for r in te_rows if dset._has_cache(r)]
+    if a.variants:
+        for v in a.variants.split(","):
+            tr_rows += [r for r in di.load_variant(v, "train", styles) if dset._has_cache(r)]
+    if a.test_variant:
+        te_rows = [r for r in di.load_variant(a.test_variant, "test", styles) if dset._has_cache(r)]
     if a.train_split == "test":
         tr_rows = te_rows
     if a.train_list:
@@ -204,7 +220,9 @@ def main():
         if a.balance > 0:
             from collections import Counter
             cnt = Counter(r["style"] for r in ds.rows)
-            w = torch.tensor([(1.0 / cnt[r["style"]]) ** a.balance for r in ds.rows], dtype=torch.double)
+            vw = json.loads(a.variant_weight)
+            w = torch.tensor([(1.0 / cnt[r["style"]]) ** a.balance * vw.get(di.variant_of(r["id"]) or "", 1.0)
+                              for r in ds.rows], dtype=torch.double)
             sampler = torch.utils.data.WeightedRandomSampler(w, num_samples=len(ds.rows), replacement=True)
             print("balanced sampling", {k: round(float((1.0 / v) ** a.balance * v / w.sum()), 3) for k, v in cnt.items()},
                   flush=True)

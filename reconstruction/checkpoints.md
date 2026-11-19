@@ -20,6 +20,22 @@
 
 ## Promising
 
+### `FT_nat`：FT_mix + 自然髮色（melanin）渲染（2026-11-13，**真實照片 2D 目前最好**）
+- 跑法：先 `bash run.sh render_data --variant nat --samples 128`、`bash run.sh prep --variant nat`；訓練同 FT_mix 再加 `--variants nat`
+  （run `$SYNTH_ROOT/recon_runs/FT_nat`；nat test 評估 `--eval_only --test_variant nat`）。
+- 資料：原 513 + pilot1 928 + nat 513（同髮型 / 標籤，gen_dataset pick_melanin + optical melanin shader）。
+- 結果：nat test iou_vis 0.429（C_lab_fine_bal6k）→ 0.735，原 test 0.827、合成 test 0.799（與 FT_mix 相近）。
+  真實照片 2D head 對 pseudo-GT 0.231 → 0.268（money piece 整片、chunky 條紋），圖上明顯較好。
+- 缺點：DiffLocks 髮絲上的標籤仍只 1–2% 挑染（2D 的進步沒有傳到髮絲）；block_color 仍失敗；nat 樣本的顏色目標是粗略 swatch。
+
+### `FT_mix`：C_lab_fine_bal6k + 含背景合成資料（pilot1）微調（2026-11-13）
+- 跑法（在 reconstruction/）：`bash ../generate_from_3D_models/recon_synth_data/run.sh recon_run --synth_runs pilot1 --with_orig -- --name FT_mix --model strandlift --model_kw '{"aux2d": true, "fine": true}' --loss_kw '{"w_color": 0.1}' --balance 1 --data_kw '{"dr": 0.8, "photo": 0.8, "dr_synth": 0.2}' --steps 3000 --lr 1e-4 --init data/runs/C_lab_fine_bal6k/ckpt.pt`
+  （run 在 `$SYNTH_ROOT/recon_runs/FT_mix`；評估 `recon_synth_data/eval_both.sh FT_mix`；真實照片 `tools/real_eval.py`）
+- 架構 / loss 同 C_lab_fine_bal6k；資料 = 原 train 513 + pilot1 合成 928，合成樣本換背景機率 0.2。
+- 結果：原 test iou_vis 0.837（0.831）、合成 test 0.806（0.755），合成 ΔE base 16.2 → 10.6。對照 FT_orig（只多訓練）合成 test 0.746。
+- 缺點：**真實照片沒有改善**（4 張，挑染仍嚴重漏判，2D head 比原模型更少判挑染）。報告 / 真實照片仍以 C_lab_fine_bal6k 為準。
+- 變體：`FT_mix_deg`（+ degrade 0.6）各項與 FT_mix 相近，真實照片也無改善。
+
 ### `C_lab_fine_bal6k`：C_lab_fine + 依風格平衡抽樣 + 6000 步（2026-11-08 17:00，**目前最佳，報告用**）
 - 跑法：`bash run.sh train --name <n> --model strandlift --model_kw '{"aux2d": true, "fine": true}' --data_kw '{"dr": 0.8, "photo": 0.8}' --loss_kw '{"w_color": 0.1}' --balance 1 --steps 6000`
   （ckpt `data/runs/C_lab_fine_bal6k/ckpt.pt`；推論 / 後處理 / 渲染：`bash run.sh postproc --run C_lab_fine_bal6k --hair difflocks --cases <id> [--real <dl_dir>:<style>] --render`）

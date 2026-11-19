@@ -33,6 +33,9 @@ CROP_RES = 512
 
 
 def cache_path(row, ext="npz"):
+    v = di.variant_of(row["id"])
+    if v:
+        return os.path.join(di.DATA, f"cache_{v}", row["id"].split("/", 1)[1].replace("/", "__") + "." + ext)
     return os.path.join(CACHE, row["id"].replace("/", "__") + "." + ext)
 
 
@@ -86,8 +89,11 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--workers", type=int, default=3)
     ap.add_argument("--limit", type=int, default=None)
+    ap.add_argument("--variant", default=None, help="color variant (data_index.VARIANTS), e.g. nat")
     a = ap.parse_args()
-    rows = di.load_index()[: a.limit]
+    rows = (di.load_variant(a.variant) if a.variant else di.load_index())[: a.limit]
+    if a.variant:
+        os.makedirs(os.path.dirname(cache_path(rows[0])), exist_ok=True)
     crop.synth_box(os.path.join(di.render_dir(rows[0]), "front.png"))
     geo.scene()
     todo = [r for r in rows if not os.path.exists(cache_path(r))]

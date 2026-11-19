@@ -37,7 +37,7 @@ def load_cache(row):
 
 class HairSet(torch.utils.data.Dataset):
     def __init__(self, rows, n_strands=4096, train=True, scale=0.08, shift=0.04, flip=True, in_memory=True,
-                 dr=0.0, photo=0.0, geom_noise=0.0):
+                 dr=0.0, photo=0.0, geom_noise=0.0, dr_synth=None, degrade=0.0):
         """dr: probability of domain randomization (random background behind the hair, random skin tint);
         photo: probability of a photometric jitter (per-channel gain, gamma, brightness) of the whole image;
         geom_noise: max amplitude (crop fraction) of a smooth random displacement of the projected strand points
@@ -46,6 +46,11 @@ class HairSet(torch.utils.data.Dataset):
         self.n, self.train = n_strands, train
         self.scale, self.shift, self.flip = scale, shift, flip
         self.dr, self.photo, self.geom_noise = dr, photo, geom_noise
+        # dr_synth: domain-randomization probability for rows whose id starts with "synth/" (recon_synth_data renders
+        # that already have real backgrounds / skin); None = same as dr
+        self.dr_synth = dr if dr_synth is None else dr_synth
+        # degrade: probability of a camera / web-photo degradation (down-up scaling, noise, JPEG, saturation)
+        self.degrade = degrade
         self.mem = [load_cache(r) for r in self.rows] if in_memory else None
 
     def __len__(self):
@@ -74,10 +79,13 @@ class HairSet(torch.utils.data.Dataset):
                 uv[..., 0] = 1.0 - uv[..., 0]
                 pos[..., 0] = -pos[..., 0]
                 flipped = True
-        if self.train and self.dr > 0 and rng.random() < self.dr:
+        p_dr = self.dr_synth if str(self.rows[i]["id"]).startswith("synth/") else self.dr
+        if self.train and p_dr > 0 and rng.random() < p_dr:
             img = _randomize_domain(img, lab2d, rng)
         if self.train and self.photo > 0 and rng.random() < self.photo:
             img = _photometric(img, rng)
+        if self.train and self.degrade > 0 and rng.random() < self.degrade:
+            img = _degrade(img, rng)
         if self.train and self.geom_noise > 0:
             uv = uv + _smooth_field(uv, rng.uniform(0, self.geom_noise), rng)
         obs, obs_ok = observed_colors(img, lab2d)
@@ -142,6 +150,25 @@ def _photometric(img, rng):
     gain = torch.tensor(rng.uniform(0.8, 1.2, 3), dtype=torch.float32).view(3, 1, 1)
     gamma = float(rng.uniform(0.75, 1.3))
     return (img.clamp(0, 1) ** gamma * gain * rng.uniform(0.85, 1.15)).clamp(0, 1)
+
+
+def _degrade(img, rng):
+    """web-photo look: saturation jitter, down-up scaling, sensor noise, JPEG"""
+    import cv2
+    import torch.nn.functional as F
+    H, W = img.shape[1:]
+    g = img.mean(0, keepdim=True)
+    img = (g + (img - g) * float(rng.uniform(0.6, 1.4))).clamp(0, 1)
+    f = float(rng.uniform(0.35, 1.0))
+    if f < 0.95:
+        small = F.interpolate(img[None], scale_factor=f, mode="area")
+        img = F.interpolate(small, size=(H, W), mode="bilinear", align_corners=False)[0]
+    img = (img + torch.randn_like(img) * float(rng.uniform(0, 0.03))).clamp(0, 1)
+    if rng.random() < 0.7:
+        a = (img.permute(1, 2, 0).numpy() * 255).astype(np.uint8)
+        ok, enc = cv2.imencode(".jpg", a, [cv2.IMWRITE_JPEG_QUALITY, int(rng.integers(25, 90))])
+        img = torch.from_numpy(cv2.imdecode(enc, cv2.IMREAD_UNCHANGED)).permute(2, 0, 1).float() / 255.0
+    return img
 
 
 def _smooth_field(uv, amp, rng, n_waves=3):

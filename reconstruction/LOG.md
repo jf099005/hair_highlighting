@@ -627,3 +627,208 @@ block 撞到 OptiX 716，自動改 CUDA 重渲成功。
   （輸出在外接碟 `/media/kyh/新增磁碟區/P76154862/recon_synth_data`）。**未修改本資料夾任何程式**，經 runtime hook（`recon_synth_data/recon_run.py`）訓練。
 - 單 seed 比較（B 設定）：加合成資料在合成 test 上較好（iou_vis 0.692 → 0.726），原 test 略降（0.794 → 0.778），4 張真實照片無明顯改善。
   細節見該資料夾 LOG.md / SUMMARY.md。
+
+## 2026-11-13 （使用者要求）用含背景的合成資料（recon_synth_data pilot1）接著訓練最佳模型，看真實照片是否更 robust
+
+設定：
+- 資料 = 原 train（513）+ pilot1 合成 train（928；scene_v1 HDRI 背景 / 光、多視角，兩色過濾後的 index），經 `recon_synth_data/recon_run.py` hook。
+- 新增（預設關閉）：`train.py --init <ckpt>`（從權重開始）；`HairSet(dr_synth=)`（合成 rows 的換背景機率，None = 同 dr）；
+  `HairSet(degrade=)`（網路照片降解：飽和度、降採樣、雜訊、JPEG）。
+- `FT_mix`：從 `C_lab_fine_bal6k` 開始，C 設定 + balance 1，lr 1e-4、3000 步，dr 0.8（原）/ dr_synth 0.2（合成保留 HDRI 背景）。
+  run 在 `$SYNTH_ROOT/recon_runs/FT_mix`。
+- 真實照片的粗略量化 `tools/real_eval.py`（4 張，無 GT）：pseudo-GT = mediapipe selfie_multiclass 頭髮 + 頭髮內 Lab 2-means（較亮 = 挑染），
+  存在 `data/difflocks/real/<n>/pseudo_gt.png`。`iou_seg` = 模型 2D head 對 pseudo-GT 的挑染 IoU（只看影像，不受 DiffLocks 幾何影響）；
+  `iou_strand` = 最前髮絲標籤（showcase 看到的）在兩者都是頭髮的像素上的 IoU。pseudo-GT 很粗（block 照片把下半部偏灰紫的底色也算挑染），數字只當輔助。
+  圖：`data/real_eval/<run>.png`（照片 | pseudo-GT | 2D head | 髮絲）。
+
+結果（中位數；合成 test = pilot1 兩色過濾後 130 張，原 test 71 張）：
+
+| model | test | iou_vis | iou_all | iou_scalp | prec / rec | de_base | de_hl |
+|---|---|---|---|---|---|---|---|
+| C_lab_fine_bal6k | 原 | 0.831 | 0.600 | 0.629 | 0.92 / 0.92 | 7.3 | 34.4 |
+| C_lab_fine_bal6k | 合成 | 0.755 | 0.563 | 0.542 | 0.87 / 0.91 | 16.2 | 41.9 |
+| FT_mix | 原 | 0.837 | 0.648 | 0.626 | 0.92 / 0.94 | 6.2 | 28.9 |
+| FT_mix | 合成 | **0.806** | **0.642** | **0.630** | 0.92 / 0.90 | **10.6** | **27.6** |
+
+- 各風格（合成 test iou_vis）：dense 0.548 → 0.613、money piece 0.768 → 0.820、隨機 0.932 → 0.957；原 test dense 0.673 → 0.736。
+- 真實照片（4 張平均，對 pseudo-GT）：
+
+| model | iou_seg | iou_strand | pred_frac（block / block_color / chunky / money piece） |
+|---|---|---|---|
+| B_m1_aux2d_dr | 0.244 | 0.235 | 0.028 / 0.033 / 0.034 / 0.035 |
+| C_lab_fine_bal6k | 0.231 | 0.146 | 0.037 / 0.053 / 0.031 / 0.022 |
+| FT_mix | 0.143 | 0.182 | 0.018 / 0.011 / 0.037 / 0.016 |
+
+  （pseudo-GT 挑染佔頭髮 0.33 / 0.61 / 0.43 / 0.38）
+- 圖上：block 的左側金色區塊在髮絲上仍抓得到；money piece 的 2D head 找到兩側髮片但較細；chunky、block_color 幾乎全判底色。
+- [已驗證，單 seed] 加入含背景的合成資料，合成 test 全面變好、原 test 不退步；**真實照片沒有變好**（2D head 甚至預測更少挑染）。
+  所有模型在真實照片上都嚴重低估挑染比例（預測 1–5% 髮絲 vs 照片約 1/3 以上）→ 瓶頸不在背景 / 光照，較可能在頭髮外觀（真實髮絲紋理、
+  漸層、解析度 / 壓縮）與「挑染 = 少數」的先驗。
+- 尚待對照：FT_orig（同樣多訓練 3000 步但只用原資料）分離「多訓練」與「新資料」的效果；FT_mix_deg（+ 降解增強）。
+
+### 對照與降解增強（同日）
+- `FT_orig`：與 FT_mix 相同（從 C_lab_fine_bal6k、lr 1e-4、3000 步），但只用原資料。
+- `FT_mix_deg`：FT_mix + `degrade 0.6`（飽和度 0.6–1.4、降採樣 0.35–1、雜訊 σ ≤ 0.03、70% JPEG q 25–90）。
+
+| model | 原 test iou_vis / iou_all | 合成 test iou_vis / iou_all | 合成 de_base / de_hl | 真實 iou_seg / iou_strand |
+|---|---|---|---|---|
+| C_lab_fine_bal6k | 0.831 / 0.600 | 0.755 / 0.563 | 16.2 / 41.9 | 0.231 / 0.146 |
+| FT_orig（只多訓練） | 0.819 / 0.608 | 0.746 / 0.533 | 15.8 / 35.0 | 0.236 / 0.138 |
+| **FT_mix** | **0.837** / 0.648 | **0.806 / 0.642** | **10.6 / 27.6** | 0.143 / 0.182 |
+| FT_mix_deg | 0.831 / **0.663** | 0.795 / 0.652 | 10.9 / 29.6 | 0.146 / 0.152 |
+
+- [已驗證，單 seed] 合成 test 的進步來自新資料，不是多訓練：FT_orig 在合成 test 沒有進步（0.746）。
+- [已驗證，4 張] 降解增強沒有改善真實照片（pred_frac 0.010–0.017，2D head 幾乎全判底色）；圖與 FT_mix 幾乎相同。
+- 結論：**含背景的合成資料讓模型對「合成的」場景變化更 robust（背景 / 光 / 視角），但對真實照片沒有幫助**；
+  真實照片的失敗是系統性的漏判（挑染比例 1–4% vs 照片 33–61%），換背景與影像降解都不是主因。
+  可能方向：真實髮絲外觀（髮絲紋理、明暗、balayage 漸層）、大面積挑染（block / 各半）不在訓練分佈、需要少量真實標註做驗證 / 微調。
+
+### 確認：隨機 mask（hl_1000）+ FM 的訓練資料是否含「各半 / 大區塊」（使用者問）
+- hl_1000 的 151 個樣本：mask 生成器 half_plane 87 / blobs 29 / polygon 23 / stripe 12；FM 變體 fm_cell_lam1000 115 / fm_proj_lam100 36。
+  3D 挑染比例 0.04–0.41（生成設定 max_frac 0.4），中位數 0.20。
+- 正面標籤圖（cache lab2d）中挑染佔頭髮像素：中位數 0.36、P75 0.54、P90 0.70；**45% 的樣本 > 0.4**。看圖確實有左右各半、單側大區塊。
+  → 結構上「各半 / 區塊」有涵蓋。
+- 與真實照片的差異：
+  - 顏色：訓練用的挑染色（render_data.pick，color_mode random）HSV 飽和度中位數 0.89，86–91% > 0.6（粉 / 綠 / 紫 / 黃）；
+    真實照片挑染飽和度 0.11（block 淺金）/ 0.62（block_color 橘）/ 0.40（chunky）/ 0.34（money piece），與底色 ΔE76 30–40。
+  - 髮長：random 只有 mid 131 / long 20（無長捲髮），真實照片都是長髮。
+  → 推測模型學到「挑染 = 高飽和的鮮豔色」，自然的金 / 棕挑染被當成底色的明暗變化（未驗證）。
+
+## 2026-11-13 （使用者要求）自然髮色（melanin）重新渲染一批再微調
+
+- 新增顏色變體 `nat`（`data_index.VARIANTS`）：同一批樣本（髮型 / 標籤相同），id `nat/<原 id>`，`data/index_nat.json`、
+  `data/renders_nat/`、`data/cache_nat/`。渲染 `bash run.sh render_data --variant nat --samples 128`：gen_dataset `pick_melanin`
+  （自然底色、挑染 melanin 至少淺 0.3，30% 金色）+ strands_editing `optical` preset（melanin shader）。colors.json 的 base / highlight
+  是 `melanin_swatch` 的粗略顯示色（不是渲染輸入，所以 nat 樣本的 de_* 與顏色 loss 只是近似）。前處理 `bash run.sh prep --variant nat`。
+- train.py 新增 `--variants nat`（加入該變體的 train rows）、`--test_variant nat`（改在該變體的 test 上評估）。
+- smoke：3 張 ~16 s / 張（128 samples），棕底 + 淺金 / 焦糖挑染，部分對比很低（真實感）。全部 585 張約 2.6 h。
+- 排程（`data/queue_nat.sh`）：渲染 → prep → `FT_nat`（從 C_lab_fine_bal6k，原 + pilot1 + nat train，其餘同 FT_mix）→
+  原 / 合成 / nat test 與真實照片評估；FT_mix、C_lab_fine_bal6k 也評 nat test 做對照。
+
+### 結果（2026-11-13 16:10，FT_nat）
+- 渲染 585/585（中途因 session 結束中斷一次，續跑；128 samples，~15 s / 張），prep 585。FT_nat 訓練 1954 樣本（原 513 + pilot1 928 + nat 513）。
+
+| model | 原 test iou_vis / all | 合成 test | **nat test**（n 72）iou_vis / all / prec / rec | nat：dense / money piece / 隨機 iou_vis |
+|---|---|---|---|---|
+| C_lab_fine_bal6k | 0.831 / 0.600 | 0.755 / 0.563 | 0.429 / 0.275 / 0.83 / 0.52 | 0.391 / 0.620 / **0.097** |
+| FT_mix | 0.837 / 0.648 | 0.806 / 0.642 | 0.523 / 0.355 / 0.79 / 0.64 | 0.476 / 0.608 / 0.252 |
+| **FT_nat** | 0.827 / 0.619 | 0.799 / 0.641 | **0.735 / 0.552 / 0.86 / 0.89** | 0.647 / 0.729 / 0.897 |
+
+- [已驗證] 先前的模型在自然髮色上明顯失效（recall 0.52；隨機 mask 的大區塊 iou_vis 只有 0.10），證實「挑染 = 鮮豔色」的偏差；
+  FT_nat 修好（0.43 → 0.74），原 / 合成 test 幾乎不變。
+- 真實照片（4 張，對 pseudo-GT）：
+
+| model | iou_seg（2D head） | iou_strand | pred_frac（block / block_color / chunky / money piece） |
+|---|---|---|---|
+| C_lab_fine_bal6k | 0.231 | 0.146 | 0.037 / 0.053 / 0.031 / 0.022 |
+| FT_mix | 0.143 | 0.182 | 0.018 / 0.011 / 0.037 / 0.016 |
+| FT_nat | **0.268** | 0.169 | 0.015 / 0.008 / 0.019 / 0.012 |
+
+  - 圖（`data/real_eval/FT_nat.png`）：2D head 明顯變好——money piece 兩側整片抓到（0.51）、chunky 抓到多條金色條紋（0.12 → 0.22）、
+    block 左側金色區塊較完整。block_color（橘 / 黑各半）仍幾乎沒抓到。
+  - **但 DiffLocks 髮絲上的標籤沒有跟著變好**（pred_frac 仍 1–2%，iou_strand 0.17）：影像層級已能辨識自然挑染，
+    瓶頸轉移到「2D → DiffLocks 髮絲」這一步（重建髮型與照片不對齊 / 髮絲 head 對 DiffLocks 幾何的保守預測）。
+- 下一步候選：真實照片上改用 2D head 的結果投影到髮絲（先前的 `bezimg` 證據即是此路線）、或訓練時加入 DiffLocks 重建髮型（幾何不對齊）樣本。
+
+## 2026-11-13 （使用者要求）訓練時加入 DiffLocks 重建的髮型
+
+動機：FT_nat 在真實照片上 2D head 已能辨識自然挑染，但 DiffLocks 髮絲上只有 1–2% 被判挑染；模型只在 GT 髮型（與影像完全對齊）上訓練過。
+
+做法（`recon/dl_data.py`，變體 `dl`，`data/index_dl.json`、`data/cache_dl/`）：
+- 對渲染影像跑 DiffLocks（`tools/difflocks_infer.py --synth_box`，~21 s / 張），髮絲與 GT 同座標。
+- 每根 DiffLocks 髮絲的標籤 = **影像一致的 oracle 標籤**：可見點讀 GT 正面標籤圖（影像的真值），取 base / 挑染多數決；
+  沒有可見點落在 GT 頭髮上的髮絲，用 root / mid / tip 位置 kNN 4 抄鄰居。= 「影像對這根重建髮絲說了什麼」，也就是標籤模型在此髮型上的上限。
+- lab2d / 影像 / 顏色沿用原樣本；scalp32 用 DiffLocks 標籤；strands.npz（~300 MB）prep 後刪除。
+- `tools/dl_build.sh <orig|nat> <list>`：分批 DiffLocks → prep（可續跑）。樣本：orig 色 train 129 + nat 色 train 129（不同樣本，風格平均）
+  + nat test 24；另有先前的 15 個 orig test（data/difflocks/synth）。
+- train.py 新增 `--variant_weight '{"dl": 3}'`（抽樣權重乘數）。
+
+基準（15 個 orig test 的 DiffLocks 髮型，對 oracle 標籤；iou_vis / prec / rec）：
+- oracle 2D IoU（幾何天花板）：dense 0.23–0.64、money piece 0.30–0.52、隨機 0.92–0.98（與 11-08 的天花板一致）。
+- FT_nat：dense 0.285 / 0.44 / 0.42、money piece 0.296 / 0.45 / 0.52、隨機 0.94；C_lab_fine_bal6k 相近（0.33 / 0.34 / 0.93）。
+  → 在重建髮絲上 dense / money piece 離上限還很遠（precision、recall 都只有約一半）。
+
+排程（`data/queue_dl.sh` → `data/queue_ftdl.sh`）：建資料 → `FT_dl`（從 FT_nat，原 + pilot1 + nat + dl train，dl 權重 3，3000 步 lr 1e-4）→
+原 / 合成 / nat / dl test 與真實照片評估（FT_nat 同時評 dl test 做對照）。
+- **修正（16:25）**：第一版遮住髮絲（~80%）抄「最近的可見 DiffLocks 髮絲」，後腦會繼承輪廓邊緣的標籤（dense case_00027 遮住部分挑染 0.52 vs GT 0.14）。
+  改為抄最近 4 根 **GT 髮絲**（root / mid / tip）的多數標籤；修正後遮住部分的挑染比例與 GT 一致。已刪除第一版的 27 個快取並重建。
+  上面 FT_nat 的 dl 基準是用第一版標籤算的，作廢，以排程中的重新評估為準。
+
+### 結果（2026-11-14，FT_dl）
+- 資料：dl 共 297 個（orig train 129、nat train 129、orig test 15、nat test 24），train 總數 2212。
+
+| model | 原 test | 合成 test | nat test | **dl test**（39，DiffLocks 髮絲對 oracle 標籤）iou_vis / prec / rec | dl：dense / money piece / 隨機 |
+|---|---|---|---|---|---|
+| FT_nat | 0.827 | 0.799 | 0.735 | 0.352 / 0.50 / 0.59 | 0.230 / 0.282 / 0.935 |
+| **FT_dl** | **0.839** | 0.789 | **0.775** | **0.434 / 0.60 / 0.67** | 0.294 / 0.378 / 0.955 |
+
+- [已驗證，單 seed] 在 DiffLocks 髮絲上明顯進步（money piece 0.28 → 0.38、precision 0.41 → 0.54），其他 test 不退步（nat 還進步）。
+- 真實照片（對 pseudo-GT）：iou_strand 0.169 → **0.199**（money piece 0.20 → 0.23、block_color 0.04 → 0.09、chunky 0.16 → 0.19）；
+  iou_seg 0.268 → 0.220。pred_frac 仍只有 1.6–3.1%。
+- 真實照片 3D 渲染（`tools/real_render.py`，`data/real_render/FT_nat_vs_FT_dl.png`，DiffLocks 髮型 + 預測標籤 + 像素中位數色經 render curve）：
+  - FT_nat 與 FT_dl 幾乎看不出差別；挑染在渲染上都很不明顯。block 左側有一塊較淺的棕色、chunky 右側有少量淺色條，money piece 幾乎看不到。
+  - 顏色也有問題：挑染髮絲太少，「挑染」的像素色取樣混到底色（money piece 102 vs 117），再經 optical_rgb 曲線轉換變得暗紅。
+  - → 數字上的進步（0.17 → 0.20）在渲染上看不出來；瓶頸仍是重建髮絲上判為挑染的數量太少，以及渲染用顏色。
+
+## 2026-11-14 （使用者要求）渲染顏色改用學習的顏色模組 + 降低門檻 / 用 2D head 決定髮絲標籤 + 生成大面積挑染資料
+
+### 真實照片渲染：顏色 + 標籤方式（`tools/real_render2.py`，FT_dl，`data/real_render2/FT_dl/sheet.png`）
+- 顏色：`masknet_alb`，輸入用 2D head 的標籤圖（不依賴髮絲標籤），optical_rgb 渲染。挑染色現在渲染成金色（block 左側、money piece 兩側看得到淺色髮片）；
+  先前用像素中位數 + 曲線轉換是暗紅、幾乎看不出挑染。挑染的渲染輸入色偏橘（231,124,55 等），渲染後呈金色。
+- 標籤方式（挑染髮絲比例 block / block_color / chunky / money piece）：
+  - strand50：0.017 / 0.031 / 0.020 / 0.016
+  - strand30：0.020 / 0.072 / 0.031 / 0.020（降低門檻幾乎沒差：機率本身就很低，不是門檻問題）
+  - img2d（可見點的 2D head 平均 ≥ 0.5，遮住的抄鄰居）：0.005 / 0.001 / 0.000 / **0.082**
+    — money piece 渲染出兩側框臉髮片，四種裡最像照片；其他三張幾乎沒有挑染（2D head 在這些照片上本來就只標到小部分，平均後低於 0.5）。
+- 結論：顏色問題解決大半；標籤數量仍是主要瓶頸，降低門檻或改用 2D 投影都不能補回。
+
+### 大面積挑染資料 `hl_big`（gen_dataset legacy generate）
+- 第一次嘗試（`hl_big_fm_aborted`）：mask_only + fm_proj_lam100、只用 mean_all < 0.1 過濾。長髮 FM 每個 16–55 s，且 flip 0.36–0.56（FM 把大區塊改掉一半），
+  估計 300 個需 > 30 h → 中止。
+- 改為 `--methods mask_only`（髮根分區直接染色，不跑 FM、不過濾；與真實染髮在頭皮分區塗色的方式相近，邊界會有交錯），
+  `--min_frac 0.3 --max_frac 0.65`（挑染可以是多數，涵蓋各半）、half_plane / polygon / blobs、mid 35% / long 65%、每髮型最多 3 個，~10 s / 個。
+- data_index 新增 `FILTERS["random_big"]`（dataset hl_big，style 仍為 random，三種風格平衡不變）。
+- 排程 `data/queue_big.sh`：生成完 → 重建 index（舊的備份 `data/index_before_hl_big.json`）→ 隨機 RGB 與 nat 兩種渲染 → prep →
+  `FT_big`（從 FT_dl，同 FT_dl 設定）→ 各 test（原 test 會多出 hl_big 的 test 樣本，FT_dl 重評 `eval_orig2_test.json` 對照）、真實照片 real_eval + real_render2。
+
+### 結果（2026-11-16，FT_big）
+- hl_big 只生成 114 個（train 103 / test 11；mid 104、long 9），不是 300：1051 個候選中 937 個被 gen_dataset 的記憶體保護跳過
+  （`SKIPPED_OOM free system memory < min_free_gb 4.0`，生成時同時有 Blender 渲染 / 其他程序）。長髮幾乎全被跳過。
+- 原 test 多了 11 個 hl_big；FT_dl 在新 test 上重評（eval_orig2）。iou_vis 中位數（n、prec / rec）：
+
+| | 原 test 全部 | **hl_big（原色）** | **hl_big（nat 色）** | hl_1000 | dense | money piece | 合成 test | dl test |
+|---|---|---|---|---|---|---|---|---|
+| FT_dl | 0.806 | 0.487（0.88 / 0.55） | 0.252（0.86 / 0.44） | 0.949 | 0.689 | 0.832 | 0.789 | 0.434 |
+| **FT_big** | **0.829** | **0.762**（0.84 / 0.87） | **0.621**（0.85 / 0.77） | 0.966 | 0.702 | 0.842 | 0.802 | 0.449 |
+
+- [已驗證，單 seed，hl_big test 只有 11 個] 先前的模型在合成的大面積挑染上確實漏判（recall 0.44–0.55），加入 hl_big 後修好，其他 test 不退步。
+- **真實照片沒有變化**：iou_strand 0.186、iou_seg 0.22（FT_dl 0.199 / 0.22）；挑染髮絲比例仍 1.2–2.1%（img2d money piece 0.077）。
+- → 合成資料上「大面積 / 自然色 / 重建髮型 / 背景」四種差異都已補上且各自在對應 test 修好，但真實照片仍漏判。剩下的差異在合成 vs 真實的影像本身
+  （髮絲外觀 / 渲染器）或真實照片的前處理（landmark 對齊的裁切），需要先分辨是哪一個。
+
+## 2026-11-16 真實照片失敗的原因：前處理 vs 影像本身（`tools/realpath_check.py`）
+
+- 同一批 39 張合成 test 影像（dl test 的來源：orig 色 15 + nat 色 24），兩條推論路徑各跑一次 DiffLocks：
+  `synth` = 固定合成裁切 + `--synth_box`、無對齊；`real` = mediapipe landmark 裁切 + `infer.load_real` + `real_alignment`（真實照片的路徑）。
+  各自對以同樣方式裁切的 GT 正面標籤圖評分。模型 FT_big。mediapipe 39/39 偵測到臉。
+
+| 路徑 | iou_strand（DiffLocks 髮絲正面標籤） | iou_seg（2D head） | pred_frac |
+|---|---|---|---|
+| synth | 0.350 | 0.488 | 0.089 |
+| real | 0.354 | 0.510 | 0.087 |
+
+  各風格、各配色都相同（單張 2D IoU 最大差 0.05）。
+- [已驗證] **前處理（landmark 裁切 / 對齊 / DiffLocks 的裁切）不是原因**；真實照片的差距來自影像本身（渲染 vs 真實照片的外觀）。
+- **更正先前的比較**：`pred_frac` 是 3D 全部髮絲中的挑染比例，pseudo-GT 是正面像素比例，兩者不能直接比（合成 money piece 也只有 pred_frac 0.022、
+  正面 GT 0.165）。真實照片改用正面比例（FT_big）：
+
+| 照片 | 3D pred_frac | 正面髮絲挑染比例 | 2D head 挑染比例 | pseudo-GT |
+|---|---|---|---|---|
+| block | 0.018 | 0.212 | 0.088 | 0.328 |
+| block_color | 0.021 | 0.144 | 0.043 | 0.612 |
+| chunky | 0.014 | 0.137 | 0.056 | 0.433 |
+| money piece | 0.012 | 0.175 | 0.305 | 0.382 |
+
+  → 真實照片的漏判是約 2 倍（pseudo-GT 本身會高估：block 下半部灰紫底色、髮尾亮部都算挑染），不是先前說的 20 倍；
+  2D head 除了 money piece 之外漏得較多（4–9%）。
+- 下一步：外觀差距要用真實資料處理——少量真實照片的粗標註（驗證 + 微調 2D head / 髮絲 head），或影像風格轉換讓渲染更像照片。

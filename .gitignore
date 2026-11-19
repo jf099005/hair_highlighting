@@ -7,7 +7,7 @@ generate_from_3D_models/scalp_grid_volume_sample/output
 *.pyc
 *.json
 
-# generated datasets / run outputs
+# generated datasets ss/ run outputs
 generate_from_3D_models/gen_dataset/hl_*/
 generate_from_3D_models/gen_dataset/hl_*.log
 generate_from_3D_models/strands_editing/data/

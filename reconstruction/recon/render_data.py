@@ -7,6 +7,11 @@ limit) on the optical geometry (`optical_rgb`: every strand, the sample's hair r
 Colors: highlight drawn by gen_dataset's pick_colors (any hue / lightness, 30 % blonde-ish); the base is a natural
 color (as gen_dataset) with probability 1 - P_RANDOM_BASE, else any HLS color. Contrast = rendered ΔE (gen_dataset's
 optical_rgb render curve) >= MIN_DELTA_E. Front view only (the model input). Resumable: done samples are skipped.
+
+    python -m recon.render_data --variant nat [--samples 128]
+        -> data/renders_nat/<id>/ (data_index.VARIANTS): natural hair colors = gen_dataset's pick_melanin pair
+        (natural base, highlight >= 0.3 melanin lighter) on strands_editing's `optical` preset (melanin shader,
+        same geometry). colors.json base / highlight = melanin_swatch (rough display sRGB, not a renderer input).
 """
 from __future__ import annotations
 
@@ -49,17 +54,27 @@ def render_one(row, samples=256):
     if os.path.exists(os.path.join(out, "colors.json")):
         return "done"
     rng = np.random.default_rng([7, zlib.crc32(row["id"].encode())])
-    de, base, hl = pick(rng)
     h = di.load_hair(row)
     lab = h["labels"]
-    colors = np.where(lab[:, None], hl[None], base[None]).astype(np.float32)
+    mel = di.variant_of(row["id"]) == "nat"
+    extra = {}
+    if mel:
+        from highlighting.generate_from_3D_models.gen_dataset import rlift
+        mb, mh = rlift.pick_melanin(dict(min_melanin_gap=0.3), rng)
+        base, hl, de = rlift.melanin_swatch(mb), rlift.melanin_swatch(mh), float("nan")
+        preset, colors, mcol = "optical", None, (mb, mh)
+        extra = dict(base_melanin=list(mb), highlight_melanin=list(mh))
+    else:
+        de, base, hl = pick(rng)
+        preset, mcol = "optical_rgb", None
+        colors = np.where(lab[:, None], hl[None], base[None]).astype(np.float32)
     t0 = time.time()
     err = None
     for dev in (None, "CUDA"):          # Blender 5.0 OptiX sometimes crashes on hair (CUDA 716): retry on CUDA
         try:
-            pl.render(out, h["positions"], lab, h["root_uv"], h["root_normal"], "optical_rgb",
+            pl.render(out, h["positions"], lab, h["root_uv"], h["root_normal"], preset,
                       pl.sample_meta(row["hairstyle"]), colors=colors, multiview=False, samples=samples,
-                      seed=zlib.crc32(row["id"].encode()) % 2**31, device=dev)
+                      seed=zlib.crc32(row["id"].encode()) % 2**31, device=dev, melanin_colors=mcol)
             err = None
             break
         except Exception as e:  # noqa: BLE001
@@ -73,7 +88,7 @@ def render_one(row, samples=256):
         return "failed"
     with open(os.path.join(out, "colors.json"), "w") as f:
         json.dump(dict(base=[float(x) for x in base], highlight=[float(x) for x in hl], delta_e=round(float(de), 1),
-                       samples=samples, preset="optical_rgb", seconds=round(time.time() - t0, 1)), f)
+                       samples=samples, preset=preset, seconds=round(time.time() - t0, 1), **extra), f)
     return "ok"
 
 
@@ -102,8 +117,9 @@ def main():
     ap.add_argument("--split", default=None)
     ap.add_argument("--samples", type=int, default=256)
     ap.add_argument("--reverse", action="store_true", help="second worker: same list from the end")
+    ap.add_argument("--variant", default=None, help="color variant (data_index.VARIANTS), e.g. nat")
     a = ap.parse_args()
-    rows = order(di.load_index(split=a.split))[: a.limit]
+    rows = order(di.load_variant(a.variant, split=a.split) if a.variant else di.load_index(split=a.split))[: a.limit]
     if a.reverse:
         rows = rows[::-1]
     t0 = time.time()
